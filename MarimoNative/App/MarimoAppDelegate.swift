@@ -9,6 +9,11 @@ final class MarimoAppDelegate: NSObject, NSApplicationDelegate {
   private var terminationPending = false
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    if CommandLine.arguments.contains("--release-acceptance-marker") {
+      TemporaryOutputStore.shared.endSession()
+      MarimoLog.app.info("Application stopped after release acceptance")
+      return .terminateNow
+    }
     guard let store else { return .terminateNow }
     guard !terminationPending else { return .terminateLater }
 

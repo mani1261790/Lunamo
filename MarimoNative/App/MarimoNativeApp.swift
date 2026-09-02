@@ -49,6 +49,7 @@ struct MarimoNativeApp: App {
           ReleasePerformanceProbe.recordLoadedCellCount(store.document.cells.count)
           ReleasePerformanceProbe.recordBackendStatus(store.backendStatus)
           Task { await ReleasePerformanceProbe.runScrollProbe() }
+          Task { await ReleaseAcceptanceProbe.run(store: store) }
         }
         .onChange(of: store.document.cells.count) { _, count in
           ReleasePerformanceProbe.recordLoadedCellCount(count)

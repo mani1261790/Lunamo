@@ -1008,6 +1008,7 @@ MN-CI-003:
   - Tools/verify-release-prerequisites.sh
   - Tools/verify-release-artifact.sh
   - Tools/smoke-sidecar.py --deny-network --runtime-acceptance
+  - Tools/verify-release-app-flow.py
 MN-TRACE-002:
   - Tools/verify-requirements.py
 MN-TRACE-003:

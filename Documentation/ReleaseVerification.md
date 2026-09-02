@@ -19,7 +19,11 @@ exact notarized archive. A pending checklist is produced beside every release ca
    preserving localhost IPC. It selects the packaged Python by absolute path, executes a
    sample Notebook, requires output `42`, verifies the selected executable reported by the
    live session, shuts down every session, and waits for the kernel process to disappear.
-6. Generate the checklist with the bundled sidecar Python:
+6. The same verifier launches the packaged app with an isolated home and external networking
+   denied. The native app opens a copied marimo fixture, edits and saves it, selects its
+   packaged Python, presents and consumes Run Once trust, produces output `43`, and exits
+   without leaving app, sidecar, or kernel processes.
+7. Generate the checklist with the bundled sidecar Python:
 
    `.build/Sidecar/bin/python3 -I Tools/create-release-checklist.py --artifact .build/release-artifacts/MarimoNative-0.1.0.zip --output .build/release-artifacts/ReleaseChecklist.yml`
 

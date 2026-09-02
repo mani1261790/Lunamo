@@ -51,6 +51,8 @@ test "$nested_count" -gt 0
 "$project_root/Tools/verify-sidecar.sh" "$app_root/Contents/Resources/Sidecar"
 "$project_root/Tools/smoke-sidecar.py" "$app_root/Contents/Resources/Sidecar" \
   --deny-network --runtime-acceptance
+"$project_root/Tools/verify-release-app-flow.py" "$app_root" \
+  --fixture "$project_root/Tests/Fixtures/two_cell_notebook.py"
 
 case "$verification" in
   development) ;;
