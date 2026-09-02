@@ -89,7 +89,7 @@ private actor MockProcessTransport: ProcessTransport {
   func emitStderr(_ text: String) { continuation?.yield(.stderr(Data(text.utf8))) }
 }
 
-@Suite("JSON-RPC connection")
+@Suite("JSON-RPC connection", .serialized)
 struct JSONRPCConnectionTests {
   @Test("Initialize precedes initialized and captures server information")
   func initializeHandshake() async throws {
