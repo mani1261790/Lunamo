@@ -102,6 +102,17 @@ public struct NotebookMenuCommands: Commands {
       .keyboardShortcut("i", modifiers: [.command, .option])
     }
 
+    CommandMenu("Export") {
+      Button("Export HTML…") { NotebookExportActions.present(.html, store: store) }
+        .disabled(!store.exportAllowed)
+      Button("Export ipynb…") { NotebookExportActions.present(.ipynb, store: store) }
+        .disabled(!store.exportAllowed)
+      Button("Export Markdown…") { NotebookExportActions.present(.markdown, store: store) }
+        .disabled(!store.exportAllowed)
+      Divider()
+      Button("Open Logs…") { Task { await store.prepareLogReview() } }
+    }
+
     CommandGroup(after: .saveItem) {
       Button("Save Notebook") {
         NotebookSaveActions.save(store)

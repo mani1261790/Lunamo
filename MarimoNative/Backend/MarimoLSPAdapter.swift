@@ -14,7 +14,7 @@ public actor MarimoLSPAdapter: MarimoBackend {
   private let eventStream: AsyncStream<MarimoBackendEvent>
   private let eventContinuation: AsyncStream<MarimoBackendEvent>.Continuation
   private let unknownTracker = UnknownNotificationTracker()
-  private let logger = Logger(subsystem: "MarimoNative", category: "MarimoLSPAdapter")
+  private let logger = MarimoLog.lsp
   private var backendStatus: BackendStatus = .unavailable
   private var openNotebookCells: [String: [String]] = [:]
   private var notificationTask: Task<Void, Never>?

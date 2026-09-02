@@ -38,11 +38,11 @@ public enum JSONRPCTimeouts {
   public static func duration(method: String, params: JSONValue?) -> Duration {
     if method == "initialize" { return .seconds(10) }
     if method == "shutdown" { return .seconds(5) }
-    if method == "marimo/command",
-      let kind = params?.objectValue?["kind"],
-      kind == .string("parse-notebook") || kind == .string("print-notebook")
-    {
-      return .seconds(120)
+    if method == "marimo/command", case .string(let kind)? = params?.objectValue?["kind"] {
+      let longRunning = [
+        "parse-notebook", "print-notebook", "export-html", "export-ipynb", "export-markdown",
+      ]
+      if longRunning.contains(kind) { return .seconds(120) }
     }
     return .seconds(10)
   }
@@ -51,13 +51,16 @@ public enum JSONRPCTimeouts {
 public actor JSONRPCConnection {
   private struct PendingRequest {
     let method: String
+    let operation: String
+    let parameterBytes: Int
+    let startedAt: ContinuousClock.Instant
     let continuation: CheckedContinuation<JSONValue, Error>
     let timeoutTask: Task<Void, Never>
   }
 
   private let transport: any ProcessTransport
   private let stderrBuffer: BoundedStderrBuffer
-  private let logger = Logger(subsystem: "MarimoNative", category: "JSONRPCConnection")
+  private let logger = MarimoLog.lsp
   private var framer = JSONRPCFramer()
   private var state: JSONRPCConnectionState = .idle
   private var nextRequestID: UInt64 = 1
@@ -165,6 +168,11 @@ public actor JSONRPCConnection {
       if state == .closed { throw JSONRPCConnectionError.closed }
       throw JSONRPCConnectionError.notInitialized
     }
+    let operation = commandOperation(in: params)
+    let bytes = params?.estimatedUTF8ByteCount(upTo: Int.max) ?? 0
+    logger.debug(
+      "notify method=\(method, privacy: .public) op=\(operation, privacy: .public) bytes=\(bytes, privacy: .public)"
+    )
     try await send(.notification(method: method, params: params))
   }
 
@@ -223,6 +231,11 @@ public actor JSONRPCConnection {
     }
     let id = nextRequestID
     nextRequestID += 1
+    let operation = commandOperation(in: params)
+    let parameterBytes = params?.estimatedUTF8ByteCount(upTo: Int.max) ?? 0
+    logger.debug(
+      "request method=\(method, privacy: .public) id=\(id, privacy: .public) op=\(operation, privacy: .public) bytes=\(parameterBytes, privacy: .public)"
+    )
     return try await withTaskCancellationHandler {
       try await withCheckedThrowingContinuation { continuation in
         let timeoutTask = Task { [weak self] in
@@ -232,6 +245,9 @@ public actor JSONRPCConnection {
         }
         pending[id] = PendingRequest(
           method: method,
+          operation: operation,
+          parameterBytes: parameterBytes,
+          startedAt: .now,
           continuation: continuation,
           timeoutTask: timeoutTask
         )
@@ -343,6 +359,10 @@ public actor JSONRPCConnection {
       return
     }
     request.timeoutTask.cancel()
+    let duration = String(describing: request.startedAt.duration(to: .now))
+    logger.debug(
+      "response id=\(number, privacy: .public) op=\(request.operation, privacy: .public) bytes=\(request.parameterBytes, privacy: .public) duration=\(duration, privacy: .public)"
+    )
     request.continuation.resume(with: result)
   }
 
@@ -377,6 +397,11 @@ public actor JSONRPCConnection {
     while await transport.processIdentifier() != nil, ContinuousClock.now < deadline {
       try? await Task.sleep(for: .milliseconds(10))
     }
+  }
+
+  private func commandOperation(in params: JSONValue?) -> String {
+    guard case .string(let value)? = params?.objectValue?["kind"] else { return "-" }
+    return value
   }
 }
 

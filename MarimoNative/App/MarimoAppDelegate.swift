@@ -1,5 +1,6 @@
 import AppKit
 import MarimoApplication
+import MarimoDomain
 import MarimoUI
 
 @MainActor
@@ -48,6 +49,8 @@ final class MarimoAppDelegate: NSObject, NSApplicationDelegate {
   private func finishTermination(_ sender: NSApplication, store: NotebookStore) {
     Task { @MainActor in
       await store.shutdownBackend()
+      TemporaryOutputStore.shared.endSession()
+      MarimoLog.app.info("Application stopped")
       sender.reply(toApplicationShouldTerminate: true)
     }
   }

@@ -12,6 +12,7 @@ public struct NotebookRootView: View {
   @State private var columnVisibility: NavigationSplitViewVisibility = .all
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+  @Environment(\.colorScheme) private var colorScheme
 
   public init(store: NotebookStore, startupURL: URL? = nil) {
     self.store = store
@@ -37,12 +38,16 @@ public struct NotebookRootView: View {
     .task {
       await store.loadRecentDocuments()
       await store.startBackend()
+      await store.setDisplayTheme(isDark: colorScheme == .dark)
       if let startupURL {
         await store.open(startupURL)
       }
     }
     .onOpenURL { url in
       Task { await store.open(url) }
+    }
+    .onChange(of: colorScheme) { _, _ in
+      Task { await store.setDisplayTheme(isDark: colorScheme == .dark) }
     }
     .sheet(isPresented: trustPromptBinding) {
       ExecutionTrustSheet(store: store)
@@ -201,21 +206,7 @@ public struct NotebookRootView: View {
   }
 
   private var backendLogSheet: some View {
-    NavigationStack {
-      TextEditor(
-        text: .constant(
-          store.backendLogs.isEmpty
-            ? "No sidecar stderr was captured." : store.backendLogs.joined(separator: "\n")
-        )
-      )
-      .font(.system(.body, design: .monospaced))
-      .padding()
-      .navigationTitle("Backend Logs")
-      .toolbar {
-        Button("Done") { store.backendLogsPresented = false }
-      }
-    }
-    .frame(minWidth: 640, minHeight: 420)
+    NotebookLogReviewView(store: store)
   }
 
   private var documentTitle: String {

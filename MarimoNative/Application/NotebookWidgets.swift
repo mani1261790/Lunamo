@@ -19,6 +19,7 @@ extension NotebookStore {
         objectIDs: [objectID],
         values: [.number(value)]
       )
+      MarimoLog.widget.debug("Sent widget update count=1")
       synchronizationError = nil
     } catch {
       synchronizationError = String(describing: error)

@@ -292,6 +292,35 @@ struct ArchitectureBoundaryTests {
     }
   }
 
+  @Test("Export and diagnostic logs require explicit native save actions")
+  func exportAndLoggingUIArchitecture() throws {
+    let root = repositoryRoot()
+    let commands = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookMenuCommands.swift"),
+      encoding: .utf8
+    )
+    let rootView = notebookSource(root)
+    let logReview = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookLogReviewView.swift"),
+      encoding: .utf8
+    )
+    let actions = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookExportActions.swift"),
+      encoding: .utf8
+    )
+    for token in ["Export HTML…", "Export ipynb…", "Export Markdown…"] {
+      #expect(commands.contains(token))
+    }
+    #expect(commands.contains(".disabled(!store.exportAllowed)"))
+    #expect(commands.contains("Open Logs…"))
+    #expect(rootView.contains("NotebookLogReviewView(store: store)"))
+    #expect(logReview.contains("Review Logs Before Export"))
+    #expect(logReview.contains("Export Reviewed Logs…"))
+    #expect(logReview.contains(".textSelection(.enabled)"))
+    #expect(actions.contains("NSSavePanel"))
+    #expect(actions.contains("store.reviewableLogText"))
+  }
+
   @Test("Native save and close controls expose the required recovery choices")
   func nativeSaveLifecycle() throws {
     let root = repositoryRoot()

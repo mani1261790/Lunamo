@@ -119,8 +119,11 @@ struct NotebookPanelTests {
       contentsOf: root.appending(path: "en.lproj/Localizable.strings"), encoding: .utf8)
     let japanese = try String(
       contentsOf: root.appending(path: "ja.lproj/Localizable.strings"), encoding: .utf8)
-    for key in ["Open Notebook…", "Run All", "Interrupt", "Files", "Cells", "Session", "Variables"]
-    {
+    for key in [
+      "Open Notebook…", "Run All", "Interrupt", "Files", "Cells", "Session", "Variables",
+      "Export HTML…", "Export ipynb…", "Export Markdown…", "Open Logs…",
+      "Review Logs Before Export", "Export Reviewed Logs…",
+    ] {
       #expect(english.contains("\"\(key)\" ="))
       #expect(japanese.contains("\"\(key)\" ="))
     }

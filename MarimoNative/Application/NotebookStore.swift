@@ -92,6 +92,9 @@ public final class NotebookStore: ObservableObject {
   }
 
   public func open(_ url: URL) async {
+    MarimoLog.document.info(
+      "Opening notebook at \(MarimoLogPrivacy.redactHomePrefix(in: url.path), privacy: .public)"
+    )
     openState = .loading(url)
     do {
       let snapshot = try await documentService.readSnapshot(at: url)

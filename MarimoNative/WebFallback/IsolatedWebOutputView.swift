@@ -1,4 +1,5 @@
 import AppKit
+import MarimoDomain
 import MarimoOutput
 import SwiftUI
 import WebKit
@@ -176,6 +177,7 @@ struct IsolatedWebOutputView: NSViewRepresentable {
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+      MarimoLog.web.error("Web content process stopped")
       failure.wrappedValue =
         "This web output stopped unexpectedly. The notebook and kernel are unchanged."
     }
@@ -217,7 +219,7 @@ struct IsolatedWebOutputView: NSViewRepresentable {
 
     private func cleanupDocument() {
       guard let document else { return }
-      try? FileManager.default.removeItem(at: document.directoryURL)
+      TemporaryOutputStore.shared.removeDocumentDirectory(document.directoryURL)
       self.document = nil
     }
   }

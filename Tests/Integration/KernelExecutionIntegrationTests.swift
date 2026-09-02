@@ -19,6 +19,64 @@ private actor KernelEventRecorder {
 }
 
 extension BundledSidecarIntegrationTests {
+  @Test("Fixed sidecar exports HTML, ipynb, and Markdown from one live session")
+  @MainActor
+  func realNotebookExports() async throws {
+    let root = kernelRepositoryRoot()
+    let sidecar = root.appending(path: ".build/Sidecar")
+    let python = sidecar.appending(path: "bin/python")
+    guard FileManager.default.isExecutableFile(atPath: python.path) else {
+      Issue.record("Build .build/Sidecar before running integration tests")
+      return
+    }
+    let support = FileManager.default.temporaryDirectory.appending(
+      path: "marimonative-export-test-\(UUID().uuidString)",
+      directoryHint: .isDirectory
+    )
+    try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: support) }
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar)
+    let store = NotebookStore(
+      backend: adapter,
+      folderTrustStore: FolderTrustStore(applicationSupportDirectory: support),
+      sessionResolutionTimeout: .seconds(5)
+    )
+    await store.startBackend()
+    await store.open(root.appending(path: "Tests/Fixtures/two_cell_notebook.py"))
+    await store.choosePythonExecutable(python)
+    await store.requestRunAll()
+    store.authorizeRunOnce()
+
+    let deadline = ContinuousClock.now.advanced(by: .seconds(30))
+    while store.sessionState != .idle || store.document.kernelSessionID == nil,
+      ContinuousClock.now < deadline
+    {
+      try? await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(store.exportAllowed)
+    #expect(
+      try await adapter.listSessions().contains { $0.notebookURI == store.document.notebookURI })
+    #expect(
+      !(try await adapter.readNotebookOutputs(notebookURI: store.document.notebookURI)).isEmpty)
+    await store.setDisplayTheme(isDark: true)
+
+    var exported: [NotebookExportFormat: String] = [:]
+    for format in NotebookExportFormat.allCases {
+      let destination = support.appending(path: "notebook.\(format.filenameExtension)")
+      try await store.exportNotebook(format: format, to: destination)
+      exported[format] = try String(contentsOf: destination, encoding: .utf8)
+    }
+    #expect(exported[.html]?.lowercased().contains("<html") == true)
+    let ipynbData = try #require(exported[.ipynb]?.data(using: .utf8))
+    let ipynb = try #require(
+      try JSONSerialization.jsonObject(with: ipynbData) as? [String: Any]
+    )
+    #expect(ipynb["nbformat"] as? Int == 4)
+    #expect((ipynb["cells"] as? [[String: Any]])?.count == 2)
+    #expect(exported[.markdown]?.contains("first = 20") == true)
+    await store.shutdownBackend()
+  }
+
   @Test("Native slider sends value seven and marimo reactively produces fourteen")
   @MainActor
   func realNativeSliderReactiveUpdate() async throws {

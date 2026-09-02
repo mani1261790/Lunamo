@@ -1,4 +1,5 @@
 import Foundation
+import MarimoDomain
 import MarimoOutput
 
 struct WebOutputDocument {
@@ -8,9 +9,7 @@ struct WebOutputDocument {
 
 enum WebOutputDocumentBuilder {
   static func build(_ payload: WebOutputPayload) throws -> WebOutputDocument {
-    let directory = FileManager.default.temporaryDirectory
-      .appending(path: "MarimoNative-WebOutput-\(UUID().uuidString)", directoryHint: .isDirectory)
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+    let directory = try TemporaryOutputStore.shared.makeDocumentDirectory()
     do {
       let body = try body(for: payload, in: directory)
       let index = directory.appending(path: "index.html")

@@ -207,7 +207,7 @@ extension NotebookStore {
         )
       }
     } catch {
-      NotebookSessionLog.logger.debug("No compatible live session was reattached")
+      MarimoLog.kernel.debug("No compatible live session was reattached")
     }
   }
 
@@ -379,7 +379,7 @@ extension NotebookStore {
     guard let cellID = payload.string(for: "cell_id"),
       let index = document.cells.firstIndex(where: { $0.runtimeID.uuidString == cellID })
     else {
-      NotebookSessionLog.logger.debug("Ignoring cell-op for an unknown cell")
+      MarimoLog.kernel.debug("Ignoring cell-op for an unknown cell")
       return
     }
     var runtime = document.cells[index].runtime
@@ -438,6 +438,7 @@ extension NotebookStore {
     do {
       return try MarimoOutput.decodeWireValue(value)
     } catch MarimoOutputDecodingError.payloadTooLarge(let limit) {
+      MarimoLog.output.error("Rejected output larger than \(limit, privacy: .public) bytes")
       return MarimoOutput(
         channel: defaultChannel,
         mimeType: "application/vnd.marimonative+renderer-error",
@@ -447,6 +448,7 @@ extension NotebookStore {
         ])
       )
     } catch {
+      MarimoLog.output.error("Could not decode an output payload")
       return MarimoOutput.displayFailure(error, rawValue: value, channel: defaultChannel)
     }
   }
@@ -465,10 +467,6 @@ extension NotebookStore {
     }
     return nil
   }
-}
-
-private enum NotebookSessionLog {
-  static let logger = Logger(subsystem: "MarimoNative", category: "NotebookSession")
 }
 
 extension Dictionary where Key == String, Value == JSONValue {

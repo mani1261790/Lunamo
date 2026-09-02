@@ -1,6 +1,7 @@
 import Foundation
 import MarimoApplication
 import MarimoBackend
+import MarimoDomain
 import MarimoUI
 import SwiftUI
 
@@ -11,6 +12,8 @@ struct MarimoNativeApp: App {
   private let startupURL: URL?
 
   init() {
+    try? TemporaryOutputStore.shared.cleanupExpired()
+    MarimoLog.app.info("Application started")
     let sidecar = Bundle.main.resourceURL?.appending(path: "Sidecar")
     let backend: any MarimoBackend
     if let sidecar, let adapter = try? MarimoLSPAdapter(sidecarDirectory: sidecar) {

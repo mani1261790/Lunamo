@@ -81,3 +81,11 @@
 "Disk Source" = "Disk Source";
 "Details" = "Details";
 "Done" = "Done";
+"Export" = "Export";
+"Export HTML…" = "Export HTML…";
+"Export ipynb…" = "Export ipynb…";
+"Export Markdown…" = "Export Markdown…";
+"Open Logs…" = "Open Logs…";
+"Review Logs Before Export" = "Review Logs Before Export";
+"Reviewed diagnostic log" = "Reviewed diagnostic log";
+"Export Reviewed Logs…" = "Export Reviewed Logs…";

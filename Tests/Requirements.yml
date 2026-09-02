@@ -915,3 +915,33 @@ MN-ERR-004:
   - NotebookExternalFileTests/moveDeleteAndRecreate
 MN-SEC-008:
   - NotebookExternalFileTests/recentDocumentsAreLocalAndBounded
+MN-SCOPE-001:
+  - BundledSidecarIntegrationTests/realNotebookExports
+  - ArchitectureBoundaryTests/exportAndLoggingUIArchitecture
+MN-SEC-004:
+  - PrivacyAndTemporaryOutputTests/loggingArchitecture
+  - NotebookExportTests/reviewableLogIsRedacted
+MN-SEC-005:
+  - PrivacyAndTemporaryOutputTests/homePathRedaction
+MN-SEC-006:
+  - PrivacyAndTemporaryOutputTests/loggingArchitecture
+MN-SEC-007:
+  - PrivacyAndTemporaryOutputTests/loggingArchitecture
+MN-SEC-009:
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-SEC-010:
+  - PrivacyAndTemporaryOutputTests/temporaryOutputLifecycle
+MN-LOG-001:
+  - PrivacyAndTemporaryOutputTests/loggingArchitecture
+MN-LOG-002:
+  - PrivacyAndTemporaryOutputTests/loggingArchitecture
+MN-LOG-003:
+  - PrivacyAndTemporaryOutputTests/loggingArchitecture
+MN-LOG-004:
+  - PrivacyAndTemporaryOutputTests/loggingArchitecture
+MN-LOG-005:
+  - JSONRPCConnectionTests/boundedStderr
+  - ArchitectureBoundaryTests/exportAndLoggingUIArchitecture
+MN-LOG-006:
+  - NotebookExportTests/reviewableLogIsRedacted
+  - ArchitectureBoundaryTests/exportAndLoggingUIArchitecture

@@ -81,3 +81,11 @@
 "Disk Source" = "ディスク上の内容";
 "Details" = "詳細";
 "Done" = "完了";
+"Export" = "書き出す";
+"Export HTML…" = "HTMLを書き出す…";
+"Export ipynb…" = "ipynbを書き出す…";
+"Export Markdown…" = "Markdownを書き出す…";
+"Open Logs…" = "ログを開く…";
+"Review Logs Before Export" = "保存前にログ内容を確認";
+"Reviewed diagnostic log" = "確認用診断ログ";
+"Export Reviewed Logs…" = "確認したログを保存…";

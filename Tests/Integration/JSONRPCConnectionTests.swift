@@ -47,10 +47,15 @@ private actor MockProcessTransport: ProcessTransport {
             "serverInfo": .object(["name": .string("mock")]),
             "capabilities": .object(["notebookDocumentSync": .bool(true)]),
           ])
-        } else if method == "marimo/command",
-          params?.object?["kind"] == .string("print-notebook")
-        {
-          result = .object(["source": .string("# printed exactly\r\n")])
+        } else if method == "marimo/command" {
+          switch params?.object?["kind"] {
+          case .string("print-notebook"):
+            result = .object(["source": .string("# printed exactly\r\n")])
+          case .string("export-html"), .string("export-ipynb"), .string("export-markdown"):
+            result = .string("exported")
+          default:
+            result = .object(["method": .string(method)])
+          }
         } else {
           result = .object(["method": .string(method)])
         }
@@ -330,6 +335,41 @@ struct JSONRPCConnectionTests {
     await adapter.shutdown()
   }
 
+  @Test("Theme and export commands use the strict pinned wire shape")
+  func exportAndThemeCommandWireShape() async throws {
+    let transport = MockProcessTransport()
+    let connection = JSONRPCConnection(transport: transport)
+    let adapter = try MarimoLSPAdapter(
+      sidecarDirectory: sidecarDirectory(), connection: connection)
+    try await adapter.start()
+
+    try await adapter.setDisplayTheme(.dark)
+    for format in NotebookExportFormat.allCases {
+      #expect(
+        try await adapter.exportNotebook(
+          notebookURI: "file:///notebook.py", format: format, includeCode: true)
+          == "exported"
+      )
+    }
+
+    let commands = await transport.snapshot().compactMap { message -> [String: JSONValue]? in
+      guard case .request(_, "marimo/command", let params) = message else { return nil }
+      return params?.object
+    }
+    let tail = Array(commands.suffix(4))
+    #expect(
+      tail.map { $0["kind"] } == [
+        .string("set-display-theme"), .string("export-html"),
+        .string("export-ipynb"), .string("export-markdown"),
+      ])
+    #expect(tail[0] == ["kind": .string("set-display-theme"), "theme": .string("dark")])
+    #expect(Set(tail[1].keys) == ["kind", "notebookUri", "download", "files", "includeCode"])
+    #expect(tail[1]["includeCode"] == .bool(true))
+    #expect(Set(tail[2].keys) == ["kind", "notebookUri"])
+    #expect(Set(tail[3].keys) == ["kind", "notebookUri"])
+    await adapter.shutdown()
+  }
+
   @Test("Adapter restarts three times in 60 seconds and stops on the fourth crash")
   func boundedAutomaticRecovery() async throws {
     let transport = MockProcessTransport()
@@ -415,6 +455,12 @@ struct JSONRPCConnectionTests {
         params: .object(["kind": .string("parse-notebook")])
       ) == .seconds(120)
     )
+    for kind in ["export-html", "export-ipynb", "export-markdown"] {
+      #expect(
+        JSONRPCTimeouts.duration(
+          method: "marimo/command", params: .object(["kind": .string(kind)])) == .seconds(120)
+      )
+    }
     #expect(
       JSONRPCTimeouts.duration(
         method: "marimo/command",

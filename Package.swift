@@ -31,6 +31,7 @@ let package = Package(
     ),
     .target(
       name: "MarimoProcess",
+      dependencies: ["MarimoDomain"],
       path: "MarimoNative/Process",
       swiftSettings: strictConcurrency
     ),
@@ -76,7 +77,7 @@ let package = Package(
     ),
     .target(
       name: "MarimoWebFallback",
-      dependencies: ["MarimoOutput"],
+      dependencies: ["MarimoDomain", "MarimoOutput"],
       path: "MarimoNative/WebFallback",
       exclude: ["README.md"],
       resources: [.copy("Assets")],
@@ -107,7 +108,7 @@ let package = Package(
     ),
     .executableTarget(
       name: "MarimoNativeApp",
-      dependencies: ["MarimoApplication", "MarimoBackend", "MarimoUI"],
+      dependencies: ["MarimoApplication", "MarimoBackend", "MarimoDomain", "MarimoUI"],
       path: "MarimoNative/App",
       swiftSettings: strictConcurrency
     ),

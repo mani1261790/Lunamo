@@ -294,6 +294,13 @@ public protocol MarimoBackend: Sendable {
   func backendEvents() async -> AsyncStream<MarimoBackendEvent>
   func listSessions() async throws -> [MarimoSessionInfo]
   func readNotebookOutputs(notebookURI: String) async throws -> [MarimoCellReplay]
+  func setDisplayTheme(_ theme: NotebookDisplayTheme) async throws
+  func exportNotebook(
+    notebookURI: String,
+    format: NotebookExportFormat,
+    includeCode: Bool
+  ) async throws -> String
+  func stderrLines() async -> [String]
   func shutdown() async
 }
 
@@ -354,4 +361,15 @@ extension MarimoBackend {
   }
   public func listSessions() async throws -> [MarimoSessionInfo] { [] }
   public func readNotebookOutputs(notebookURI _: String) async throws -> [MarimoCellReplay] { [] }
+  public func setDisplayTheme(_: NotebookDisplayTheme) async throws {
+    throw MarimoBackendCapabilityError.unavailable
+  }
+  public func exportNotebook(
+    notebookURI _: String,
+    format _: NotebookExportFormat,
+    includeCode _: Bool
+  ) async throws -> String {
+    throw MarimoBackendCapabilityError.unavailable
+  }
+  public func stderrLines() async -> [String] { [] }
 }

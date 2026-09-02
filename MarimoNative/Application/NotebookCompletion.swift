@@ -1,4 +1,5 @@
 import Foundation
+import MarimoDomain
 import OSLog
 
 extension NotebookStore {
@@ -26,11 +27,7 @@ extension NotebookStore {
         )
       }
     } catch {
-      NotebookCompletionLog.logger.debug("Could not refresh completed-run outputs")
+      MarimoLog.output.debug("Could not refresh completed-run outputs")
     }
   }
-}
-
-private enum NotebookCompletionLog {
-  static let logger = Logger(subsystem: "MarimoNative", category: "NotebookCompletion")
 }
