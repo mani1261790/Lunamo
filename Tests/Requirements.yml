@@ -754,3 +754,70 @@ MN-TEST-005:
   - MIMEBundleTests/vegaHidingGolden
 MN-TEST-030:
   - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-CMD-020:
+  - JSONRPCConnectionTests/recoveryCommandWireShape
+  - BundledSidecarIntegrationTests/realNativeSliderReactiveUpdate
+MN-CMD-021:
+  - ProtocolContractTests/uiElementCountValidation
+MN-CMD-022:
+  - JSONRPCConnectionTests/recoveryCommandWireShape
+MN-CMD-023:
+  - NotebookSessionTests/widgetUpdatesRejectStaleSessions
+MN-WIDGET-001:
+  - MarimoComponentDecoderTests/outputPreparationBoundary
+  - ArchitectureBoundaryTests/nativeSliderArchitecture
+MN-WIDGET-002:
+  - MarimoComponentDecoderTests/strictRootBoundary
+MN-WIDGET-003:
+  - MarimoComponentDecoderTests/strictRootBoundary
+  - ArchitectureBoundaryTests/nativeSliderArchitecture
+MN-WIDGET-004:
+  - MarimoComponentDecoderTests/entityAndJSONDecoding
+MN-WIDGET-005:
+  - MarimoComponentDecoderTests/entityAndJSONDecoding
+MN-WIDGET-006:
+  - MarimoComponentDecoderTests/entityAndJSONDecoding
+MN-WIDGET-010:
+  - MarimoComponentDecoderTests/entityAndJSONDecoding
+MN-WIDGET-011:
+  - MarimoComponentDecoderTests/invalidSchema
+MN-WIDGET-012:
+  - MarimoComponentDecoderTests/outputPreparationBoundary
+MN-WIDGET-013:
+  - MarimoComponentDecoderTests/entityAndJSONDecoding
+MN-WIDGET-014:
+  - MarimoComponentDecoderTests/entityAndJSONDecoding
+  - ArchitectureBoundaryTests/nativeSliderArchitecture
+MN-WIDGET-015:
+  - MarimoComponentDecoderTests/entityAndJSONDecoding
+MN-WIDGET-016:
+  - MarimoComponentDecoderTests/entityAndJSONDecoding
+MN-WIDGET-017:
+  - ArchitectureBoundaryTests/nativeSliderArchitecture
+MN-WIDGET-020:
+  - MarimoComponentDecoderTests/sharedStoreAndRandomReset
+MN-WIDGET-021:
+  - MarimoComponentDecoderTests/sharedStoreAndRandomReset
+MN-WIDGET-022:
+  - MarimoComponentDecoderTests/updateRateAndDebounce
+MN-WIDGET-023:
+  - MarimoComponentDecoderTests/updateRateAndDebounce
+MN-WIDGET-024:
+  - MarimoComponentDecoderTests/sharedStoreAndRandomReset
+MN-WIDGET-025:
+  - NotebookSessionTests/widgetRegistryLifecycle
+MN-WIDGET-026:
+  - NotebookSessionTests/widgetRegistryLifecycle
+MN-WIDGET-030:
+  - BundledSidecarIntegrationTests/realNativeSliderReactiveUpdate
+MN-WIDGET-031:
+  - BundledSidecarIntegrationTests/realNativeSliderReactiveUpdate
+MN-WIDGET-032:
+  - BundledSidecarIntegrationTests/realNativeSliderReactiveUpdate
+MN-TEST-006:
+  - MarimoComponentDecoderTests/entityAndJSONDecoding
+  - MarimoComponentDecoderTests/invalidSchema
+  - MarimoComponentDecoderTests/sharedStoreAndRandomReset
+  - MarimoComponentDecoderTests/updateRateAndDebounce
+MN-TEST-023:
+  - BundledSidecarIntegrationTests/realNativeSliderReactiveUpdate

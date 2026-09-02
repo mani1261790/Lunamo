@@ -34,6 +34,22 @@ struct ProtocolContractTests {
     }
   }
 
+  @Test("UI element updates reject mismatched object and value counts")
+  func uiElementCountValidation() {
+    let command = UpdateUIElementCommand(
+      notebookURI: "file:///notebook.py",
+      kernelSessionID: "session-1",
+      objectIDs: ["one", "two"],
+      values: [.integer(1)],
+      token: UUID().uuidString
+    )
+    #expect(
+      throws: UpdateUIElementCommandError.countMismatch(objectIDs: 2, values: 1)
+    ) {
+      try command.validate()
+    }
+  }
+
   @Test("Owned document preserves unknown metadata and passthrough")
   func ownedDocumentPreservesOpaqueValues() throws {
     let data = try Data(contentsOf: fixture("command_protocol_mvp.json"))

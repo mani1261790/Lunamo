@@ -2,6 +2,7 @@ import MarimoApplication
 import MarimoDomain
 import MarimoEditor
 import MarimoOutput
+import MarimoWidgets
 import SwiftUI
 
 public struct CellView: View {
@@ -13,6 +14,10 @@ public struct CellView: View {
   private let focusEditor: @MainActor @Sendable () -> Void
   private let command: @MainActor @Sendable (CodeEditorCommand) -> Void
   private let submitStdin: @MainActor @Sendable (String) -> Void
+  private let widgetStore: WidgetValueStore
+  private let widgetsEnabled: Bool
+  private let kernelSessionID: String?
+  private let submitWidgetValue: @MainActor @Sendable (String, Double, String) -> Void
 
   @State private var editorHeight: CGFloat = 72
   @State private var internallyScrollable = false
@@ -27,7 +32,11 @@ public struct CellView: View {
     send: @escaping @MainActor @Sendable (NotebookIntent) -> Void,
     focusEditor: @escaping @MainActor @Sendable () -> Void,
     command: @escaping @MainActor @Sendable (CodeEditorCommand) -> Void,
-    submitStdin: @escaping @MainActor @Sendable (String) -> Void = { _ in }
+    submitStdin: @escaping @MainActor @Sendable (String) -> Void = { _ in },
+    widgetStore: WidgetValueStore,
+    widgetsEnabled: Bool,
+    kernelSessionID: String?,
+    submitWidgetValue: @escaping @MainActor @Sendable (String, Double, String) -> Void
   ) {
     self.cell = cell
     self.selected = selected
@@ -37,6 +46,10 @@ public struct CellView: View {
     self.focusEditor = focusEditor
     self.command = command
     self.submitStdin = submitStdin
+    self.widgetStore = widgetStore
+    self.widgetsEnabled = widgetsEnabled
+    self.kernelSessionID = kernelSessionID
+    self.submitWidgetValue = submitWidgetValue
   }
 
   public var body: some View {
@@ -105,13 +118,25 @@ public struct CellView: View {
         OutputView(
           output: output,
           stale: cell.runtime.stale,
-          running: cell.runtime.status == .running
+          running: cell.runtime.status == .running,
+          widgetStore: widgetStore,
+          widgetCellID: cell.runtimeID.uuidString,
+          widgetsEnabled: widgetsEnabled,
+          kernelSessionID: kernelSessionID,
+          sendWidgetValue: submitWidgetValue
         )
       }
 
       ForEach(Array(cell.runtime.console.enumerated()), id: \.offset) { _, item in
         if item.channel != .stdin {
-          OutputView(output: item)
+          OutputView(
+            output: item,
+            widgetStore: widgetStore,
+            widgetCellID: cell.runtimeID.uuidString,
+            widgetsEnabled: widgetsEnabled,
+            kernelSessionID: kernelSessionID,
+            sendWidgetValue: submitWidgetValue
+          )
         }
       }
     }

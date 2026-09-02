@@ -56,6 +56,19 @@ public struct UpdateUIElementCommand: Codable, Sendable, Equatable {
     self.request = request
     self.token = token
   }
+
+  public func validate() throws {
+    guard objectIDs.count == values.count else {
+      throw UpdateUIElementCommandError.countMismatch(
+        objectIDs: objectIDs.count,
+        values: values.count
+      )
+    }
+  }
+}
+
+public enum UpdateUIElementCommandError: Error, Sendable, Equatable {
+  case countMismatch(objectIDs: Int, values: Int)
 }
 
 public struct SessionCellCommand: Codable, Sendable, Equatable {

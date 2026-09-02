@@ -1,6 +1,7 @@
 import Foundation
 import ImageIO
 import MarimoDomain
+import MarimoWidgets
 
 public actor OutputPreparationService {
   public static let shared = OutputPreparationService()
@@ -89,6 +90,9 @@ public actor OutputPreparationService {
       case .html:
         guard case .string(let html) = output.data else {
           throw OutputPreparationError.expectedString
+        }
+        if let slider = MarimoComponentDecoder.slider(from: html) {
+          return .slider(slider)
         }
         if let nativeText = HTMLNativeSubsetDecoder.decode(html) {
           return .nativeHTML(nativeText)

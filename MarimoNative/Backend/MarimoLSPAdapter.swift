@@ -235,6 +235,26 @@ public actor MarimoLSPAdapter: MarimoBackend {
     )
   }
 
+  public func updateUIElement(
+    notebookURI: String,
+    kernelSessionID: String,
+    objectIDs: [String],
+    values: [JSONValue]
+  ) async throws {
+    let command = UpdateUIElementCommand(
+      notebookURI: notebookURI,
+      kernelSessionID: kernelSessionID,
+      objectIDs: objectIDs,
+      values: values,
+      token: UUID().uuidString
+    )
+    try command.validate()
+    _ = try await connection.request(
+      method: "marimo/command",
+      params: try encodeAsJSONValue(MarimoCommand.updateUIElement(command))
+    )
+  }
+
   public func backendEvents() async -> AsyncStream<MarimoBackendEvent> { eventStream }
 
   public func listSessions() async throws -> [MarimoSessionInfo] {

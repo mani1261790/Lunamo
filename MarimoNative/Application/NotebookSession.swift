@@ -2,6 +2,7 @@ import Foundation
 import MarimoBackend
 import MarimoDomain
 import MarimoEnvironment
+import MarimoWidgets
 import OSLog
 
 enum PendingRunRequest: Sendable, Equatable {
@@ -212,12 +213,15 @@ extension NotebookStore {
   func resetSessionState(to state: NotebookSessionState) {
     sessionResolutionTask?.cancel()
     sessionResolutionTask = nil
+    completionRefreshTask?.cancel()
+    completionRefreshTask = nil
     pendingRunRequest = nil
     runAwaitingCompletion = false
     interruptTimeoutTask?.cancel()
     interruptTimeoutTask = nil
     forceRestartAvailable = false
     document.kernelSessionID = nil
+    widgetValueStore.clear()
     sessionState = state
     for index in document.cells.indices {
       document.cells[index].runtime.status = .idle
@@ -306,13 +310,30 @@ extension NotebookStore {
         }
       case "cell-op":
         applyCellOperation(event.payload, executedSource: nil)
+      case "remove-ui-elements":
+        if let cellID = event.payload.string(for: "cell_id") {
+          widgetValueStore.remove(cellID: cellID)
+          if let index = document.cells.firstIndex(where: { $0.runtimeID.uuidString == cellID }) {
+            document.cells[index].runtime.widgetIDs = []
+          }
+        }
+      case "send-ui-element-message":
+        if let objectID = event.payload.string(for: "ui_element"),
+          case .object(let message)? = event.payload["message"],
+          let value = message.number(for: "value")
+        {
+          widgetValueStore.receiveKernelValue(value, objectID: objectID)
+        }
       case "completed-run", "interrupted":
         interruptTimeoutTask?.cancel()
         interruptTimeoutTask = nil
         forceRestartAvailable = false
         runAwaitingCompletion = false
-        sessionState = .idle
-        if event.operation == "completed-run" { await refreshRuntimeOutputs() }
+        if event.operation == "completed-run" {
+          scheduleCompletionRefresh(sessionID: event.sessionID)
+        } else {
+          sessionState = .idle
+        }
       case "kernel-startup-error":
         let message = event.payload.string(for: "error") ?? "Kernel startup failed."
         runAwaitingCompletion = false
@@ -332,6 +353,7 @@ extension NotebookStore {
   private func acceptSession(_ sessionID: String) {
     guard document.kernelSessionID != sessionID else { return }
     document.kernelSessionID = sessionID
+    widgetValueStore.clear()
     sessionResolutionTask?.cancel()
     sessionResolutionTask = nil
     for index in document.cells.indices {
@@ -341,7 +363,7 @@ extension NotebookStore {
     }
   }
 
-  private func applyCellOperation(
+  func applyCellOperation(
     _ payload: [String: JSONValue],
     executedSource: String?,
     replacingConsole: Bool = false
@@ -360,6 +382,9 @@ extension NotebookStore {
       } else {
         runtime.output = nil
       }
+      let descriptors = sliderDescriptors(from: runtime.output)
+      widgetValueStore.synchronize(cellID: cellID, descriptors: descriptors)
+      runtime.widgetIDs = descriptors.map(\.objectID)
     }
     if let console = payload["console"] {
       if let prompt = stdinPrompt(from: console) { runtime.stdinPrompt = prompt }
@@ -386,20 +411,6 @@ extension NotebookStore {
     if let stale = payload.bool(for: "stale_inputs") { runtime.stale = stale }
     if let executedSource { runtime.lastExecutedCode = executedSource }
     document.cells[index].runtime = runtime
-  }
-
-  private func refreshRuntimeOutputs() async {
-    do {
-      for replay in try await backend.readNotebookOutputs(notebookURI: document.notebookURI) {
-        applyCellOperation(
-          replay.payload,
-          executedSource: replay.executedSource,
-          replacingConsole: true
-        )
-      }
-    } catch {
-      NotebookSessionLog.logger.debug("Could not refresh completed-run outputs")
-    }
   }
 
   private func appendConsole(_ values: [JSONValue], to runtime: inout CellRuntimeState) {
@@ -461,5 +472,13 @@ extension Dictionary where Key == String, Value == JSONValue {
   func bool(for key: String) -> Bool? {
     guard case .bool(let value)? = self[key] else { return nil }
     return value
+  }
+
+  func number(for key: String) -> Double? {
+    switch self[key] {
+    case .integer(let value): Double(value)
+    case .number(let value): value
+    default: nil
+    }
   }
 }

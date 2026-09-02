@@ -277,6 +277,12 @@ public protocol MarimoBackend: Sendable {
     workingDirectory: String,
     cells: [NotebookExecutionCell]
   ) async throws
+  func updateUIElement(
+    notebookURI: String,
+    kernelSessionID: String,
+    objectIDs: [String],
+    values: [JSONValue]
+  ) async throws
   func interrupt(notebookURI: String, kernelSessionID: String) async throws
   func restartSession(
     notebookURI: String,
@@ -317,6 +323,14 @@ extension MarimoBackend {
     workingDirectory _: String,
     cells _: [NotebookExecutionCell]
   ) async throws {}
+  public func updateUIElement(
+    notebookURI _: String,
+    kernelSessionID _: String,
+    objectIDs _: [String],
+    values _: [JSONValue]
+  ) async throws {
+    throw MarimoBackendCapabilityError.unavailable
+  }
   public func interrupt(notebookURI _: String, kernelSessionID _: String) async throws {
     throw MarimoBackendCapabilityError.unavailable
   }

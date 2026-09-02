@@ -3,6 +3,7 @@ import Foundation
 import MarimoBackend
 import MarimoDomain
 import MarimoEnvironment
+import MarimoWidgets
 
 @MainActor
 public final class NotebookStore: ObservableObject {
@@ -24,6 +25,8 @@ public final class NotebookStore: ObservableObject {
   @Published public internal(set) var backendLogs: [String] = []
   @Published public var backendLogsPresented = false
 
+  public let widgetValueStore: WidgetValueStore
+
   let backend: any MarimoBackend
   private let documentService: DocumentService
   private let fileWriter: AtomicFileWriter
@@ -36,6 +39,7 @@ public final class NotebookStore: ObservableObject {
   var pendingRunRequest: PendingRunRequest?
   var backendEventTask: Task<Void, Never>?
   var sessionResolutionTask: Task<Void, Never>?
+  var completionRefreshTask: Task<Void, Never>?
   var pendingTextSynchronizations: [UUID: Task<Void, Error>] = [:]
   var runAwaitingCompletion = false
   let sessionResolutionTimeout: Duration
@@ -50,6 +54,7 @@ public final class NotebookStore: ObservableObject {
     environmentDiscovery: PythonEnvironmentDiscovery = PythonEnvironmentDiscovery(),
     environmentPreflight: PythonPreflightService = PythonPreflightService(),
     folderTrustStore: FolderTrustStore = FolderTrustStore(),
+    widgetValueStore: WidgetValueStore = WidgetValueStore(),
     sessionResolutionTimeout: Duration = .seconds(15),
     interruptTimeout: Duration = .seconds(10)
   ) {
@@ -60,6 +65,7 @@ public final class NotebookStore: ObservableObject {
     self.environmentDiscovery = environmentDiscovery
     self.environmentPreflight = environmentPreflight
     self.folderTrustStore = folderTrustStore
+    self.widgetValueStore = widgetValueStore
     self.sessionResolutionTimeout = sessionResolutionTimeout
     self.interruptTimeout = interruptTimeout
   }
@@ -211,6 +217,7 @@ public final class NotebookStore: ObservableObject {
     if sessionMoveFailed {
       try? await backend.closeSession(notebookURI: oldURI)
       document.kernelSessionID = nil
+      widgetValueStore.clear()
       for index in document.cells.indices {
         document.cells[index].runtime = CellRuntimeState()
       }
@@ -231,6 +238,7 @@ public final class NotebookStore: ObservableObject {
     if document.kernelSessionID != nil {
       try await backend.closeSession(notebookURI: uri)
       document.kernelSessionID = nil
+      widgetValueStore.clear()
     }
   }
 
@@ -285,6 +293,7 @@ public final class NotebookStore: ObservableObject {
       guard let index = cellIndex(cellID) else { return }
       document.cells[index].runtime = runtime
     case .setKernelSessionID(let sessionID):
+      if document.kernelSessionID != sessionID { widgetValueStore.clear() }
       document.kernelSessionID = sessionID
     case .runCell(let cellID, let executable, let workingDirectory):
       try await performRun(

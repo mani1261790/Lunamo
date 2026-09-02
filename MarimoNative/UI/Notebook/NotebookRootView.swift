@@ -77,6 +77,18 @@ public struct NotebookRootView: View {
             },
             submitStdin: { text in
               Task { await store.submitStdin(cellID: cell.runtimeID, text: text) }
+            },
+            widgetStore: store.widgetValueStore,
+            widgetsEnabled: store.interactiveWidgetsAllowed,
+            kernelSessionID: store.document.kernelSessionID,
+            submitWidgetValue: { objectID, value, sessionID in
+              Task {
+                await store.submitWidgetValue(
+                  objectID: objectID,
+                  value: value,
+                  expectedSessionID: sessionID
+                )
+              }
             }
           )
         }

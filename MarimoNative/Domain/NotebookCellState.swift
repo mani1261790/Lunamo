@@ -34,7 +34,7 @@ public struct CellRuntimeState: Sendable, Equatable {
   public var output: MarimoOutput?
   public var console: [MarimoOutput]
   public var lastExecutedCode: String?
-  public var widgetIDs: [UUID]
+  public var widgetIDs: [String]
   public var stdinPrompt: StdinPromptState?
 
   public init(
@@ -43,7 +43,7 @@ public struct CellRuntimeState: Sendable, Equatable {
     output: MarimoOutput? = nil,
     console: [MarimoOutput] = [],
     lastExecutedCode: String? = nil,
-    widgetIDs: [UUID] = [],
+    widgetIDs: [String] = [],
     stdinPrompt: StdinPromptState? = nil
   ) {
     self.status = status

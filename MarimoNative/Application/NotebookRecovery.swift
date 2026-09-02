@@ -50,6 +50,7 @@ extension NotebookStore {
     forceRestartAvailable = false
     runAwaitingCompletion = false
     document.kernelSessionID = nil
+    widgetValueStore.clear()
     sessionState = .restarting
     for index in document.cells.indices {
       document.cells[index].runtime = CellRuntimeState()
@@ -98,6 +99,7 @@ extension NotebookStore {
     forceRestartAvailable = false
     runAwaitingCompletion = false
     document.kernelSessionID = nil
+    widgetValueStore.clear()
     sessionState = .failed("Backend disconnected.")
     for index in document.cells.indices {
       document.cells[index].runtime.status = .idle

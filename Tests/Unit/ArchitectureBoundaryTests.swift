@@ -224,6 +224,49 @@ struct ArchitectureBoundaryTests {
     #expect(!builder.contains("cdn"))
   }
 
+  @Test("Native slider keeps parsing, state, controls, and session updates bounded")
+  func nativeSliderArchitecture() throws {
+    let root = repositoryRoot()
+    let widgets = root.appending(path: "MarimoNative/Widgets")
+    let decoder = try String(
+      contentsOf: widgets.appending(path: "MarimoComponentDecoder.swift"),
+      encoding: .utf8
+    )
+    let values = try String(
+      contentsOf: widgets.appending(path: "WidgetValueStore.swift"),
+      encoding: .utf8
+    )
+    let slider = try String(
+      contentsOf: widgets.appending(path: "NativeSliderView.swift"),
+      encoding: .utf8
+    )
+    let session =
+      try String(
+        contentsOf: root.appending(path: "MarimoNative/Application/NotebookSession.swift"),
+        encoding: .utf8
+      )
+      + String(
+        contentsOf: root.appending(path: "MarimoNative/Application/NotebookWidgets.swift"),
+        encoding: .utf8
+      )
+    let output = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Output/OutputView.swift"),
+      encoding: .utf8
+    )
+    #expect(decoder.contains("SwiftSoup.parseBodyFragment"))
+    #expect(!decoder.contains("NSRegularExpression"))
+    #expect(values.contains("entry.descriptor.randomID != descriptor.randomID"))
+    #expect(values.contains("var cellIDs: Set<String>"))
+    #expect(slider.contains("CommitAwareSlider: NSSlider"))
+    #expect(slider.contains("slider.isVertical = orientation == .vertical"))
+    #expect(slider.contains("descriptor.disabled || !interactionEnabled"))
+    #expect(slider.contains("intervalNanoseconds: UInt64 = 33_333_334"))
+    #expect(session.contains("currentSessionID == expectedSessionID"))
+    #expect(session.contains("widgetValueStore.clear()"))
+    #expect(output.contains("NativeSliderView("))
+    #expect(!slider.contains("WKWebView"))
+  }
+
   @Test("Every specified notebook shortcut has a native menu command")
   func notebookShortcutsAreDiscoverable() throws {
     let root = repositoryRoot()

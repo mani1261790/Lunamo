@@ -2,18 +2,40 @@ import AppKit
 import MarimoDomain
 import MarimoOutput
 import MarimoWebFallback
+import MarimoWidgets
 import SwiftUI
 
 public struct OutputView: View {
   private let output: MarimoOutput
   private let stale: Bool
   private let running: Bool
+  private let widgetStore: WidgetValueStore?
+  private let widgetCellID: String?
+  private let widgetsEnabled: Bool
+  private let kernelSessionID: String?
+  private let sendWidgetValue: @MainActor @Sendable (String, Double, String) -> Void
   @State private var prepared: PreparedOutput?
 
-  public init(output: MarimoOutput, stale: Bool = false, running: Bool = false) {
+  public init(
+    output: MarimoOutput,
+    stale: Bool = false,
+    running: Bool = false,
+    widgetStore: WidgetValueStore? = nil,
+    widgetCellID: String? = nil,
+    widgetsEnabled: Bool = false,
+    kernelSessionID: String? = nil,
+    sendWidgetValue: @escaping @MainActor @Sendable (String, Double, String) -> Void = {
+      _, _, _ in
+    }
+  ) {
     self.output = output
     self.stale = stale
     self.running = running
+    self.widgetStore = widgetStore
+    self.widgetCellID = widgetCellID
+    self.widgetsEnabled = widgetsEnabled
+    self.kernelSessionID = kernelSessionID
+    self.sendWidgetValue = sendWidgetValue
   }
 
   public var body: some View {
@@ -126,9 +148,37 @@ public struct OutputView: View {
         .font(.body.monospaced())
         .textSelection(.enabled)
         .accessibilityLabel("Native HTML output")
+    case .slider(let descriptor):
+      if let widgetStore, let widgetCellID {
+        NativeSliderView(
+          descriptor: descriptor,
+          store: widgetStore,
+          cellID: widgetCellID,
+          interactionEnabled: widgetsEnabled && !stale && kernelSessionID != nil,
+          onSend: { value in
+            if let kernelSessionID {
+              sendWidgetValue(descriptor.objectID, value, kernelSessionID)
+            }
+          }
+        )
+      } else {
+        recoveryView(
+          title: "Interactive output unavailable",
+          detail: "The slider is not attached to a current kernel session.",
+          raw: String(describing: output.data)
+        )
+      }
     case .mimeBundle(let bundle):
-      MIMEBundleView(output: output, bundle: bundle)
-        .id(bundle.representations.map(\.mimeType).joined(separator: "|"))
+      MIMEBundleView(
+        output: output,
+        bundle: bundle,
+        widgetStore: widgetStore,
+        widgetCellID: widgetCellID,
+        widgetsEnabled: widgetsEnabled,
+        kernelSessionID: kernelSessionID,
+        sendWidgetValue: sendWidgetValue
+      )
+      .id(bundle.representations.map(\.mimeType).joined(separator: "|"))
     case .web(let payload):
       CellWebOutputView(payload: payload)
     case .unsupported(let mimeType, let size, let raw):
@@ -166,7 +216,7 @@ public struct OutputView: View {
   }
 
   private var preparationID: String {
-    "\(output.mimeType)|\(output.timestamp ?? 0)|\(output.estimatedByteCount)"
+    "\(output.mimeType)|\(output.timestamp ?? 0)|\(output.data.hashValue)"
   }
 
   private func save(_ raw: String) {
@@ -180,11 +230,29 @@ public struct OutputView: View {
 private struct MIMEBundleView: View {
   let output: MarimoOutput
   let bundle: ResolvedMIMEBundle
+  let widgetStore: WidgetValueStore?
+  let widgetCellID: String?
+  let widgetsEnabled: Bool
+  let kernelSessionID: String?
+  let sendWidgetValue: @MainActor @Sendable (String, Double, String) -> Void
   @State private var selectedMIME: String
 
-  init(output: MarimoOutput, bundle: ResolvedMIMEBundle) {
+  init(
+    output: MarimoOutput,
+    bundle: ResolvedMIMEBundle,
+    widgetStore: WidgetValueStore?,
+    widgetCellID: String?,
+    widgetsEnabled: Bool,
+    kernelSessionID: String?,
+    sendWidgetValue: @escaping @MainActor @Sendable (String, Double, String) -> Void
+  ) {
     self.output = output
     self.bundle = bundle
+    self.widgetStore = widgetStore
+    self.widgetCellID = widgetCellID
+    self.widgetsEnabled = widgetsEnabled
+    self.kernelSessionID = kernelSessionID
+    self.sendWidgetValue = sendWidgetValue
     _selectedMIME = State(initialValue: bundle.representations.first?.mimeType ?? "")
   }
 
@@ -200,7 +268,14 @@ private struct MIMEBundleView: View {
         .accessibilityLabel("Output format")
       }
       if let representation = selectedRepresentation {
-        OutputView(output: representation.output(inheriting: output))
+        OutputView(
+          output: representation.output(inheriting: output),
+          widgetStore: widgetStore,
+          widgetCellID: widgetCellID,
+          widgetsEnabled: widgetsEnabled,
+          kernelSessionID: kernelSessionID,
+          sendWidgetValue: sendWidgetValue
+        )
       }
     }
   }

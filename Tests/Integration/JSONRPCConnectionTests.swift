@@ -286,6 +286,12 @@ struct JSONRPCConnectionTests {
     try await adapter.interrupt(notebookURI: "file:///notebook.py", kernelSessionID: "current")
     try await adapter.sendStdin(
       notebookURI: "file:///notebook.py", kernelSessionID: "current", text: "secret")
+    try await adapter.updateUIElement(
+      notebookURI: "file:///notebook.py",
+      kernelSessionID: "current",
+      objectIDs: ["slider-one"],
+      values: [.number(7)]
+    )
     try await adapter.restartSession(
       notebookURI: "file:///notebook.py",
       executable: "/venv/bin/python",
@@ -297,16 +303,30 @@ struct JSONRPCConnectionTests {
       guard case .request(_, "marimo/command", let params) = message else { return nil }
       return params?.object
     }
-    let tail = Array(commands.suffix(3))
+    let tail = Array(commands.suffix(4))
     #expect(Set(tail[0].keys) == ["kind", "notebookUri", "kernelSessionId"])
     #expect(tail[0]["kernelSessionId"] == .string("current"))
     #expect(Set(tail[1].keys) == ["kind", "notebookUri", "kernelSessionId", "text"])
     #expect(tail[1]["text"] == .string("secret"))
     #expect(
       Set(tail[2].keys)
+        == ["kind", "notebookUri", "kernelSessionId", "objectIds", "values", "token"]
+    )
+    #expect(tail[2]["kernelSessionId"] == .string("current"))
+    #expect(tail[2]["objectIds"] == .array([.string("slider-one")]))
+    #expect(tail[2]["values"] == .array([.integer(7)]))
+    guard case .string(let token)? = tail[2]["token"] else {
+      Issue.record("Widget update did not include a token")
+      await adapter.shutdown()
+      return
+    }
+    #expect(UUID(uuidString: token) != nil)
+    #expect(token.dropFirst(14).first == "4")
+    #expect(
+      Set(tail[3].keys)
         == ["kind", "notebookUri", "executable", "workingDirectory", "createIfMissing"]
     )
-    #expect(tail[2]["kernelSessionId"] == nil)
+    #expect(tail[3]["kernelSessionId"] == nil)
     await adapter.shutdown()
   }
 

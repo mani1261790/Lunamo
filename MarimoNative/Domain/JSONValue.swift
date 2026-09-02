@@ -1,6 +1,6 @@
 import Foundation
 
-public enum JSONValue: Codable, Sendable, Equatable {
+public enum JSONValue: Codable, Sendable, Equatable, Hashable {
   case null
   case bool(Bool)
   case integer(Int64)
@@ -50,6 +50,34 @@ public enum JSONValue: Codable, Sendable, Equatable {
       try container.encode(value)
     case .object(let value):
       try container.encode(value)
+    }
+  }
+
+  public func hash(into hasher: inout Hasher) {
+    switch self {
+    case .null:
+      hasher.combine(0)
+    case .bool(let value):
+      hasher.combine(1)
+      hasher.combine(value)
+    case .integer(let value):
+      hasher.combine(2)
+      hasher.combine(value)
+    case .number(let value):
+      hasher.combine(3)
+      hasher.combine(value)
+    case .string(let value):
+      hasher.combine(4)
+      hasher.combine(value)
+    case .array(let values):
+      hasher.combine(5)
+      hasher.combine(values)
+    case .object(let values):
+      hasher.combine(6)
+      for key in values.keys.sorted() {
+        hasher.combine(key)
+        hasher.combine(values[key])
+      }
     }
   }
 }

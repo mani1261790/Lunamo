@@ -19,6 +19,73 @@ private actor KernelEventRecorder {
 }
 
 extension BundledSidecarIntegrationTests {
+  @Test("Native slider sends value seven and marimo reactively produces fourteen")
+  @MainActor
+  func realNativeSliderReactiveUpdate() async throws {
+    let root = kernelRepositoryRoot()
+    let sidecar = root.appending(path: ".build/Sidecar")
+    let python = sidecar.appending(path: "bin/python")
+    guard FileManager.default.isExecutableFile(atPath: python.path) else {
+      Issue.record("Build .build/Sidecar before running integration tests")
+      return
+    }
+    let support = FileManager.default.temporaryDirectory.appending(
+      path: "marimonative-slider-test-\(UUID().uuidString)",
+      directoryHint: .isDirectory
+    )
+    defer { try? FileManager.default.removeItem(at: support) }
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar)
+    let store = NotebookStore(
+      backend: adapter,
+      folderTrustStore: FolderTrustStore(applicationSupportDirectory: support),
+      sessionResolutionTimeout: .seconds(5)
+    )
+    await store.startBackend()
+    await store.open(root.appending(path: "Tests/Fixtures/slider_reactive.py"))
+    await store.choosePythonExecutable(python)
+    await store.requestRunAll()
+    #expect(store.executionTrustPromptPresented)
+    await store.trustCurrentFolder()
+
+    let initialDeadline = ContinuousClock.now.advanced(by: .seconds(30))
+    while store.sessionState != .idle
+      || store.document.cells.count != 2
+      || store.document.cells[0].runtime.widgetIDs.isEmpty
+      || nativeOutputText(store.document.cells[1].runtime.output) != "4",
+      ContinuousClock.now < initialDeadline
+    {
+      try? await Task.sleep(for: .milliseconds(25))
+    }
+    let sliderOutput = try #require(store.document.cells[0].runtime.output)
+    let prepared = await OutputPreparationService.shared.prepare(sliderOutput)
+    guard case .slider(let descriptor) = prepared else {
+      Issue.record("The real marimo slider output did not use the native renderer")
+      await store.shutdownBackend()
+      return
+    }
+    #expect(descriptor.initialValue == 2)
+    #expect(nativeOutputText(store.document.cells[1].runtime.output) == "4")
+    let sessionID = try #require(store.document.kernelSessionID)
+
+    store.widgetValueStore.setValue(7, for: descriptor)
+    await store.submitWidgetValue(
+      objectID: descriptor.objectID,
+      value: 7,
+      expectedSessionID: sessionID
+    )
+    let updateDeadline = ContinuousClock.now.advanced(by: .seconds(30))
+    while nativeOutputText(store.document.cells[1].runtime.output) != "14"
+      || store.sessionState != .idle,
+      ContinuousClock.now < updateDeadline
+    {
+      try? await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(nativeOutputText(store.document.cells[1].runtime.output) == "14")
+    #expect(store.document.kernelSessionID == sessionID)
+    #expect(store.widgetValueStore.snapshot(for: descriptor.objectID)?.value == 7)
+    await store.shutdownBackend()
+  }
+
   @Test("Real sidecar outputs decode and prepare through every Gate D native path")
   @MainActor
   func realNativeOutputWireDecode() async throws {
@@ -466,6 +533,12 @@ extension BundledSidecarIntegrationTests {
       try? await Task.sleep(for: .milliseconds(25))
     }
     return false
+  }
+
+  private func nativeOutputText(_ output: MarimoOutput?) -> String? {
+    guard let output, case .string(let source) = output.data else { return nil }
+    if output.mimeType == "text/html" { return HTMLNativeSubsetDecoder.decode(source) }
+    return source
   }
 
   private var kernelNotebookMetadata: [String: JSONValue] {

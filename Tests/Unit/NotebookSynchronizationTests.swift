@@ -94,7 +94,7 @@ struct NotebookSynchronizationTests {
           output: textOutput("not persisted"),
           console: [textOutput("transient", channel: .stdout)],
           lastExecutedCode: "old",
-          widgetIDs: [UUID()]
+          widgetIDs: ["widget-1"]
         )
       )
     )

@@ -251,7 +251,7 @@ struct NotebookSaveTests {
       try Data("old source\n".utf8).write(to: oldURL)
       let identity = try await AtomicFileWriter().identity(at: oldURL)
       var cell = NotebookCellState(code: "value = 2")
-      cell.runtime = CellRuntimeState(output: textOutput("must clear"), widgetIDs: [UUID()])
+      cell.runtime = CellRuntimeState(output: textOutput("must clear"), widgetIDs: ["widget-1"])
       let document = NotebookDocumentState(
         sourceURL: oldURL,
         cells: [cell],

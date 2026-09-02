@@ -11,6 +11,13 @@ private actor SessionBackend: MarimoBackend {
     let cells: [NotebookExecutionCell]
   }
 
+  struct WidgetUpdate: Sendable, Equatable {
+    let notebookURI: String
+    let kernelSessionID: String
+    let objectIDs: [String]
+    let values: [JSONValue]
+  }
+
   private var ready = false
   private var executions: [Execution] = []
   private var listCount = 0
@@ -19,6 +26,7 @@ private actor SessionBackend: MarimoBackend {
   private var interruptCalls: [(String, String)] = []
   private var restartCalls: [(String, String, String, Bool)] = []
   private var stdinCalls: [(String, String, String)] = []
+  private var widgetUpdates: [WidgetUpdate] = []
   private var openCount = 0
   private var startCount = 0
   private let stream: AsyncStream<MarimoBackendEvent>
@@ -42,6 +50,21 @@ private actor SessionBackend: MarimoBackend {
     cells: [NotebookExecutionCell]
   ) {
     executions.append(Execution(notebookURI: notebookURI, cells: cells))
+  }
+  func updateUIElement(
+    notebookURI: String,
+    kernelSessionID: String,
+    objectIDs: [String],
+    values: [JSONValue]
+  ) {
+    widgetUpdates.append(
+      WidgetUpdate(
+        notebookURI: notebookURI,
+        kernelSessionID: kernelSessionID,
+        objectIDs: objectIDs,
+        values: values
+      )
+    )
   }
   func listSessions() -> [MarimoSessionInfo] {
     listCount += 1
@@ -73,6 +96,7 @@ private actor SessionBackend: MarimoBackend {
   func recordedInterrupts() -> [(String, String)] { interruptCalls }
   func recordedRestarts() -> [(String, String, String, Bool)] { restartCalls }
   func recordedStdin() -> [(String, String, String)] { stdinCalls }
+  func recordedWidgetUpdates() -> [WidgetUpdate] { widgetUpdates }
   func recordedOpenCount() -> Int { openCount }
   func recordedStartCount() -> Int { startCount }
 }
@@ -278,7 +302,7 @@ struct NotebookSessionTests {
           stale: false,
           output: textOutput("old"),
           console: [textOutput("existing", channel: .stdout)],
-          widgetIDs: [UUID()]
+          widgetIDs: ["widget-1"]
         )
       )
     )
@@ -362,6 +386,46 @@ struct NotebookSessionTests {
     )
     await Task.yield()
     #expect(store.document.cells[0].runtime == unchanged)
+  }
+
+  @Test("completed-run refreshes after the queued cell-op tail")
+  func completedRunSettlesQueuedCellOperations() async {
+    let (store, backend, _, _) = await configuredStore()
+    let cellID = store.document.cells[0].runtimeID
+    await store.send(.setKernelSessionID("session-1"))
+    await backend.setReplays([
+      MarimoCellReplay(
+        payload: [
+          "cell_id": .string(cellID.uuidString),
+          "output": .string("final"),
+        ],
+        executedSource: nil
+      )
+    ])
+
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "session-1",
+          operation: "completed-run",
+          payload: [:]
+        )
+      )
+    )
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "session-1",
+          operation: "cell-op",
+          payload: ["cell_id": .string(cellID.uuidString), "output": .null]
+        )
+      )
+    )
+
+    await eventually { store.sessionState == .idle }
+    #expect(store.document.cells[0].runtime.output == textOutput("final"))
   }
 
   @Test("Session lookup runs once after timeout and fails when no URI matches")
@@ -495,7 +559,7 @@ struct NotebookSessionTests {
         runtime: CellRuntimeState(
           status: .running,
           output: textOutput("old output"),
-          widgetIDs: [UUID()],
+          widgetIDs: ["widget-1"],
           stdinPrompt: StdinPromptState(prompt: "secret", password: true)
         )
       )
@@ -622,6 +686,105 @@ struct NotebookSessionTests {
     #expect(store.sessionState == .idle)
     #expect(store.document.cells[0].runtime.output == textOutput("restored"))
     #expect(store.document.cells[0].runtime.lastExecutedCode == "value = 1")
+  }
+
+  @Test("Widget updates are authorized and bound to the exact current session")
+  func widgetUpdatesRejectStaleSessions() async {
+    let (store, backend, _, _) = await configuredStore()
+    await store.send(.setKernelSessionID("session-current"))
+    store.authorizeRunOnce()
+
+    await store.submitWidgetValue(
+      objectID: "slider-one",
+      value: 7,
+      expectedSessionID: "session-old"
+    )
+    #expect(await backend.recordedWidgetUpdates().isEmpty)
+
+    await store.submitWidgetValue(
+      objectID: "slider-one",
+      value: 7,
+      expectedSessionID: "session-current"
+    )
+    #expect(
+      await backend.recordedWidgetUpdates() == [
+        SessionBackend.WidgetUpdate(
+          notebookURI: store.document.notebookURI,
+          kernelSessionID: "session-current",
+          objectIDs: ["slider-one"],
+          values: [.number(7)]
+        )
+      ]
+    )
+
+    await store.send(.setKernelSessionID("session-new"))
+    await store.submitWidgetValue(
+      objectID: "slider-one",
+      value: 8,
+      expectedSessionID: "session-current"
+    )
+    #expect(await backend.recordedWidgetUpdates().count == 1)
+  }
+
+  @Test("Cell output registers native widgets and lifecycle notifications remove them")
+  func widgetRegistryLifecycle() async {
+    let (store, backend, _, _) = await configuredStore()
+    let cellID = store.document.cells[0].runtimeID.uuidString
+    let output: JSONValue = .object([
+      "channel": .string("output"),
+      "mimetype": .string("text/html"),
+      "data": .string(sliderOutputHTML),
+    ])
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "widget-session",
+          operation: "cell-op",
+          payload: ["cell_id": .string(cellID), "output": output]
+        )
+      )
+    )
+    await eventually { store.document.cells[0].runtime.widgetIDs == ["slider-one"] }
+    #expect(store.widgetValueStore.snapshot(for: "slider-one")?.value == 2)
+
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "widget-session",
+          operation: "remove-ui-elements",
+          payload: ["cell_id": .string(cellID)]
+        )
+      )
+    )
+    await eventually { store.document.cells[0].runtime.widgetIDs.isEmpty }
+    #expect(store.widgetValueStore.snapshot(for: "slider-one") == nil)
+
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "widget-session",
+          operation: "cell-op",
+          payload: ["cell_id": .string(cellID), "output": output]
+        )
+      )
+    )
+    await eventually { store.widgetValueStore.snapshot(for: "slider-one") != nil }
+    await store.send(.setKernelSessionID("replacement-session"))
+    #expect(store.widgetValueStore.objectIDs.isEmpty)
+  }
+
+  private var sliderOutputHTML: String {
+    """
+    <marimo-ui-element object-id='slider-one' random-id='random-one'>
+      <marimo-slider data-initial-value='2' data-label='null' data-start='0' data-stop='10'
+        data-steps='[]' data-debounce='false' data-disabled='false'
+        data-orientation='&quot;horizontal&quot;' data-show-value='true'
+        data-include-input='false' data-full-width='false'></marimo-slider>
+    </marimo-ui-element>
+    """
   }
 
   private func configuredStore(

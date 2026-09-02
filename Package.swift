@@ -14,6 +14,9 @@ let package = Package(
   products: [
     .executable(name: "MarimoNative", targets: ["MarimoNativeApp"])
   ],
+  dependencies: [
+    .package(url: "https://github.com/scinfu/SwiftSoup.git", exact: "2.13.5")
+  ],
   targets: [
     .target(
       name: "MarimoDomain",
@@ -52,9 +55,23 @@ let package = Package(
     ),
     .target(
       name: "MarimoOutput",
-      dependencies: ["MarimoDomain"],
+      dependencies: [
+        "MarimoDomain", "MarimoWidgets",
+        .product(name: "SwiftSoup", package: "SwiftSoup"),
+      ],
       path: "MarimoNative/Output",
       exclude: ["README.md"],
+      swiftSettings: strictConcurrency
+    ),
+    .target(
+      name: "MarimoWidgets",
+      dependencies: [
+        "MarimoDomain",
+        .product(name: "SwiftSoup", package: "SwiftSoup"),
+      ],
+      path: "MarimoNative/Widgets",
+      exclude: ["README.md"],
+      resources: [.copy("LICENSE-SwiftSoup")],
       swiftSettings: strictConcurrency
     ),
     .target(
@@ -73,7 +90,9 @@ let package = Package(
     ),
     .target(
       name: "MarimoApplication",
-      dependencies: ["MarimoBackend", "MarimoDocument", "MarimoDomain", "MarimoEnvironment"],
+      dependencies: [
+        "MarimoBackend", "MarimoDocument", "MarimoDomain", "MarimoEnvironment", "MarimoWidgets",
+      ],
       path: "MarimoNative/Application",
       swiftSettings: strictConcurrency
     ),
@@ -81,7 +100,7 @@ let package = Package(
       name: "MarimoUI",
       dependencies: [
         "MarimoApplication", "MarimoDomain", "MarimoEditor", "MarimoEnvironment", "MarimoOutput",
-        "MarimoWebFallback",
+        "MarimoWebFallback", "MarimoWidgets",
       ],
       path: "MarimoNative/UI",
       swiftSettings: strictConcurrency
@@ -97,6 +116,7 @@ let package = Package(
       dependencies: [
         "MarimoApplication", "MarimoBackend", "MarimoDomain", "MarimoEditor", "MarimoProcess",
         "MarimoProtocol", "MarimoEnvironment", "MarimoOutput", "MarimoWebFallback",
+        "MarimoWidgets",
       ],
       path: "Tests/Unit",
       swiftSettings: strictConcurrency

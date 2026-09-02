@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import MarimoDomain
+import MarimoWidgets
 
 public struct JSONOutlineNode: Sendable, Equatable, Identifiable {
   public let id: String
@@ -74,6 +75,7 @@ public enum PreparedOutput: Sendable {
   case image(DecodedOutputImage)
   case csv(CSVTable)
   case nativeHTML(String)
+  case slider(MarimoSliderDescriptor)
   case mimeBundle(ResolvedMIMEBundle)
   case web(WebOutputPayload)
   case unsupported(mimeType: String, size: Int, raw: String)
