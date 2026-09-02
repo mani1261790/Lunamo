@@ -329,7 +329,9 @@ struct JSONRPCConnectionTests {
 
     for expectedStartCount in 2...4 {
       await transport.terminate()
-      try await waitUntil { await transport.recordedStartCount() == expectedStartCount }
+      try await waitUntil(timeout: .seconds(5)) {
+        await transport.recordedStartCount() == expectedStartCount
+      }
     }
     await transport.emitStderr("fatal sidecar error\n")
     await transport.terminate()
