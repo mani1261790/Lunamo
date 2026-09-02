@@ -18,6 +18,8 @@ public final class NotebookStore: ObservableObject {
   @Published public private(set) var backendStatus: BackendStatus = .unavailable
   @Published public private(set) var openState: OpenState = .idle
   @Published public private(set) var synchronizationError: String?
+  @Published public private(set) var focusedCellID: UUID?
+  @Published public var inspectorPresented = true
 
   private let backend: any MarimoBackend
   private let documentService: DocumentService
@@ -72,6 +74,7 @@ public final class NotebookStore: ObservableObject {
       case .success(let parsed):
         try await closeSynchronizedDocument()
         document = NotebookDocumentState(sourceURL: url, owned: parsed.owned, dirty: false)
+        focusedCellID = nil
         try await synchronizeOpenDocument()
         openState = .loaded(url)
       case .invalidSyntax(let line, let column):
@@ -109,6 +112,16 @@ public final class NotebookStore: ObservableObject {
     } catch {
       synchronizationError = String(describing: error)
     }
+  }
+
+  public func focusEditor(_ cellID: UUID) {
+    guard document.cells.contains(where: { $0.runtimeID == cellID }) else { return }
+    document.selectedCellID = cellID
+    focusedCellID = cellID
+  }
+
+  public func leaveEditor() {
+    focusedCellID = nil
   }
 
   private func perform(_ intent: NotebookIntent) async throws {

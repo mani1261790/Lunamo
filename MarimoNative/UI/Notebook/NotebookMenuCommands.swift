@@ -1,0 +1,97 @@
+import AppKit
+import MarimoApplication
+import SwiftUI
+
+public struct NotebookMenuCommands: Commands {
+  @ObservedObject private var store: NotebookStore
+
+  public init(store: NotebookStore) {
+    self.store = store
+  }
+
+  public var body: some Commands {
+    SidebarCommands()
+
+    CommandMenu("Notebook") {
+      Button("Run Cell and Advance") {}
+        .keyboardShortcut(.return, modifiers: [.shift])
+        .disabled(true)
+      Button("Run Cell") {}
+        .keyboardShortcut(.return, modifiers: [.command])
+        .disabled(true)
+      Button("Run Cell and Insert Below") {}
+        .keyboardShortcut(.return, modifiers: [.option])
+        .disabled(true)
+      Button("Run All") {}
+        .keyboardShortcut(.return, modifiers: [.command, .shift])
+        .disabled(true)
+      Button("Interrupt") {}
+        .keyboardShortcut(".", modifiers: [.command])
+        .disabled(true)
+
+      Divider()
+
+      Button("Focus Selected Cell Editor") {
+        if let cellID = store.document.selectedCellID {
+          store.focusEditor(cellID)
+        }
+      }
+      .keyboardShortcut(.return, modifiers: [])
+      .disabled(store.document.selectedCellID == nil || store.focusedCellID != nil)
+      Button("Leave Cell Editor") {
+        store.leaveEditor()
+      }
+      .keyboardShortcut(.escape, modifiers: [])
+      .disabled(store.focusedCellID == nil)
+
+      Divider()
+
+      Button("Move Cell Up") {
+        moveSelectedCell(by: -1)
+      }
+      .keyboardShortcut(.upArrow, modifiers: [.command, .option])
+      .disabled(!canMoveSelectedCell(by: -1))
+      Button("Move Cell Down") {
+        moveSelectedCell(by: 1)
+      }
+      .keyboardShortcut(.downArrow, modifiers: [.command, .option])
+      .disabled(!canMoveSelectedCell(by: 1))
+      Button("Delete Selected Cell") {
+        guard let cellID = store.document.selectedCellID else { return }
+        Task { await store.send(.deleteCell(cellID)) }
+      }
+      .keyboardShortcut(.delete, modifiers: [.command, .shift])
+      .disabled(store.document.selectedCellID == nil || store.focusedCellID != nil)
+
+      Divider()
+
+      Button("Toggle Inspector") {
+        store.inspectorPresented.toggle()
+      }
+      .keyboardShortcut("i", modifiers: [.command, .option])
+    }
+
+    CommandGroup(after: .saveItem) {
+      Button("Save Notebook") {}
+        .keyboardShortcut("s", modifiers: [.command])
+        .disabled(true)
+      Button("Save Notebook As…") {}
+        .keyboardShortcut("s", modifiers: [.command, .shift])
+        .disabled(true)
+    }
+  }
+
+  private func canMoveSelectedCell(by offset: Int) -> Bool {
+    guard let selected = store.document.selectedCellID,
+      let index = store.document.cells.firstIndex(where: { $0.runtimeID == selected })
+    else { return false }
+    return store.document.cells.indices.contains(index + offset)
+  }
+
+  private func moveSelectedCell(by offset: Int) {
+    guard let selected = store.document.selectedCellID,
+      let index = store.document.cells.firstIndex(where: { $0.runtimeID == selected })
+    else { return }
+    Task { await store.send(.moveCell(selected, to: index + offset)) }
+  }
+}

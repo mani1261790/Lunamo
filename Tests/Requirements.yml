@@ -310,3 +310,83 @@ MN-SYNC-050:
   - NotebookSynchronizationTests/metadataSaveAndClose
 MN-SYNC-051:
   - NotebookSynchronizationTests/metadataSaveAndClose
+MN-UI-001:
+  - ArchitectureBoundaryTests/nativeNotebookLayout
+  - manual: One native window with the two-cell fixture verified on Issue 7
+MN-UI-002:
+  - manual: Standard macOS WindowGroup behavior is retained while duplicate New is disabled
+MN-UI-003:
+  - ArchitectureBoundaryTests/nativeNotebookLayout
+MN-UI-004:
+  - manual: No transient document or runtime type participates in restoration encoding
+MN-UI-010:
+  - ArchitectureBoundaryTests/nativeNotebookLayout
+MN-UI-011:
+  - ArchitectureBoundaryTests/nativeNotebookLayout
+MN-UI-012:
+  - ArchitectureBoundaryTests/nativeNotebookLayout
+MN-UI-013:
+  - ArchitectureBoundaryTests/nativeNotebookLayout
+MN-UI-014:
+  - ArchitectureBoundaryTests/nativeEditorArchitecture
+MN-UI-015:
+  - ArchitectureBoundaryTests/nativeNotebookLayout
+  - ArchitectureBoundaryTests/notebookShortcutsAreDiscoverable
+  - manual: Sidebar and inspector close and reopen in the native app on Issue 7
+MN-UI-030:
+  - ArchitectureBoundaryTests/nativeCellAppearance
+MN-UI-031:
+  - ArchitectureBoundaryTests/nativeCellAppearance
+MN-UI-032:
+  - ArchitectureBoundaryTests/nativeCellAppearance
+MN-UI-033:
+  - ArchitectureBoundaryTests/nativeCellAppearance
+MN-UI-034:
+  - ArchitectureBoundaryTests/nativeCellAppearance
+MN-UI-035:
+  - ArchitectureBoundaryTests/nativeCellAppearance
+  - manual: Only the selected cell exposed Run Cell in the two-cell native fixture
+MN-EDIT-001:
+  - ArchitectureBoundaryTests/nativeEditorArchitecture
+  - CodeEditorTests/textKitTwoServices
+MN-EDIT-002:
+  - ArchitectureBoundaryTests/nativeEditorArchitecture
+MN-EDIT-003:
+  - ArchitectureBoundaryTests/nativeEditorArchitecture
+MN-EDIT-004:
+  - CodeEditorTests/indentation
+MN-EDIT-005:
+  - CodeEditorTests/nativeEditingBehavior
+  - manual: Native editing and undo-redo verified in the running app on Issue 7
+MN-EDIT-006:
+  - CodeEditorTests/indentation
+  - CodeEditorTests/nativeEditingBehavior
+MN-EDIT-007:
+  - CodeEditorTests/indentation
+  - CodeEditorTests/nativeEditingBehavior
+MN-EDIT-008:
+  - CodeEditorTests/nativeEditingBehavior
+MN-EDIT-010:
+  - CodeEditorTests/sizing
+MN-EDIT-011:
+  - CodeEditorTests/sizing
+MN-EDIT-012:
+  - CodeEditorTests/sizing
+MN-EDIT-013:
+  - CodeEditorTests/sizing
+  - ArchitectureBoundaryTests/nativeCellAppearance
+MN-EDIT-020:
+  - CodeEditorTests/incrementalHighlighting
+MN-EDIT-021:
+  - manual: SHOULD deviation uses a pinned-in-app line incremental lexer to avoid a new C dependency at Gate B-2
+MN-EDIT-022:
+  - CodeEditorTests/incrementalHighlighting
+MN-EDIT-023:
+  - CodeEditorTests/incrementalHighlighting
+MN-EDIT-024:
+  - CodeEditorTests/nativeEditingBehavior
+MN-EDIT-030:
+  - ArchitectureBoundaryTests/notebookShortcutsAreDiscoverable
+MN-EDIT-031:
+  - ArchitectureBoundaryTests/notebookShortcutsAreDiscoverable
+  - manual: Command-mode deletion and editor-mode protection verified in the native app on Issue 7

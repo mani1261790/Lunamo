@@ -18,15 +18,22 @@ struct MarimoNativeApp: App {
       backend = PlaceholderMarimoBackend()
     }
     _store = StateObject(wrappedValue: NotebookStore(backend: backend))
-    startupURL = CommandLine.arguments.dropFirst().first.map {
+    startupURL = CommandLine.arguments.dropFirst().first(where: {
+      URL(fileURLWithPath: $0).pathExtension.lowercased() == "py"
+    }).map {
       URL(fileURLWithPath: $0).standardizedFileURL
     }
   }
 
   var body: some Scene {
-    WindowGroup {
+    Window("MarimoNative", id: "notebook") {
       NotebookRootView(store: store, startupURL: startupURL)
     }
-    .defaultSize(width: 1_200, height: 800)
+    .defaultSize(width: 1_320, height: 800)
+    .windowResizability(.contentSize)
+    .commands {
+      CommandGroup(replacing: .newItem) {}
+      NotebookMenuCommands(store: store)
+    }
   }
 }
