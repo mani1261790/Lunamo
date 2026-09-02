@@ -1,0 +1,11 @@
+.build/
+.swiftpm/
+DerivedData/
+*.xcresult
+.DS_Store
+__pycache__/
+*.py[cod]
+MarimoNative/Resources/Sidecar/bin/
+MarimoNative/Resources/Sidecar/include/
+MarimoNative/Resources/Sidecar/lib/
+MarimoNative/Resources/Sidecar/share/

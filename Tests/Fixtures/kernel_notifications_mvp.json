@@ -1,0 +1,21 @@
+[
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"kernel-ready","cell_ids":[],"codes":[],"names":[],"configs":[],"resumed":false}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"cell-op","cell_id":"cell-1","status":"running"}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"completed-run","run_id":null}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"interrupted"}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"kernel-startup-error","error":"failed"}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"variables","variables":[]}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"variable-values","variables":[]}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"remove-ui-elements","cell_id":"cell-1"}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"send-ui-element-message","ui_element":"slider","message":{}}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"model-lifecycle"}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"function-call-result","function_call_id":"call-1","return_value":null,"status":{"code":"ok"},"found":true}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"alert","title":"Alert","description":"Description"}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"banner","title":"Banner","description":"Description"}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"missing-package-alert","packages":["numpy"],"isolated":true}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"installing-package-alert","packages":{"numpy":"installing"}}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"startup-logs","content":"starting","status":"append"}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"focus-cell","cell_id":"cell-1"}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"active-line","cell_id":"cell-1","line":2}},
+  {"notebookUri":"file:///notebook.py","sessionId":"session-1","notification":{"op":"consumer-capabilities"}}
+]

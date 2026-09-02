@@ -1,0 +1,12 @@
+{
+  "marimoLSPCommit": "3998b939c4e3bb09853817344ba9a976eeac8a66",
+  "marimoLSPVersion": "0.1.0",
+  "marimoBaseVersion": "0.24.0",
+  "kernelMarimoVersion": "0.24.0",
+  "marimoSourceCommit": "8869b186a8c1c5bc9f5e123e7df7b6677ec06b8d",
+  "ownedDocumentVersion": "1",
+  "commandMethod": "marimo/command",
+  "notificationMethod": "marimo/kernelNotification",
+  "schemaHash": "e58dbe06acbe252a5e37fecf4b65c71a24543f87f5923bc547da608ca97f7005",
+  "generatedAt": "2026-09-02T20:15:00+09:00"
+}

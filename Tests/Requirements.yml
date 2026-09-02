@@ -1,0 +1,224 @@
+MN-ARCH-001:
+  - ArchitectureBoundaryTests/viewsOnlyUseApplicationFacingModules
+MN-ARCH-002:
+  - ArchitectureBoundaryTests/viewsOnlyUseApplicationFacingModules
+MN-ARCH-003:
+  - NotebookStoreTests/intentsMutateState
+MN-ARCH-004:
+  - NotebookStoreTests/intentsMutateState
+MN-ARCH-005:
+  - manual: Module and actor ownership review for Issue 1
+MN-ARCH-006:
+  - JSONValueTests/roundTrip
+MN-ARCH-007:
+  - ArchitectureBoundaryTests/viewsOnlyUseApplicationFacingModules
+MN-DIST-020:
+  - manual: arm64 local build recorded on Issue 1
+MN-DIST-021:
+  - manual: Package deployment target is macOS 26
+MN-DIST-022:
+  - manual: Swift 6 complete strict concurrency local build recorded on Issue 1
+MN-SWIFT-001:
+  - manual: Swift 6 complete strict concurrency build has zero warnings
+MN-SWIFT-002:
+  - NotebookStoreTests/intentsMutateState
+MN-SWIFT-003:
+  - ArchitectureBoundaryTests/viewsOnlyUseApplicationFacingModules
+MN-SWIFT-004:
+  - ArchitectureBoundaryTests/productionCodeAvoidsForbiddenTokens
+MN-SWIFT-005:
+  - JSONValueTests/roundTrip
+MN-SWIFT-006:
+  - manual: Protocol model CodingKeys review begins in Issue 2
+MN-SWIFT-007:
+  - manual: LSPProcess owns Process and pipes while JSONRPCConnection owns pending requests
+MN-SWIFT-008:
+  - JSONRPCConnectionTests/cancellationReleasesPending
+MN-SWIFT-009:
+  - ArchitectureBoundaryTests/viewsOnlyUseApplicationFacingModules
+MN-SWIFT-010:
+  - Tools/verify-source-policy.sh
+MN-REPO-001:
+  - manual: Repository responsibility layout review for Issue 1
+MN-TRACE-001:
+  - manual: Tests/Requirements.yml existence verified in the working tree
+MN-BASE-001:
+  - ProtocolContractTests/protocolLockMatchesPins
+MN-BASE-004:
+  - Tools/verify-protocol-lock.sh
+MN-BASE-005:
+  - ProtocolContractTests/commandFixturesRoundTrip
+MN-DOC-001:
+  - ProtocolContractTests/ownedDocumentPreservesOpaqueValues
+MN-DOC-002:
+  - ProtocolContractTests/invalidOwnedDocumentVersion
+MN-DOC-003:
+  - ProtocolContractTests/ownedDocumentPreservesOpaqueValues
+MN-DOC-004:
+  - ArchitectureBoundaryTests/swiftDoesNotGenerateMarimoSource
+MN-DOC-005:
+  - ProtocolContractTests/commandFixturesRoundTrip
+MN-CMD-001:
+  - ProtocolContractTests/commandFixturesRoundTrip
+MN-CMD-002:
+  - ProtocolContractTests/commandFixturesRoundTrip
+MN-CMD-003:
+  - ProtocolContractTests/commandFixturesRoundTrip
+MN-CMD-004:
+  - ProtocolContractTests/commandFixturesRoundTrip
+MN-CMD-005:
+  - ProtocolContractTests/commandFixturesRoundTrip
+MN-NOTIF-001:
+  - ProtocolContractTests/notificationFixturesDecode
+MN-NOTIF-002:
+  - ProtocolContractTests/notificationFixturesDecode
+MN-NOTIF-010:
+  - ProtocolContractTests/notificationFixturesDecode
+MN-NOTIF-011:
+  - ProtocolContractTests/unknownNotificationIsPreserved
+MN-NOTIF-012:
+  - UnknownNotificationTrackerTests/suppressesAfterOneHundred
+MN-REPO-002:
+  - Tools/verify-protocol-lock.sh
+  - Tools/build-sidecar.sh
+MN-REPO-003:
+  - ProtocolContractTests/protocolLockMatchesPins
+MN-TEST-002:
+  - ProtocolContractTests/invalidOwnedDocumentVersion
+  - ProtocolContractTests/ownedDocumentPreservesOpaqueValues
+MN-TEST-010:
+  - ProtocolContractTests/notificationFixturesDecode
+MN-TEST-011:
+  - ProtocolContractTests/commandFixturesRoundTrip
+  - Tools/validate-command-fixtures.py
+MN-TEST-012:
+  - Tools/verify-protocol-lock.sh
+MN-TEST-013:
+  - .github/PULL_REQUEST_TEMPLATE.md
+MN-BASE-002:
+  - Tools/verify-sidecar.sh
+  - manual: Runtime launcher uses the bundled absolute executable and never searches PATH
+MN-BASE-003:
+  - Tools/build-sidecar.sh
+MN-DIST-010:
+  - Tools/verify-sidecar.sh
+MN-DIST-011:
+  - Tools/verify-sidecar.sh
+MN-DIST-012:
+  - Tools/smoke-sidecar.py
+MN-DIST-013:
+  - Tools/smoke-sidecar.py
+  - Tools/verify-sidecar.sh
+MN-DIST-014:
+  - Tools/smoke-sidecar.py
+MN-DIST-015:
+  - Tools/smoke-sidecar.py --deny-network
+MN-DIST-016:
+  - Tools/generate-third-party-notices.py
+  - Tools/verify-sidecar.sh
+MN-CI-004:
+  - manual: Release runtime policy permits only the bundled sidecar executable
+MN-CI-005:
+  - Tools/verify-protocol-lock.sh
+  - Tools/verify-sidecar.sh
+MN-LSP-001:
+  - BundledSidecarIntegrationTests/initializeAndShutdown
+MN-LSP-002:
+  - JSONRPCFramingTests/oneByteAtATime
+MN-LSP-003:
+  - JSONRPCFramingTests/invalidUTF8
+MN-LSP-004:
+  - JSONRPCFramingTests/headerSplitAtEveryByte
+  - JSONRPCFramingTests/payloadSplitAtEveryByte
+MN-LSP-005:
+  - JSONRPCFramingTests/multipleMessages
+MN-LSP-006:
+  - JSONRPCFramingTests/invalidLength
+MN-LSP-007:
+  - JSONRPCFramingTests/protocolTextOutsideFrame
+  - JSONRPCConnectionTests/invalidStdoutClosesConnection
+MN-LSP-010:
+  - JSONRPCConnectionTests/monotonicRequests
+MN-LSP-011:
+  - JSONRPCConnectionTests/monotonicRequests
+  - JSONRPCConnectionTests/timeoutReleasesPending
+  - JSONRPCConnectionTests/closeReleasesPending
+MN-LSP-012:
+  - JSONRPCConnectionTests/unknownResponse
+MN-LSP-013:
+  - JSONRPCConnectionTests/normativeTimeouts
+MN-LSP-014:
+  - JSONRPCConnectionTests/normativeTimeouts
+MN-LSP-015:
+  - JSONRPCConnectionTests/serverRequests
+MN-LSP-016:
+  - JSONRPCConnectionTests/serverRequests
+MN-LSP-017:
+  - JSONRPCConnectionTests/serverRequests
+MN-LSP-020:
+  - JSONRPCConnectionTests/initializeHandshake
+  - BundledSidecarIntegrationTests/initializeAndShutdown
+MN-LSP-021:
+  - JSONRPCConnectionTests/initializeHandshake
+MN-LSP-022:
+  - JSONRPCConnectionTests/initializeHandshake
+MN-LSP-023:
+  - JSONRPCConnectionTests/requestBeforeInitialize
+MN-LSP-030:
+  - JSONRPCConnectionTests/boundedStderr
+MN-TEST-001:
+  - JSONRPCFramingTests/oneByteAtATime
+  - JSONRPCFramingTests/headerSplitAtEveryByte
+  - JSONRPCFramingTests/payloadSplitAtEveryByte
+  - JSONRPCFramingTests/multipleMessages
+  - JSONRPCFramingTests/invalidLength
+  - JSONRPCFramingTests/invalidUTF8
+MN-PROD-001:
+  - BundledSidecarIntegrationTests/parseOutcomes
+  - NotebookOpenTests/successfulParse
+MN-PROD-002:
+  - ArchitectureBoundaryTests/notebookCanvasIsNative
+  - manual: Live native hierarchy review with two_cell_notebook.py on Issue 5
+MN-PROD-003:
+  - ArchitectureBoundaryTests/notebookCanvasIsNative
+MN-PROD-004:
+  - BundledSidecarIntegrationTests/parseOutcomes
+MN-PROD-005:
+  - manual: Swift delegates source parsing to marimo-lsp through MarimoLSPAdapter
+MN-PROD-006:
+  - manual: File registration and fixtures use native .py source
+MN-PROD-007:
+  - ArchitectureBoundaryTests/notebookCanvasIsNative
+MN-PROD-008:
+  - manual: Open path sends parse-notebook only and starts no kernel
+MN-FILE-010:
+  - DocumentServiceTests/rejectsInvalidUTF8
+MN-FILE-011:
+  - DocumentServiceTests/removesBOM
+MN-FILE-012:
+  - DocumentServiceTests/rejectsOversizedSource
+MN-FILE-013:
+  - BundledSidecarIntegrationTests/parseOutcomes
+MN-FILE-014:
+  - BundledSidecarIntegrationTests/parseOutcomes
+  - NotebookOpenTests/invalidSyntax
+  - NotebookOpenTests/convertible
+MN-FILE-015:
+  - NotebookOpenTests/convertible
+MN-FILE-016:
+  - manual: Optional convertible copy action is not exposed in Gate A
+MN-FILE-017:
+  - JSONRPCConnectionTests/normativeTimeouts
+MN-ARCH-010:
+  - manual: App-level NotebookStore owns one MarimoLSPAdapter
+MN-ARCH-011:
+  - manual: Parse-only Gate A live process inspection found no kernel child
+MN-ARCH-012:
+  - ArchitectureBoundaryTests/notebookCanvasIsNative
+  - manual: Live process inspection found no HTTP browser or Node process
+MN-ARCH-013:
+  - ArchitectureBoundaryTests/notebookCanvasIsNative
+MN-GATE-001:
+  - .github/workflows/ci.yml
+MN-GATE-002:
+  - Tests/Requirements.yml

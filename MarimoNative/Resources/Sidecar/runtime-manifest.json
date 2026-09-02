@@ -1,0 +1,22 @@
+{
+  "python": {
+    "version": "3.13.15",
+    "distribution": "python-build-standalone 20260901",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260901/cpython-3.13.15%2B20260901-aarch64-apple-darwin-install_only.tar.gz",
+    "sha256": "b9054a9d3d54f4cb5573d44907fddb29874b08909bde73f29f2868cf872223ee",
+    "licenseURL": "https://raw.githubusercontent.com/python/cpython/v3.13.15/LICENSE",
+    "licenseSHA256": "78b12c3a81360b357002334f0e70ea0e92eebf7a9b358805c03c48484945f3bb"
+  },
+  "marimoLSP": {
+    "version": "0.1.0",
+    "commit": "3998b939c4e3bb09853817344ba9a976eeac8a66",
+    "url": "https://codeload.github.com/marimo-team/marimo-lsp/tar.gz/3998b939c4e3bb09853817344ba9a976eeac8a66",
+    "sha256": "9d9a80fe6357f7dec8e8540620509ea90d30e8cc6b27f34760d475b76e96287a",
+    "uvLockSHA256": "fd8a87bfc35e2b832d26a56605395cf7da44c24cdcb7245b228a48f28f745c6f"
+  },
+  "builder": {
+    "uvVersion": "0.12.9",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.12.9/uv-aarch64-apple-darwin.tar.gz",
+    "sha256": "301f72afaf54060f92da7016cb0115bd077f43a9c8e39c1d8170a0bac80fd398"
+  }
+}
