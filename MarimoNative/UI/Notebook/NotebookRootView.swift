@@ -26,7 +26,9 @@ public struct NotebookRootView: View {
             CellView(
               cell: cell,
               selected: store.document.selectedCellID == cell.runtimeID,
-              send: store.send
+              send: { intent in
+                Task { await store.send(intent) }
+              }
             )
           }
         }
@@ -38,7 +40,7 @@ public struct NotebookRootView: View {
       .toolbar {
         ToolbarItemGroup {
           Button("Add Cell", systemImage: "plus") {
-            store.send(.addCell)
+            Task { await store.send(.addCell) }
           }
           Text(store.backendStatus == .ready ? "Backend Ready" : "Backend Offline")
             .foregroundStyle(.secondary)

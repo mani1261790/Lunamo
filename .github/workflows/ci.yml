@@ -17,5 +17,5 @@ jobs:
       - uses: actions/checkout@v5
       - name: Build pinned sidecar
         run: ./Tools/build-sidecar.sh
-      - name: Gate A
-        run: ./Tools/verify-gate-a.sh
+      - name: Implemented gates
+        run: ./Tools/verify-current-gates.sh

@@ -16,6 +16,9 @@ DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer xcrun swift-format
 ./Tools/smoke-sidecar.py .build/Sidecar --deny-network
 ./Tools/build-debug-app.sh
 ./Tools/verify-gate-a.sh
+./Tools/verify-current-gates.sh
 ```
+
+`verify-gate-a.sh` preserves the frozen Gate A check. `verify-current-gates.sh` verifies every implemented gate manifest and is the command used by CI.
 
 The current Swift Package executable is the build and test foundation. Gate F adds the signed application bundle and distribution pipeline.

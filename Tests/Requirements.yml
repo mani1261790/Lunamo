@@ -222,3 +222,91 @@ MN-GATE-001:
   - .github/workflows/ci.yml
 MN-GATE-002:
   - Tests/Requirements.yml
+MN-DOC-010:
+  - NotebookSynchronizationTests/persistentAndTransientState
+MN-DOC-011:
+  - NotebookSynchronizationTests/persistentAndTransientState
+MN-DOC-012:
+  - NotebookSynchronizationTests/persistentAndTransientState
+MN-DOC-013:
+  - NotebookSynchronizationTests/persistentAndTransientState
+MN-DOC-014:
+  - NotebookSynchronizationTests/untitledStructureKeepsSession
+MN-DOC-015:
+  - NotebookSynchronizationTests/untitledStructureKeepsSession
+MN-DOC-016:
+  - NotebookSynchronizationTests/persistentAndTransientState
+MN-DOC-017:
+  - NotebookSynchronizationTests/persistentAndTransientState
+MN-DOC-018:
+  - NotebookSynchronizationTests/persistentAndTransientState
+MN-DOC-020:
+  - NotebookSynchronizationTests/metadataSaveAndClose
+  - NotebookSynchronizationTests/utf16IncrementalTextChange
+  - NotebookSynchronizationTests/untitledStructureKeepsSession
+MN-DOC-021:
+  - NotebookSynchronizationTests/persistentAndTransientState
+MN-DOC-022:
+  - NotebookSynchronizationTests/metadataSaveAndClose
+MN-SYNC-001:
+  - NotebookSynchronizationTests/projectionEnvelope
+MN-SYNC-002:
+  - NotebookSynchronizationTests/projectionEnvelope
+MN-SYNC-003:
+  - JSONRPCConnectionTests/notebookSyncWireShape
+MN-SYNC-004:
+  - NotebookSynchronizationTests/utf16IncrementalTextChange
+  - NotebookSynchronizationTests/untitledStructureKeepsSession
+MN-SYNC-005:
+  - JSONRPCConnectionTests/notebookSyncWireShape
+MN-SYNC-006:
+  - NotebookSynchronizationTests/projectionEnvelope
+MN-SYNC-007:
+  - NotebookSynchronizationTests/untitledStructureKeepsSession
+MN-SYNC-010:
+  - NotebookSynchronizationTests/projectionEnvelope
+MN-SYNC-011:
+  - NotebookSynchronizationTests/projectionEnvelope
+MN-SYNC-012:
+  - NotebookSynchronizationTests/projectionEnvelope
+  - JSONRPCConnectionTests/notebookSyncWireShape
+MN-SYNC-013:
+  - NotebookSynchronizationTests/projectionEnvelope
+MN-SYNC-020:
+  - BundledSidecarIntegrationTests/notebookSynchronization
+MN-SYNC-021:
+  - JSONRPCConnectionTests/notebookSyncWireShape
+MN-SYNC-022:
+  - JSONRPCConnectionTests/notebookSyncWireShape
+MN-SYNC-030:
+  - NotebookSynchronizationTests/utf16IncrementalTextChange
+MN-SYNC-031:
+  - NotebookSynchronizationTests/utf16IncrementalTextChange
+MN-SYNC-032:
+  - NotebookSynchronizationTests/utf16IncrementalTextChange
+MN-SYNC-033:
+  - NotebookSynchronizationTests/utf16IncrementalTextChange
+MN-SYNC-034:
+  - NotebookSynchronizationTests/imeComposition
+MN-SYNC-035:
+  - NotebookSynchronizationTests/imeComposition
+MN-SYNC-036:
+  - JSONRPCConnectionTests/writesAreSerialized
+  - NotebookSynchronizationTests/imeComposition
+MN-SYNC-040:
+  - NotebookSynchronizationTests/untitledStructureKeepsSession
+MN-SYNC-041:
+  - NotebookSynchronizationTests/untitledStructureKeepsSession
+MN-SYNC-042:
+  - NotebookSynchronizationTests/untitledStructureKeepsSession
+MN-SYNC-043:
+  - NotebookSynchronizationTests/metadataSaveAndClose
+MN-SYNC-044:
+  - JSONRPCConnectionTests/writesAreSerialized
+  - NotebookSynchronizationTests/imeComposition
+MN-SYNC-045:
+  - NotebookSynchronizationTests/untitledStructureKeepsSession
+MN-SYNC-050:
+  - NotebookSynchronizationTests/metadataSaveAndClose
+MN-SYNC-051:
+  - NotebookSynchronizationTests/metadataSaveAndClose

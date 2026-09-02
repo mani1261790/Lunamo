@@ -11,6 +11,7 @@ private actor MockProcessTransport: ProcessTransport {
   private var running = false
   private var framer = JSONRPCFramer()
   var methodsWithoutAutomaticResponse: Set<String> = []
+  private var writeDelays: [String: Duration] = [:]
 
   func start(_: ProcessLaunchRequest) -> AsyncStream<ProcessEvent> {
     running = true
@@ -19,9 +20,17 @@ private actor MockProcessTransport: ProcessTransport {
     return stream
   }
 
-  func write(_ data: Data) throws {
+  func write(_ data: Data) async throws {
     for payload in try framer.append(data) {
       let message = try JSONDecoder().decode(JSONRPCMessage.self, from: payload)
+      let method: String?
+      switch message {
+      case .request(_, let value, _), .notification(let value, _): method = value
+      default: method = nil
+      }
+      if let method, let delay = writeDelays[method] {
+        try await Task.sleep(for: delay)
+      }
       messages.append(message)
       if case .notification("exit", _) = message {
         terminate()
@@ -55,6 +64,10 @@ private actor MockProcessTransport: ProcessTransport {
 
   func disableAutomaticResponse(for method: String) {
     methodsWithoutAutomaticResponse.insert(method)
+  }
+
+  func delayWrite(for method: String, by duration: Duration) {
+    writeDelays[method] = duration
   }
 
   func emit(_ message: JSONRPCMessage) throws {
@@ -113,6 +126,97 @@ struct JSONRPCConnectionTests {
     #expect(ids == [1, 2, 3])
     #expect(await connection.pendingRequestCount() == 0)
     await connection.shutdown()
+  }
+
+  @Test("Concurrent callers cannot reorder writes on the shared connection")
+  func writesAreSerialized() async throws {
+    let transport = MockProcessTransport()
+    let connection = JSONRPCConnection(transport: transport)
+    _ = try await connection.startAndInitialize(request: launchRequest())
+    await transport.delayWrite(for: "first-notification", by: .milliseconds(50))
+
+    async let first: Void = connection.notify(method: "first-notification")
+    try await Task.sleep(for: .milliseconds(5))
+    async let second: Void = connection.notify(method: "second-notification")
+    _ = try await (first, second)
+
+    let methods = await transport.snapshot().compactMap { message -> String? in
+      guard case .notification(let method, _) = message else { return nil }
+      return method
+    }
+    #expect(methods.suffix(2) == ["first-notification", "second-notification"])
+    await connection.shutdown()
+  }
+
+  @Test("Adapter emits the pinned notebook synchronization wire shape")
+  func notebookSyncWireShape() async throws {
+    let transport = MockProcessTransport()
+    let connection = JSONRPCConnection(transport: transport)
+    let sidecar = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .appending(path: ".build/Sidecar")
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar, connection: connection)
+    try await adapter.start()
+    let cell = NotebookSyncCell(
+      runtimeID: UUID(),
+      uri: "marimo-native-notebook-cell://document/cell",
+      version: 1,
+      text: "a😀b",
+      metadata: ["marimo": .object(["name": .string("_")])]
+    )
+    let snapshot = NotebookSyncSnapshot(
+      uri: "untitled:MarimoNative-document",
+      version: 1,
+      metadata: ["marimo": .object(["header": .null])],
+      cells: [cell]
+    )
+    try await adapter.didOpenNotebook(snapshot)
+    try await adapter.didOpenNotebook(snapshot)
+    try await adapter.didChangeNotebook(
+      uri: snapshot.uri,
+      version: 2,
+      change: .text(
+        NotebookTextChange(
+          cellURI: cell.uri,
+          version: 2,
+          range: LSPRange(
+            start: LSPPosition(line: 0, character: 3),
+            end: LSPPosition(line: 0, character: 3)
+          ),
+          text: "X"
+        )
+      )
+    )
+
+    let notifications = await transport.snapshot().compactMap {
+      message -> (String, JSONValue?)? in
+      guard case .notification(let method, let params) = message else { return nil }
+      return (method, params)
+    }
+    #expect(
+      notifications.map(\.0).suffix(4)
+        == [
+          "notebookDocument/didOpen", "notebookDocument/didClose",
+          "notebookDocument/didOpen", "notebookDocument/didChange",
+        ]
+    )
+    let opened = notifications[1].1?.object
+    let notebook = opened?["notebookDocument"]?.object
+    #expect(notebook?["notebookType"] == .string("marimo-notebook"))
+    #expect(notebook?["version"] == .integer(1))
+    #expect(notebook?["cells"]?.array?.first?.object?["kind"] == .integer(2))
+    let textDocument = opened?["cellTextDocuments"]?.array?.first?.object
+    #expect(textDocument?["languageId"] == .string("python"))
+    #expect(textDocument?["text"] == .string("a😀b"))
+
+    let changed = notifications.last?.1?.object?["change"]?.object
+    let content = changed?["cells"]?.object?["textContent"]?.array?.first?.object
+    #expect(content?["document"]?.object?["version"] == .integer(2))
+    let range = content?["changes"]?.array?.first?.object?["range"]?.object
+    #expect(range?["start"]?.object?["character"] == .integer(3))
+    await adapter.shutdown()
   }
 
   @Test("Timeout releases a pending request")
@@ -264,6 +368,11 @@ struct JSONRPCConnectionTests {
 extension JSONValue {
   fileprivate var object: [String: JSONValue]? {
     guard case .object(let value) = self else { return nil }
+    return value
+  }
+
+  fileprivate var array: [JSONValue]? {
+    guard case .array(let value) = self else { return nil }
     return value
   }
 }

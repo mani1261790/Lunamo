@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify Gate A requirement coverage and referenced local evidence."""
+"""Verify implemented gate requirement coverage and referenced local evidence."""
 
 from __future__ import annotations
 
@@ -34,14 +34,20 @@ def main() -> None:
     root = Path(__file__).resolve().parent.parent
     requirements_path = root / "Tests/Requirements.yml"
     mappings = yaml.load(requirements_path.read_text(), Loader=UniqueKeyLoader)
+    gate_files = (
+        [root / path for path in sys.argv[1:]]
+        if len(sys.argv) > 1
+        else sorted((root / "Tests").glob("Gate*Requirements.txt"))
+    )
     required = {
         line.strip()
-        for line in (root / "Tests/GateARequirements.txt").read_text().splitlines()
+        for gate_file in gate_files
+        for line in gate_file.read_text().splitlines()
         if line.strip()
     }
     missing = sorted(requirement for requirement in required if not mappings.get(requirement))
     if missing:
-        raise SystemExit(f"Missing Gate A mappings: {', '.join(missing)}")
+        raise SystemExit(f"Missing implemented-gate mappings: {', '.join(missing)}")
 
     swift_tests = "\n".join(path.read_text() for path in (root / "Tests").rglob("*.swift"))
     broken: list[str] = []
@@ -67,7 +73,10 @@ def main() -> None:
             broken.append(f"{requirement}: unrecognized evidence {evidence}")
     if broken:
         raise SystemExit("Broken requirement evidence:\n" + "\n".join(broken))
-    print(f"Gate A requirement evidence verified: {len(required)} requirements")
+    print(
+        f"Implemented gate requirement evidence verified: {len(required)} requirements "
+        f"across {len(gate_files)} manifests"
+    )
 
 
 if __name__ == "__main__":

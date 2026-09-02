@@ -59,6 +59,8 @@ public actor JSONRPCConnection {
   private var nextRequestID: UInt64 = 1
   private var pending: [UInt64: PendingRequest] = [:]
   private var eventTask: Task<Void, Never>?
+  private var writeTail: Task<Void, Error>?
+  private var writeSequence: UInt64 = 0
   private var initializeRecord: JSONRPCInitializeRecord?
   private var unknownResponseIDs: [JSONRPCID] = []
   private let notificationStream: AsyncStream<JSONRPCMessage>
@@ -220,7 +222,23 @@ public actor JSONRPCConnection {
 
   private func send(_ message: JSONRPCMessage) async throws {
     let payload = try JSONEncoder().encode(message)
-    try await transport.write(JSONRPCFramer.frame(payload))
+    let framed = try JSONRPCFramer.frame(payload)
+    let previous = writeTail
+    let transport = self.transport
+    writeSequence += 1
+    let sequence = writeSequence
+    let write = Task {
+      if let previous { try await previous.value }
+      try await transport.write(framed)
+    }
+    writeTail = write
+    do {
+      try await write.value
+      if writeSequence == sequence { writeTail = nil }
+    } catch {
+      if writeSequence == sequence { writeTail = nil }
+      throw error
+    }
   }
 
   private func sendPending(id: UInt64, method: String, params: JSONValue?) async {

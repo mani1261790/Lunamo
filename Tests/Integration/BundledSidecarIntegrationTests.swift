@@ -1,5 +1,6 @@
 import Foundation
 import MarimoBackend
+import MarimoDomain
 import MarimoProcess
 import Testing
 
@@ -61,6 +62,104 @@ struct BundledSidecarIntegrationTests {
     )
     #expect(try await adapter.parseNotebook(source: "print('hello')\n") == .convertible)
     await adapter.shutdown()
+  }
+
+  @Test("Real sidecar accepts notebook open, text, structure, save, and close synchronization")
+  func notebookSynchronization() async throws {
+    let sidecar = repositoryRoot().appending(path: ".build/Sidecar")
+    guard FileManager.default.fileExists(atPath: sidecar.path) else {
+      Issue.record("Build .build/Sidecar before running integration tests")
+      return
+    }
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar)
+    try await adapter.start()
+    let documentID = UUID()
+    let firstID = UUID()
+    let first = syncCell(documentID: documentID, runtimeID: firstID, text: "value = 1")
+    let uri = "untitled:MarimoNative-\(documentID.uuidString)"
+    let snapshot = NotebookSyncSnapshot(
+      uri: uri,
+      version: 1,
+      metadata: notebookMetadata,
+      cells: [first]
+    )
+    try await adapter.didOpenNotebook(snapshot)
+    try await adapter.didOpenNotebook(snapshot)
+    try await adapter.didChangeNotebook(
+      uri: uri,
+      version: 2,
+      change: .text(
+        NotebookTextChange(
+          cellURI: first.uri,
+          version: 2,
+          range: LSPRange(
+            start: LSPPosition(line: 0, character: 9),
+            end: LSPPosition(line: 0, character: 9)
+          ),
+          text: "0"
+        )
+      )
+    )
+    let second = syncCell(documentID: documentID, runtimeID: UUID(), text: "value")
+    try await adapter.didChangeNotebook(
+      uri: uri,
+      version: 3,
+      change: .structure(
+        NotebookStructureChange(
+          start: 1,
+          deleteCount: 0,
+          cells: [second],
+          didOpen: [second]
+        )
+      )
+    )
+    try await adapter.didChangeNotebook(
+      uri: uri,
+      version: 4,
+      change: .cellData([second])
+    )
+    try await adapter.didSaveNotebook(uri: uri)
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(await adapter.status() == .ready)
+    try await adapter.didCloseNotebook(uri: uri, cellURIs: [first.uri, second.uri])
+    await adapter.shutdown()
+  }
+
+  private var notebookMetadata: [String: JSONValue] {
+    [
+      "marimo": .object([
+        "appOptions": .object([
+          "managed": .object(["autoDownload": .array([])]),
+          "passthrough": .object([:]),
+        ]),
+        "header": .null,
+        "notebookMetadata": .object([:]),
+      ])
+    ]
+  }
+
+  private func syncCell(documentID: UUID, runtimeID: UUID, text: String) -> NotebookSyncCell {
+    NotebookSyncCell(
+      runtimeID: runtimeID,
+      uri: "marimo-native-notebook-cell://\(documentID.uuidString)/\(runtimeID.uuidString)",
+      version: 1,
+      text: text,
+      metadata: [
+        "marimo": .object([
+          "name": .string("_"),
+          "options": .object([
+            "column": .null,
+            "disabled": .bool(false),
+            "hide_code": .bool(false),
+          ]),
+          "sourceProjections": .object(["markdown": .null, "sql": .null]),
+        ]),
+        "marimoRuntime": .object([
+          "stableId": .string(runtimeID.uuidString),
+          "state": .null,
+        ]),
+      ]
+    )
   }
 
   private func repositoryRoot() -> URL {
