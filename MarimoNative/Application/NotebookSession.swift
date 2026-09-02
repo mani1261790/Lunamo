@@ -22,7 +22,7 @@ extension NotebookStore {
 
   public func startBackend() async {
     do {
-      startBackendEventRouting()
+      await startBackendEventRouting()
       try await backend.start()
       backendStatus = await backend.status()
       backendRecoveryStopped = false
@@ -171,14 +171,17 @@ extension NotebookStore {
     }
   }
 
-  func startBackendEventRouting() {
+  func startBackendEventRouting() async {
     guard backendEventTask == nil else { return }
     let backend = self.backend
-    backendEventTask = Task { @MainActor [weak self] in
-      let events = await backend.backendEvents()
-      for await event in events {
-        guard !Task.isCancelled, let self else { return }
-        self.applyBackendEvent(event)
+    let events = await backend.backendEvents()
+    await withCheckedContinuation { started in
+      backendEventTask = Task { @MainActor [weak self] in
+        started.resume()
+        for await event in events {
+          guard !Task.isCancelled, let self else { return }
+          await self.applyBackendEvent(event)
+        }
       }
     }
   }
@@ -195,7 +198,11 @@ extension NotebookStore {
       runAwaitingCompletion = false
       sessionState = match.status == "running" ? .running : .idle
       for replay in try await backend.readNotebookOutputs(notebookURI: document.notebookURI) {
-        applyCellOperation(replay.payload, executedSource: replay.executedSource)
+        applyCellOperation(
+          replay.payload,
+          executedSource: replay.executedSource,
+          replacingConsole: true
+        )
       }
     } catch {
       NotebookSessionLog.logger.debug("No compatible live session was reattached")
@@ -252,6 +259,15 @@ extension NotebookStore {
           self.acceptSession(match.sessionID)
           self.sessionState =
             self.runAwaitingCompletion || match.status == "running" ? .running : .idle
+          for replay in try await self.backend.readNotebookOutputs(
+            notebookURI: self.document.notebookURI
+          ) {
+            self.applyCellOperation(
+              replay.payload,
+              executedSource: replay.executedSource,
+              replacingConsole: true
+            )
+          }
         } else {
           self.sessionState = .failed("The kernel session could not be identified.")
         }
@@ -262,7 +278,7 @@ extension NotebookStore {
     }
   }
 
-  func applyBackendEvent(_ event: MarimoBackendEvent) {
+  func applyBackendEvent(_ event: MarimoBackendEvent) async {
     switch event {
     case .sessionsChanged(let sessions):
       guard document.kernelSessionID == nil,
@@ -296,6 +312,7 @@ extension NotebookStore {
         forceRestartAvailable = false
         runAwaitingCompletion = false
         sessionState = .idle
+        if event.operation == "completed-run" { await refreshRuntimeOutputs() }
       case "kernel-startup-error":
         let message = event.payload.string(for: "error") ?? "Kernel startup failed."
         runAwaitingCompletion = false
@@ -326,7 +343,8 @@ extension NotebookStore {
 
   private func applyCellOperation(
     _ payload: [String: JSONValue],
-    executedSource: String?
+    executedSource: String?,
+    replacingConsole: Bool = false
   ) {
     guard let cellID = payload.string(for: "cell_id"),
       let index = document.cells.firstIndex(where: { $0.runtimeID.uuidString == cellID })
@@ -336,21 +354,27 @@ extension NotebookStore {
     }
     var runtime = document.cells[index].runtime
     if payload.keys.contains("output") {
-      runtime.output = payload["output"] == .null ? nil : payload["output"]
+      if let value = payload["output"], value != .null {
+        runtime.output = decodeOutput(value, defaultChannel: .output)
+        runtime.stale = false
+      } else {
+        runtime.output = nil
+      }
     }
     if let console = payload["console"] {
       if let prompt = stdinPrompt(from: console) { runtime.stdinPrompt = prompt }
       switch console {
       case .array(let values):
-        if values.isEmpty {
+        if values.isEmpty || replacingConsole {
           runtime.console.removeAll()
-        } else {
-          runtime.console.append(contentsOf: values)
+        }
+        if !values.isEmpty {
+          appendConsole(values, to: &runtime)
         }
       case .null:
         break
       default:
-        runtime.console.append(console)
+        appendConsole([console], to: &runtime)
       }
     }
     if let status = payload.string(for: "status"), let accepted = ExecutionStatus(rawValue: status),
@@ -362,6 +386,50 @@ extension NotebookStore {
     if let stale = payload.bool(for: "stale_inputs") { runtime.stale = stale }
     if let executedSource { runtime.lastExecutedCode = executedSource }
     document.cells[index].runtime = runtime
+  }
+
+  private func refreshRuntimeOutputs() async {
+    do {
+      for replay in try await backend.readNotebookOutputs(notebookURI: document.notebookURI) {
+        applyCellOperation(
+          replay.payload,
+          executedSource: replay.executedSource,
+          replacingConsole: true
+        )
+      }
+    } catch {
+      NotebookSessionLog.logger.debug("Could not refresh completed-run outputs")
+    }
+  }
+
+  private func appendConsole(_ values: [JSONValue], to runtime: inout CellRuntimeState) {
+    let decoded = values.map { decodeOutput($0, defaultChannel: .stdout) }
+    var buffer = ConsoleOutputBuffer(outputs: runtime.console)
+    buffer.append(contentsOf: decoded)
+    runtime.console = buffer.outputs
+  }
+
+  private func decodeOutput(
+    _ value: JSONValue,
+    defaultChannel: OutputChannel
+  ) -> MarimoOutput {
+    if case .string = value {
+      return MarimoOutput(channel: defaultChannel, mimeType: "text/plain", data: value)
+    }
+    do {
+      return try MarimoOutput.decodeWireValue(value)
+    } catch MarimoOutputDecodingError.payloadTooLarge(let limit) {
+      return MarimoOutput(
+        channel: defaultChannel,
+        mimeType: "application/vnd.marimonative+renderer-error",
+        data: .object([
+          "message": .string("Output payload exceeds the \(limit)-byte limit."),
+          "size": .integer(Int64(value.estimatedUTF8ByteCount(upTo: Int.max))),
+        ])
+      )
+    } catch {
+      return MarimoOutput.displayFailure(error, rawValue: value, channel: defaultChannel)
+    }
   }
 
   private func stdinPrompt(from value: JSONValue) -> StdinPromptState? {

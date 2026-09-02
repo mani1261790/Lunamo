@@ -188,7 +188,7 @@ struct NotebookSaveTests {
       try Data("old source\n".utf8).write(to: oldURL)
       let identity = try await AtomicFileWriter().identity(at: oldURL)
       var cell = NotebookCellState(code: "value = 2")
-      cell.runtime = CellRuntimeState(output: .string("kept"))
+      cell.runtime = CellRuntimeState(output: textOutput("kept"))
       let document = NotebookDocumentState(
         sourceURL: oldURL,
         cells: [cell],
@@ -206,7 +206,7 @@ struct NotebookSaveTests {
       #expect(try String(contentsOf: newURL, encoding: .utf8) == "new source\n")
       #expect(store.document.sourceURL == newURL)
       #expect(store.document.kernelSessionID == "session-1")
-      #expect(store.document.cells[0].runtime.output == .string("kept"))
+      #expect(store.document.cells[0].runtime.output == textOutput("kept"))
       let oldURI = document.notebookURI
       let newURI = store.document.notebookURI
       #expect(
@@ -251,7 +251,7 @@ struct NotebookSaveTests {
       try Data("old source\n".utf8).write(to: oldURL)
       let identity = try await AtomicFileWriter().identity(at: oldURL)
       var cell = NotebookCellState(code: "value = 2")
-      cell.runtime = CellRuntimeState(output: .string("must clear"), widgetIDs: [UUID()])
+      cell.runtime = CellRuntimeState(output: textOutput("must clear"), widgetIDs: [UUID()])
       let document = NotebookDocumentState(
         sourceURL: oldURL,
         cells: [cell],

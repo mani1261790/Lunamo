@@ -649,3 +649,45 @@ MN-ERR-011:
   - NotebookSessionTests/restartClearsKernelState
 MN-TEST-024:
   - BundledSidecarIntegrationTests/interruptAndProcessCleanup
+MN-OUT-001:
+  - OutputTests/typedWireDecode
+  - NotebookSessionTests/partialCellOperation
+  - BundledSidecarIntegrationTests/storeSessionLifecycle
+  - BundledSidecarIntegrationTests/realNativeOutputWireDecode
+MN-OUT-002:
+  - OutputTests/typedWireDecode
+MN-OUT-003:
+  - OutputTests/nativePreparation
+  - manual: OutputPreparationService uses a detached background task before publishing visible values
+MN-OUT-004:
+  - NotebookSynchronizationTests/persistentAndTransientState
+MN-OUT-010:
+  - OutputTests/rendererRegistry
+  - BundledSidecarIntegrationTests/realNativeOutputWireDecode
+MN-OUT-011:
+  - OutputTests/rendererRecovery
+  - BundledSidecarIntegrationTests/realNativeOutputWireDecode
+  - manual: UnsupportedOutput controls verified in the native app for Issue 12
+MN-OUT-012:
+  - OutputTests/rendererRecovery
+MN-OUT-013:
+  - OutputTests/boundedConsole
+MN-OUT-014:
+  - OutputTests/boundedConsole
+MN-OUT-015:
+  - OutputTests/payloadLimit
+MN-OUT-030:
+  - ArchitectureBoundaryTests/nativeOutputArchitecture
+MN-OUT-031:
+  - ArchitectureBoundaryTests/nativeOutputArchitecture
+MN-OUT-032:
+  - NotebookSessionTests/partialCellOperation
+MN-ERR-012:
+  - OutputTests/rendererRecovery
+  - ArchitectureBoundaryTests/nativeOutputArchitecture
+MN-PERF-005:
+  - OutputTests/nativePreparation
+  - ArchitectureBoundaryTests/nativeOutputArchitecture
+MN-PERF-009:
+  - OutputTests/assetCacheIsLRU
+  - ArchitectureBoundaryTests/nativeOutputArchitecture

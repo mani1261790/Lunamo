@@ -91,8 +91,8 @@ struct NotebookSynchronizationTests {
         runtime: CellRuntimeState(
           status: .running,
           stale: true,
-          output: .string("not persisted"),
-          console: [.string("transient")],
+          output: textOutput("not persisted"),
+          console: [textOutput("transient", channel: .stdout)],
           lastExecutedCode: "old",
           widgetIDs: [UUID()]
         )

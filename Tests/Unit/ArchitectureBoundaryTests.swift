@@ -141,6 +141,34 @@ struct ArchitectureBoundaryTests {
     #expect(!cell.contains("glassEffect"))
   }
 
+  @Test("Native output stays lazy, recoverable, accessible, and off the MainActor")
+  func nativeOutputArchitecture() throws {
+    let root = repositoryRoot()
+    let output = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Output/OutputView.swift"),
+      encoding: .utf8
+    )
+    let preparation = try String(
+      contentsOf: root.appending(path: "MarimoNative/Output/OutputPreparationService.swift"),
+      encoding: .utf8
+    )
+    let cache = try String(
+      contentsOf: root.appending(path: "MarimoNative/Output/OutputAssetCache.swift"),
+      encoding: .utf8
+    )
+    for token in [
+      "Copy Raw Data", "Save Raw Data", "Label(\"Stale\"", "Label(\"Running\"",
+      ".accessibilityValue", "CSVTableView", "JSONOutlineView",
+    ] {
+      #expect(output.contains(token), "Missing native output token: \(token)")
+    }
+    #expect(preparation.contains("Task.detached"))
+    #expect(preparation.contains("CGImageSourceCreateImageAtIndex"))
+    #expect(preparation.contains("CSVStreamingParser.parse"))
+    #expect(cache.contains("entries.min"))
+    #expect(!output.contains("WKWebView"))
+  }
+
   @Test("Every specified notebook shortcut has a native menu command")
   func notebookShortcutsAreDiscoverable() throws {
     let root = repositoryRoot()

@@ -31,8 +31,8 @@ public struct CellEditorState: Sendable, Equatable {
 public struct CellRuntimeState: Sendable, Equatable {
   public var status: ExecutionStatus
   public var stale: Bool
-  public var output: JSONValue?
-  public var console: [JSONValue]
+  public var output: MarimoOutput?
+  public var console: [MarimoOutput]
   public var lastExecutedCode: String?
   public var widgetIDs: [UUID]
   public var stdinPrompt: StdinPromptState?
@@ -40,8 +40,8 @@ public struct CellRuntimeState: Sendable, Equatable {
   public init(
     status: ExecutionStatus = .idle,
     stale: Bool = false,
-    output: JSONValue? = nil,
-    console: [JSONValue] = [],
+    output: MarimoOutput? = nil,
+    console: [MarimoOutput] = [],
     lastExecutedCode: String? = nil,
     widgetIDs: [UUID] = [],
     stdinPrompt: StdinPromptState? = nil

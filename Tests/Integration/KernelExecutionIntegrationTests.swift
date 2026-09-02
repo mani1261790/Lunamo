@@ -4,6 +4,7 @@ import MarimoApplication
 import MarimoBackend
 import MarimoDomain
 import MarimoEnvironment
+import MarimoOutput
 import MarimoProcess
 import Testing
 
@@ -18,6 +19,76 @@ private actor KernelEventRecorder {
 }
 
 extension BundledSidecarIntegrationTests {
+  @Test("Real sidecar outputs decode and prepare through every Gate D native path")
+  @MainActor
+  func realNativeOutputWireDecode() async throws {
+    let root = kernelRepositoryRoot()
+    let sidecar = root.appending(path: ".build/Sidecar")
+    let python = sidecar.appending(path: "bin/python")
+    guard FileManager.default.isExecutableFile(atPath: python.path) else {
+      Issue.record("Build .build/Sidecar before running integration tests")
+      return
+    }
+    let support = FileManager.default.temporaryDirectory.appending(
+      path: "marimonative-output-test-\(UUID().uuidString)",
+      directoryHint: .isDirectory
+    )
+    defer { try? FileManager.default.removeItem(at: support) }
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar)
+    let store = NotebookStore(
+      backend: adapter,
+      folderTrustStore: FolderTrustStore(applicationSupportDirectory: support),
+      sessionResolutionTimeout: .seconds(5)
+    )
+    await store.startBackend()
+    await store.open(root.appending(path: "Tests/Fixtures/native_outputs.py"))
+    await store.choosePythonExecutable(python)
+    await store.requestRunAll()
+    store.authorizeRunOnce()
+
+    let deadline = ContinuousClock.now.advanced(by: .seconds(30))
+    while store.sessionState != .idle
+      || store.document.cells.contains(where: { $0.runtime.output == nil }),
+      ContinuousClock.now < deadline
+    {
+      try? await Task.sleep(for: .milliseconds(25))
+    }
+    if store.document.cells.contains(where: { $0.runtime.output == nil }) {
+      Issue.record(
+        "Missing native outputs; cell IDs: \(store.document.cells.map(\.runtimeID)); current: \(store.document.cells.map(\.runtime.output)); replay: \(try await adapter.readNotebookOutputs(notebookURI: store.document.notebookURI))"
+      )
+    }
+    let outputs = try store.document.cells.map { try #require($0.runtime.output) }
+    #expect(
+      outputs.map(\.mimeType) == [
+        "text/plain",
+        "application/json",
+        "application/vnd.marimo+traceback",
+        "text/csv",
+        "image/png",
+        "text/html",
+      ]
+    )
+
+    var preparedKinds: [OutputRendererKind] = []
+    let registry = OutputRendererRegistry()
+    for output in outputs {
+      let kind = registry.renderer(for: output.mimeType)
+      preparedKinds.append(kind)
+      let prepared = await OutputPreparationService.shared.prepare(output)
+      if kind == .unsupported {
+        guard case .unsupported = prepared else {
+          Issue.record("Unsupported output did not preserve its recovery path")
+          continue
+        }
+      } else if case .failure(_, let message, _, _) = prepared {
+        Issue.record("Native output preparation failed: \(message)")
+      }
+    }
+    #expect(preparedKinds == [.text, .json, .traceback, .csv, .image, .unsupported])
+    await store.shutdownBackend()
+  }
+
   @Test("Required kernel fixtures are present and parse with the pinned sidecar")
   func requiredKernelFixturesParse() async throws {
     let root = kernelRepositoryRoot()
@@ -33,6 +104,7 @@ extension BundledSidecarIntegrationTests {
       "python_exception.py", "infinite_loop.py", "png_plot.py", "json_output.py",
       "csv_table.py", "html_output.py", "external_file_conflict.py",
       "missing_marimo_environment.py", "wrong_marimo_version.py", "kernel_crash.py",
+      "native_outputs.py",
     ]
     for name in parseable {
       let source = try String(
@@ -66,7 +138,7 @@ extension BundledSidecarIntegrationTests {
       Issue.record("Build .build/Sidecar before running integration tests")
       return
     }
-    let first = NotebookCellState(code: "first = 20")
+    let first = NotebookCellState(code: "print(\"typed console\")\nfirst = 20")
     let second = NotebookCellState(code: "second = first + 22")
     let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar)
     let support = FileManager.default.temporaryDirectory.appending(
@@ -94,8 +166,17 @@ extension BundledSidecarIntegrationTests {
     }
     #expect(store.document.kernelSessionID != nil)
     #expect(store.sessionState == .idle)
-    #expect(store.document.cells[0].runtime.lastExecutedCode == "first = 20")
+    #expect(
+      store.document.cells[0].runtime.lastExecutedCode
+        == "print(\"typed console\")\nfirst = 20"
+    )
     #expect(store.document.cells[1].runtime.lastExecutedCode == "second = first + 22")
+    #expect(
+      store.document.cells[0].runtime.console.contains { output in
+        output.channel == .stdout && output.mimeType == "text/plain"
+          && output.data == .string("typed console\n")
+      }
+    )
     await store.shutdownBackend()
   }
 

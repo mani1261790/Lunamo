@@ -276,8 +276,8 @@ struct NotebookSessionTests {
         runtime: CellRuntimeState(
           status: .idle,
           stale: false,
-          output: .string("old"),
-          console: [.string("existing")],
+          output: textOutput("old"),
+          console: [textOutput("existing", channel: .stdout)],
           widgetIDs: [UUID()]
         )
       )
@@ -298,10 +298,14 @@ struct NotebookSessionTests {
       )
     )
     await eventually { store.document.cells[0].runtime.status == .queued }
-    #expect(store.document.cells[0].runtime.output == .string("old"))
+    #expect(store.document.cells[0].runtime.output == textOutput("old"))
     #expect(
       store.document.cells[0].runtime.console
-        == [.string("existing"), .string("one"), .string("two")]
+        == [
+          textOutput("existing", channel: .stdout),
+          textOutput("one", channel: .stdout),
+          textOutput("two", channel: .stdout),
+        ]
     )
     #expect(store.document.cells[0].runtime.stale)
     #expect(store.document.cells[0].runtime.widgetIDs.isEmpty)
@@ -314,14 +318,19 @@ struct NotebookSessionTests {
           operation: "cell-op",
           payload: [
             "cell_id": .string(cellID.uuidString),
-            "output": .object(["data": .string("new")]),
+            "output": .object([
+              "channel": .string("output"),
+              "mimetype": .string("text/plain"),
+              "data": .string("new"),
+            ]),
             "console": .array([]),
           ]
         )
       )
     )
     await eventually { store.document.cells[0].runtime.console.isEmpty }
-    #expect(store.document.cells[0].runtime.output == .object(["data": .string("new")]))
+    #expect(store.document.cells[0].runtime.output == textOutput("new"))
+    #expect(!store.document.cells[0].runtime.stale)
 
     await backend.emit(
       .kernel(
@@ -338,7 +347,7 @@ struct NotebookSessionTests {
       )
     )
     await eventually { store.document.cells[0].runtime.status == .disabledTransitively }
-    #expect(store.document.cells[0].runtime.console == [.string("single")])
+    #expect(store.document.cells[0].runtime.console == [textOutput("single", channel: .stdout)])
 
     let unchanged = store.document.cells[0].runtime
     await backend.emit(
@@ -485,7 +494,7 @@ struct NotebookSessionTests {
         cellID: cellID,
         runtime: CellRuntimeState(
           status: .running,
-          output: .string("old output"),
+          output: textOutput("old output"),
           widgetIDs: [UUID()],
           stdinPrompt: StdinPromptState(prompt: "secret", password: true)
         )
@@ -611,7 +620,7 @@ struct NotebookSessionTests {
     await store.startBackend()
     #expect(store.document.kernelSessionID == "reattached")
     #expect(store.sessionState == .idle)
-    #expect(store.document.cells[0].runtime.output == .string("restored"))
+    #expect(store.document.cells[0].runtime.output == textOutput("restored"))
     #expect(store.document.cells[0].runtime.lastExecutedCode == "value = 1")
   }
 

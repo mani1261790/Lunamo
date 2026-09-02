@@ -1,6 +1,7 @@
 import MarimoApplication
 import MarimoDomain
 import MarimoEditor
+import MarimoOutput
 import SwiftUI
 
 public struct CellView: View {
@@ -100,22 +101,17 @@ public struct CellView: View {
         stdinField(prompt)
       }
 
-      if let output = plainText(from: cell.runtime.output), !output.isEmpty {
-        Text(output)
-          .font(.body.monospaced())
-          .textSelection(.enabled)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .padding(10)
-          .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-          .accessibilityLabel("Cell text output")
+      if let output = cell.runtime.output {
+        OutputView(
+          output: output,
+          stale: cell.runtime.stale,
+          running: cell.runtime.status == .running
+        )
       }
 
       ForEach(Array(cell.runtime.console.enumerated()), id: \.offset) { _, item in
-        if !isStdin(item), let text = plainText(from: item), !text.isEmpty {
-          Text(text)
-            .font(.body.monospaced())
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        if item.channel != .stdin {
+          OutputView(output: item)
         }
       }
     }
@@ -165,27 +161,6 @@ public struct CellView: View {
     let submitted = stdinText
     stdinText = ""
     submitStdin(submitted)
-  }
-
-  private func plainText(from value: JSONValue?) -> String? {
-    guard let value else { return nil }
-    switch value {
-    case .string(let text):
-      return text
-    case .object(let object):
-      guard object["mimetype"] == .string("text/plain") || object["mimetype"] == nil else {
-        return nil
-      }
-      guard case .string(let text)? = object["data"] else { return nil }
-      return text
-    default:
-      return nil
-    }
-  }
-
-  private func isStdin(_ value: JSONValue) -> Bool {
-    guard case .object(let object) = value else { return false }
-    return object["channel"] == .string("stdin")
   }
 
   @ViewBuilder
