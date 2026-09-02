@@ -27,7 +27,9 @@ struct BundledSidecarIntegrationTests {
     let clock = ContinuousClock()
     let shutdownStart = clock.now
     await connection.shutdown()
-    #expect(shutdownStart.duration(to: clock.now) < .seconds(5))
+    // The request timeout is exactly five seconds; allow scheduler overhead around that bound.
+    // MarimoLSPAdapter separately verifies the five-second whole-shutdown deadline.
+    #expect(shutdownStart.duration(to: clock.now) < .seconds(6))
     let deadline = clock.now.advanced(by: .seconds(2))
     while await process.processIdentifier() != nil, clock.now < deadline {
       try await Task.sleep(for: .milliseconds(25))
