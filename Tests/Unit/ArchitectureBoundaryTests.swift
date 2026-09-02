@@ -169,6 +169,61 @@ struct ArchitectureBoundaryTests {
     #expect(!output.contains("WKWebView"))
   }
 
+  @Test("Web fallback is cell-local, isolated, bounded, and bundle-only")
+  func isolatedWebFallbackArchitecture() throws {
+    let root = repositoryRoot()
+    let sourceRoot = root.appending(path: "MarimoNative")
+    let sources = try swiftFiles(below: sourceRoot)
+    for file in sources {
+      let source = try String(contentsOf: file, encoding: .utf8)
+      if source.contains("WKWebView") {
+        #expect(
+          file.path.contains("/WebFallback/"), "WKWebView escaped output subtree: \(file.path)")
+      }
+    }
+
+    let isolated = try String(
+      contentsOf: sourceRoot.appending(path: "WebFallback/IsolatedWebOutputView.swift"),
+      encoding: .utf8
+    )
+    let pool = try String(
+      contentsOf: sourceRoot.appending(path: "WebFallback/WebOutputPool.swift"),
+      encoding: .utf8
+    )
+    let host = try String(
+      contentsOf: sourceRoot.appending(path: "WebFallback/CellWebOutputView.swift"),
+      encoding: .utf8
+    )
+    let builder = try String(
+      contentsOf: sourceRoot.appending(path: "WebFallback/WebOutputDocumentBuilder.swift"),
+      encoding: .utf8
+    )
+    for token in [
+      "websiteDataStore = .nonPersistent()",
+      "allowingReadAccessTo: document.directoryURL",
+      "removeScriptMessageHandler(forName: \"contentHeight\")",
+      "^https?://",
+      "^wss?://",
+      "allowsContentJavaScript = false",
+      "webViewWebContentProcessDidTerminate",
+      "navigationAction.targetFrame == nil",
+    ] {
+      #expect((isolated + pool).contains(token), "Missing web isolation token: \(token)")
+    }
+    #expect(!isolated.contains("clipboard"))
+    #expect(!isolated.contains("NotebookStore"))
+    #expect(!isolated.contains("Foundation.Process"))
+    #expect(pool.contains("offscreenReserve = 2"))
+    #expect(pool.contains("nextResponder?.scrollWheel(with: event)"))
+    #expect(host.contains("collapsedHeight: CGFloat = 1_600"))
+    #expect(host.contains("Expand Web Output"))
+    for asset in ["vega.min.js", "vega-lite.min.js", "vega-embed.min.js", "katex.min.js"] {
+      #expect(builder.contains(asset), "Missing bundled renderer asset: \(asset)")
+    }
+    #expect(builder.contains("connect-src 'none'"))
+    #expect(!builder.contains("cdn"))
+  }
+
   @Test("Every specified notebook shortcut has a native menu command")
   func notebookShortcutsAreDiscoverable() throws {
     let root = repositoryRoot()

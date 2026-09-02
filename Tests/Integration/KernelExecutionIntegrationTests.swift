@@ -85,7 +85,70 @@ extension BundledSidecarIntegrationTests {
         Issue.record("Native output preparation failed: \(message)")
       }
     }
-    #expect(preparedKinds == [.text, .json, .traceback, .csv, .image, .unsupported])
+    #expect(preparedKinds == [.text, .json, .traceback, .csv, .image, .html])
+    await store.shutdownBackend()
+  }
+
+  @Test("Real sidecar MIME bundles resolve into native and isolated representations")
+  @MainActor
+  func realMIMEBundleAndWebFallbackDecode() async throws {
+    let root = kernelRepositoryRoot()
+    let sidecar = root.appending(path: ".build/Sidecar")
+    let python = sidecar.appending(path: "bin/python")
+    guard FileManager.default.isExecutableFile(atPath: python.path) else {
+      Issue.record("Build .build/Sidecar before running integration tests")
+      return
+    }
+    let support = FileManager.default.temporaryDirectory.appending(
+      path: "marimonative-web-output-test-\(UUID().uuidString)",
+      directoryHint: .isDirectory
+    )
+    defer { try? FileManager.default.removeItem(at: support) }
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar)
+    let store = NotebookStore(
+      backend: adapter,
+      folderTrustStore: FolderTrustStore(applicationSupportDirectory: support),
+      sessionResolutionTimeout: .seconds(5)
+    )
+    await store.startBackend()
+    await store.open(root.appending(path: "Tests/Fixtures/web_outputs.py"))
+    await store.choosePythonExecutable(python)
+    await store.requestRunAll()
+    store.authorizeRunOnce()
+
+    let deadline = ContinuousClock.now.advanced(by: .seconds(30))
+    while store.sessionState != .idle
+      || store.document.cells.contains(where: { $0.runtime.output == nil }),
+      ContinuousClock.now < deadline
+    {
+      try? await Task.sleep(for: .milliseconds(25))
+    }
+    let outputs = try store.document.cells.map { try #require($0.runtime.output) }
+    #expect(
+      outputs.map(\.mimeType) == [
+        MIMEBundleResolver.mimeType,
+        "text/html",
+        "image/svg+xml",
+        "text/markdown",
+        "text/latex",
+        "application/vnd.vegalite.v6+json",
+      ]
+    )
+
+    for (index, output) in outputs.enumerated() {
+      let prepared = await OutputPreparationService.shared.prepare(output)
+      if case .failure(_, let message, _, _) = prepared {
+        Issue.record("Web output \(index) preparation failed: \(message)")
+      }
+    }
+    let first = await OutputPreparationService.shared.prepare(outputs[0])
+    guard case .mimeBundle(let bundle) = first else {
+      Issue.record("Expected resolved MIME bundle")
+      await store.shutdownBackend()
+      return
+    }
+    #expect(bundle.representations.map(\.mimeType) == ["text/html", "text/plain"])
+    #expect(bundle.representations.first?.displaySize == OutputDisplaySize(width: 420, height: 180))
     await store.shutdownBackend()
   }
 
@@ -104,7 +167,7 @@ extension BundledSidecarIntegrationTests {
       "python_exception.py", "infinite_loop.py", "png_plot.py", "json_output.py",
       "csv_table.py", "html_output.py", "external_file_conflict.py",
       "missing_marimo_environment.py", "wrong_marimo_version.py", "kernel_crash.py",
-      "native_outputs.py",
+      "native_outputs.py", "web_outputs.py",
     ]
     for name in parseable {
       let source = try String(

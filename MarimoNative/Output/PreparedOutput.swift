@@ -73,6 +73,9 @@ public enum PreparedOutput: Sendable {
   case traceback([TracebackLine])
   case image(DecodedOutputImage)
   case csv(CSVTable)
+  case nativeHTML(String)
+  case mimeBundle(ResolvedMIMEBundle)
+  case web(WebOutputPayload)
   case unsupported(mimeType: String, size: Int, raw: String)
   case failure(mimeType: String, message: String, size: Int, raw: String)
 }

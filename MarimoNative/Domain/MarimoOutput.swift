@@ -17,17 +17,20 @@ public struct MarimoOutput: Codable, Sendable, Equatable {
   public let mimeType: String
   public let data: JSONValue
   public let timestamp: Double?
+  public let displaySize: OutputDisplaySize?
 
   public init(
     channel: OutputChannel,
     mimeType: String,
     data: JSONValue,
-    timestamp: Double? = nil
+    timestamp: Double? = nil,
+    displaySize: OutputDisplaySize? = nil
   ) {
     self.channel = channel
     self.mimeType = mimeType
     self.data = data
     self.timestamp = timestamp
+    self.displaySize = displaySize
   }
 
   enum CodingKeys: String, CodingKey {
@@ -35,6 +38,7 @@ public struct MarimoOutput: Codable, Sendable, Equatable {
     case mimeType = "mimetype"
     case data
     case timestamp
+    case displaySize
   }
 
   public static func decodeWireValue(
@@ -63,7 +67,8 @@ public struct MarimoOutput: Codable, Sendable, Equatable {
         channel: channel,
         mimeType: mimeType,
         data: data,
-        timestamp: timestamp
+        timestamp: timestamp,
+        displaySize: nil
       )
     case .null, .bool, .integer, .number:
       throw MarimoOutputDecodingError.unsupportedDataShape
@@ -96,6 +101,16 @@ public struct MarimoOutput: Codable, Sendable, Equatable {
       text.reduce(into: 1) { count, character in
         if character == "\n" { count += 1 }
       })
+  }
+}
+
+public struct OutputDisplaySize: Codable, Sendable, Equatable {
+  public let width: Double?
+  public let height: Double?
+
+  public init(width: Double?, height: Double?) {
+    self.width = width
+    self.height = height
   }
 }
 

@@ -691,3 +691,66 @@ MN-PERF-005:
 MN-PERF-009:
   - OutputTests/assetCacheIsLRU
   - ArchitectureBoundaryTests/nativeOutputArchitecture
+MN-OUT-020:
+  - MIMEBundleTests/metadataDimensions
+  - BundledSidecarIntegrationTests/realMIMEBundleAndWebFallbackDecode
+MN-OUT-021:
+  - MIMEBundleTests/htmlPrecedenceGolden
+MN-OUT-022:
+  - MIMEBundleTests/htmlPrecedenceGolden
+MN-OUT-023:
+  - MIMEBundleTests/vegaHidingGolden
+MN-OUT-024:
+  - MIMEBundleTests/htmlPrecedenceGolden
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-OUT-025:
+  - MIMEBundleTests/metadataDimensions
+MN-OUT-026:
+  - MIMEBundleTests/strictNativeHTMLSubset
+MN-OUT-027:
+  - MIMEBundleTests/standardReprUsesNativeHTML
+MN-WEB-001:
+  - WebRendererTests/productionHostLoadsOutput
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-002:
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-003:
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-004:
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-010:
+  - WebRendererTests/productionHostLoadsOutput
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-011:
+  - WebRendererTests/productionHostLoadsOutput
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-012:
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-013:
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-014:
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-015:
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-016:
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-020:
+  - MIMEBundleTests/fallbackSanitization
+MN-WEB-021:
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-022:
+  - WebRendererTests/bundledAssetsRender
+  - MIMEBundleTests/bundledRendererDocuments
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-WEB-023:
+  - WebRendererTests/bundledAssetsRender
+  - MIMEBundleTests/bundledRendererDocuments
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-PERF-008:
+  - MIMEBundleTests/boundedWebOutputPool
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-TEST-005:
+  - MIMEBundleTests/htmlPrecedenceGolden
+  - MIMEBundleTests/vegaHidingGolden
+MN-TEST-030:
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture

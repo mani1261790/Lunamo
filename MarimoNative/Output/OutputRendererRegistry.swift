@@ -7,6 +7,9 @@ public enum OutputRendererKind: String, Sendable, Equatable {
   case traceback
   case image
   case csv
+  case html
+  case mimeBundle
+  case webFallback
   case failure
   case unsupported
 }
@@ -36,6 +39,15 @@ public struct OutputRendererRegistry: Sendable {
     "image/bmp": .image,
     "image/avif": .image,
     "text/csv": .csv,
+    "text/html": .html,
+    "application/vnd.marimo+mimebundle": .mimeBundle,
+    "image/svg+xml": .webFallback,
+    "text/markdown": .webFallback,
+    "text/latex": .webFallback,
+    "application/vnd.vegalite.v6+json": .webFallback,
+    "application/vnd.vegalite.v5+json": .webFallback,
+    "application/vnd.vega.v6+json": .webFallback,
+    "application/vnd.vega.v5+json": .webFallback,
     "application/vnd.marimonative+renderer-error": .failure,
   ]
 }

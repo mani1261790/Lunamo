@@ -4,6 +4,7 @@ DerivedData/
 *.xcresult
 .DS_Store
 __pycache__/
+__marimo__/
 *.py[cod]
 MarimoNative/Resources/Sidecar/bin/
 MarimoNative/Resources/Sidecar/include/

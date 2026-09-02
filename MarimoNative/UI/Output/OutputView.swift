@@ -1,6 +1,7 @@
 import AppKit
 import MarimoDomain
 import MarimoOutput
+import MarimoWebFallback
 import SwiftUI
 
 public struct OutputView: View {
@@ -24,6 +25,11 @@ public struct OutputView: View {
           .controlSize(.small)
       }
     }
+    .frame(
+      width: output.displaySize?.width.map { CGFloat($0) },
+      height: output.displaySize?.height.map { CGFloat($0) },
+      alignment: .topLeading
+    )
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(10)
     .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
@@ -102,12 +108,29 @@ public struct OutputView: View {
       Image(decorative: decoded.image, scale: 1, orientation: .up)
         .resizable()
         .scaledToFit()
-        .frame(maxWidth: CGFloat(decoded.pixelWidth), maxHeight: CGFloat(decoded.pixelHeight))
+        .frame(
+          width: output.displaySize?.width.map { CGFloat($0) },
+          height: output.displaySize?.height.map { CGFloat($0) }
+        )
+        .frame(
+          maxWidth: output.displaySize?.width == nil ? CGFloat(decoded.pixelWidth) : nil,
+          maxHeight: output.displaySize?.height == nil ? CGFloat(decoded.pixelHeight) : nil
+        )
         .accessibilityLabel("Image output, \(decoded.pixelWidth) by \(decoded.pixelHeight) pixels")
     case .csv(let table):
       CSVTableView(table: table)
         .frame(height: min(360, max(80, CGFloat(table.rows.count + 1) * 24)))
         .accessibilityLabel("CSV table output")
+    case .nativeHTML(let text):
+      Text(text)
+        .font(.body.monospaced())
+        .textSelection(.enabled)
+        .accessibilityLabel("Native HTML output")
+    case .mimeBundle(let bundle):
+      MIMEBundleView(output: output, bundle: bundle)
+        .id(bundle.representations.map(\.mimeType).joined(separator: "|"))
+    case .web(let payload):
+      CellWebOutputView(payload: payload)
     case .unsupported(let mimeType, let size, let raw):
       recoveryView(
         title: "Unsupported output",
@@ -151,6 +174,40 @@ public struct OutputView: View {
     panel.nameFieldStringValue = "output.txt"
     guard panel.runModal() == .OK, let url = panel.url else { return }
     try? Data(raw.utf8).write(to: url, options: .atomic)
+  }
+}
+
+private struct MIMEBundleView: View {
+  let output: MarimoOutput
+  let bundle: ResolvedMIMEBundle
+  @State private var selectedMIME: String
+
+  init(output: MarimoOutput, bundle: ResolvedMIMEBundle) {
+    self.output = output
+    self.bundle = bundle
+    _selectedMIME = State(initialValue: bundle.representations.first?.mimeType ?? "")
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      if bundle.representations.count > 1 {
+        Picker("Output Format", selection: $selectedMIME) {
+          ForEach(bundle.representations) { representation in
+            Text(representation.mimeType).tag(representation.mimeType)
+          }
+        }
+        .pickerStyle(.menu)
+        .accessibilityLabel("Output format")
+      }
+      if let representation = selectedRepresentation {
+        OutputView(output: representation.output(inheriting: output))
+      }
+    }
+  }
+
+  private var selectedRepresentation: MIMEBundleRepresentation? {
+    bundle.representations.first { $0.mimeType == selectedMIME }
+      ?? bundle.representations.first
   }
 }
 

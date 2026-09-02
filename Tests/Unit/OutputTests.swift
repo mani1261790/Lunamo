@@ -58,6 +58,9 @@ struct OutputTests {
     #expect(registry.renderer(for: "application/vnd.marimo+traceback") == .traceback)
     #expect(registry.renderer(for: "image/png") == .image)
     #expect(registry.renderer(for: "text/csv") == .csv)
+    #expect(registry.renderer(for: "text/html") == .html)
+    #expect(registry.renderer(for: MIMEBundleResolver.mimeType) == .mimeBundle)
+    #expect(registry.renderer(for: "image/svg+xml") == .webFallback)
     #expect(registry.renderer(for: "application/x-unknown") == .unsupported)
   }
 

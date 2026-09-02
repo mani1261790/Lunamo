@@ -86,6 +86,25 @@ public actor OutputPreparationService {
           throw OutputPreparationError.expectedString
         }
         return .csv(CSVStreamingParser.parse(text))
+      case .html:
+        guard case .string(let html) = output.data else {
+          throw OutputPreparationError.expectedString
+        }
+        if let nativeText = HTMLNativeSubsetDecoder.decode(html) {
+          return .nativeHTML(nativeText)
+        }
+        return .web(
+          WebOutputPayload(
+            kind: .html,
+            content: html,
+            allowsJavaScript: false,
+            displaySize: output.displaySize
+          )
+        )
+      case .mimeBundle:
+        return .mimeBundle(try MIMEBundleResolver.resolve(output))
+      case .webFallback:
+        return .web(try webPayload(for: output, raw: raw))
       case .failure:
         guard case .object(let object) = output.data else {
           throw OutputPreparationError.invalidFailurePayload
@@ -107,6 +126,55 @@ public actor OutputPreparationService {
         size: output.estimatedByteCount,
         raw: raw
       )
+    }
+  }
+
+  private nonisolated static func webPayload(
+    for output: MarimoOutput,
+    raw: String
+  ) throws -> WebOutputPayload {
+    let mime = output.mimeType.lowercased()
+    switch mime {
+    case "text/markdown":
+      guard case .string(let source) = output.data else {
+        throw OutputPreparationError.expectedString
+      }
+      return WebOutputPayload(
+        kind: .markdown,
+        content: WebOutputSanitizer.markdown(source),
+        allowsJavaScript: false,
+        displaySize: output.displaySize
+      )
+    case "image/svg+xml":
+      guard case .string(let source) = output.data else {
+        throw OutputPreparationError.expectedString
+      }
+      return WebOutputPayload(
+        kind: .svg,
+        content: try WebOutputSanitizer.svg(source),
+        allowsJavaScript: false,
+        displaySize: output.displaySize
+      )
+    case "text/latex":
+      guard case .string(let source) = output.data else {
+        throw OutputPreparationError.expectedString
+      }
+      return WebOutputPayload(
+        kind: .latex,
+        content: source,
+        allowsJavaScript: true,
+        displaySize: output.displaySize
+      )
+    case "application/vnd.vegalite.v6+json", "application/vnd.vegalite.v5+json",
+      "application/vnd.vega.v6+json", "application/vnd.vega.v5+json":
+      return WebOutputPayload(
+        kind: .vega,
+        content: raw,
+        allowsJavaScript: true,
+        displaySize: output.displaySize
+      )
+    default:
+      throw OutputPreparationError.unsupportedWebMIME
     }
   }
 
@@ -274,6 +342,7 @@ public enum OutputPreparationError: Error, Sendable, Equatable {
   case expectedErrorArray
   case invalidImage
   case invalidFailurePayload
+  case unsupportedWebMIME
 }
 
 public enum CSVStreamingParser {
