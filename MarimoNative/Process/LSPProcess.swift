@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public enum ProcessEvent: Sendable, Equatable {
@@ -16,7 +17,12 @@ public protocol ProcessTransport: Sendable {
   func start(_ request: ProcessLaunchRequest) async throws -> AsyncStream<ProcessEvent>
   func write(_ data: Data) async throws
   func terminate() async
+  func forceTerminate() async
   func processIdentifier() async -> Int32?
+}
+
+extension ProcessTransport {
+  public func forceTerminate() async { await terminate() }
 }
 
 public actor LSPProcess: ProcessTransport {
@@ -90,6 +96,13 @@ public actor LSPProcess: ProcessTransport {
     standardOutput?.fileHandleForReading.readabilityHandler = nil
     standardError?.fileHandleForReading.readabilityHandler = nil
     if process.isRunning { process.terminate() }
+  }
+
+  public func forceTerminate() {
+    guard let process, process.isRunning else { return }
+    standardOutput?.fileHandleForReading.readabilityHandler = nil
+    standardError?.fileHandleForReading.readabilityHandler = nil
+    Darwin.kill(process.processIdentifier, SIGKILL)
   }
 
   public func processIdentifier() -> Int32? {

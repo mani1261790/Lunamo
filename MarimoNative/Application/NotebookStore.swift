@@ -2,34 +2,49 @@ import Combine
 import Foundation
 import MarimoBackend
 import MarimoDomain
+import MarimoEnvironment
 
 @MainActor
 public final class NotebookStore: ObservableObject {
-  @Published public private(set) var document: NotebookDocumentState
+  @Published public internal(set) var document: NotebookDocumentState
   @Published public private(set) var backendStatus: BackendStatus = .unavailable
   @Published public private(set) var openState: OpenState = .idle
   @Published public private(set) var synchronizationError: String?
-  @Published public private(set) var focusedCellID: UUID?
+  @Published public internal(set) var focusedCellID: UUID?
   @Published public var inspectorPresented = true
-  @Published public private(set) var saveConflictURL: URL?
-  @Published public private(set) var saveMessage: String?
+  @Published public internal(set) var saveConflictURL: URL?
+  @Published public internal(set) var saveMessage: String?
+  @Published public internal(set) var environmentCandidates: [PythonEnvironmentCandidate] = []
+  @Published public internal(set) var environmentState: NotebookEnvironmentState = .notConfigured
+  @Published public internal(set) var executionTrustPromptPresented = false
+  @Published public internal(set) var executionFolderTrusted = false
 
   private let backend: any MarimoBackend
   private let documentService: DocumentService
   private let fileWriter: AtomicFileWriter
+  let environmentDiscovery: PythonEnvironmentDiscovery
+  let environmentPreflight: PythonPreflightService
+  let folderTrustStore: FolderTrustStore
   private var synchronizedURI: String?
   private var synchronizedCellURIs: [String] = []
+  var runOnceAuthorized = false
 
   public init(
     backend: any MarimoBackend,
     document: NotebookDocumentState = NotebookDocumentState(),
     documentService: DocumentService = DocumentService(),
-    fileWriter: AtomicFileWriter = AtomicFileWriter()
+    fileWriter: AtomicFileWriter = AtomicFileWriter(),
+    environmentDiscovery: PythonEnvironmentDiscovery = PythonEnvironmentDiscovery(),
+    environmentPreflight: PythonPreflightService = PythonPreflightService(),
+    folderTrustStore: FolderTrustStore = FolderTrustStore()
   ) {
     self.backend = backend
     self.document = document
     self.documentService = documentService
     self.fileWriter = fileWriter
+    self.environmentDiscovery = environmentDiscovery
+    self.environmentPreflight = environmentPreflight
+    self.folderTrustStore = folderTrustStore
   }
 
   public func send(_ intent: NotebookIntent) async {
@@ -80,6 +95,7 @@ public final class NotebookStore: ObservableObject {
         saveMessage = nil
         try await synchronizeOpenDocument()
         openState = .loaded(url)
+        await discoverPythonEnvironments(for: url)
       case .invalidSyntax(let line, let column):
         openState = .invalidSyntax(url, line: line, column: column)
       case .convertible:
@@ -125,24 +141,6 @@ public final class NotebookStore: ObservableObject {
       return try await save()
     }
     return try await saveCurrentDocument(to: target, expecting: .unchecked, moving: true)
-  }
-
-  public func cancelSaveConflict() {
-    saveConflictURL = nil
-  }
-
-  public func reloadConflictedDocument() async {
-    guard let target = saveConflictURL else { return }
-    saveConflictURL = nil
-    await open(target)
-  }
-
-  public func dismissSaveMessage() {
-    saveMessage = nil
-  }
-
-  public func reportSaveFailure(_ error: any Error) {
-    saveMessage = "Save failed: \(error.localizedDescription)"
   }
 
   public func close() async {
@@ -239,16 +237,6 @@ public final class NotebookStore: ObservableObject {
     }
   }
 
-  public func focusEditor(_ cellID: UUID) {
-    guard document.cells.contains(where: { $0.runtimeID == cellID }) else { return }
-    document.selectedCellID = cellID
-    focusedCellID = cellID
-  }
-
-  public func leaveEditor() {
-    focusedCellID = nil
-  }
-
   private func perform(_ intent: NotebookIntent) async throws {
     switch intent {
     case .addCell:
@@ -305,6 +293,17 @@ public final class NotebookStore: ObservableObject {
       guard let index = cellIndex(cellID) else { return }
       guard !document.cells[index].editor.hasMarkedText else {
         throw NotebookStoreError.compositionActive(cellID)
+      }
+      guard case .ready(let details, let configuredWorkingDirectory) = environmentState else {
+        throw NotebookStoreError.environmentNotReady
+      }
+      guard
+        normalizedExecutableURL(URL(fileURLWithPath: executable)).path
+          == details.executableURL.path,
+        canonicalURL(URL(fileURLWithPath: workingDirectory)).path == configuredWorkingDirectory.path
+      else { throw NotebookStoreError.environmentMismatch }
+      guard await consumeExecutionAuthorization() else {
+        throw NotebookStoreError.executionNotTrusted
       }
       let cell = document.cells[index]
       try await backend.execute(

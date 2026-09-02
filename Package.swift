@@ -32,6 +32,13 @@ let package = Package(
       swiftSettings: strictConcurrency
     ),
     .target(
+      name: "MarimoEnvironment",
+      dependencies: ["MarimoProcess"],
+      path: "MarimoNative/Environment",
+      exclude: ["README.md"],
+      swiftSettings: strictConcurrency
+    ),
+    .target(
       name: "MarimoDocument",
       dependencies: ["MarimoDomain"],
       path: "MarimoNative/Document",
@@ -51,13 +58,13 @@ let package = Package(
     ),
     .target(
       name: "MarimoApplication",
-      dependencies: ["MarimoBackend", "MarimoDocument", "MarimoDomain"],
+      dependencies: ["MarimoBackend", "MarimoDocument", "MarimoDomain", "MarimoEnvironment"],
       path: "MarimoNative/Application",
       swiftSettings: strictConcurrency
     ),
     .target(
       name: "MarimoUI",
-      dependencies: ["MarimoApplication", "MarimoDomain", "MarimoEditor"],
+      dependencies: ["MarimoApplication", "MarimoDomain", "MarimoEditor", "MarimoEnvironment"],
       path: "MarimoNative/UI",
       swiftSettings: strictConcurrency
     ),
@@ -71,7 +78,7 @@ let package = Package(
       name: "MarimoNativeTests",
       dependencies: [
         "MarimoApplication", "MarimoBackend", "MarimoDomain", "MarimoEditor", "MarimoProcess",
-        "MarimoProtocol",
+        "MarimoProtocol", "MarimoEnvironment",
       ],
       path: "Tests/Unit",
       swiftSettings: strictConcurrency
@@ -85,7 +92,8 @@ let package = Package(
     .testTarget(
       name: "MarimoIntegrationTests",
       dependencies: [
-        "MarimoApplication", "MarimoBackend", "MarimoDomain", "MarimoProcess", "MarimoProtocol",
+        "MarimoApplication", "MarimoBackend", "MarimoDomain", "MarimoEnvironment",
+        "MarimoProcess", "MarimoProtocol",
       ],
       path: "Tests/Integration",
       swiftSettings: strictConcurrency

@@ -1,7 +1,9 @@
 import Foundation
 import MarimoBackend
 import MarimoDomain
+import MarimoEnvironment
 import Testing
+
 @testable import MarimoApplication
 
 private enum SyncEvent: Sendable, Equatable {
@@ -185,15 +187,24 @@ struct NotebookSynchronizationTests {
   @Test("Marked text is held until IME composition commits")
   func imeComposition() async {
     let backend = SyncRecordingBackend()
-    let store = NotebookStore(backend: backend)
+    let executable = URL(fileURLWithPath: "/bin/sh")
+    let (preflight, _) = successfulPreflight(executableURL: executable)
+    let store = NotebookStore(backend: backend, environmentPreflight: preflight)
     let cellID = store.document.cells[0].runtimeID
     await store.startBackend()
+    await store.choosePythonExecutable(executable)
+    store.chooseWorkingDirectory(URL(fileURLWithPath: "/tmp"))
+    store.authorizeRunOnce()
 
     await store.send(
       .updateComposedCode(cellID: cellID, code: "かな", hasMarkedText: true)
     )
     await store.send(
-      .runCell(cellID: cellID, executable: "/usr/bin/python3", workingDirectory: "/tmp")
+      .runCell(
+        cellID: cellID,
+        executable: normalizedExecutableURL(executable).path,
+        workingDirectory: canonicalURL(URL(fileURLWithPath: "/tmp")).path
+      )
     )
     #expect(await backend.events().count == 1)
     #expect(!store.document.dirty)
@@ -214,10 +225,17 @@ struct NotebookSynchronizationTests {
     #expect(store.document.cells[0].editor.textDocumentVersion == 2)
 
     await store.send(
-      .runCell(cellID: cellID, executable: "/usr/bin/python3", workingDirectory: "/tmp")
+      .runCell(
+        cellID: cellID,
+        executable: normalizedExecutableURL(executable).path,
+        workingDirectory: canonicalURL(URL(fileURLWithPath: "/tmp")).path
+      )
     )
     let ordered = await backend.events()
-    #expect(ordered.count == 3)
+    guard ordered.count == 3 else {
+      Issue.record("Expected execute after committed edit, got \(ordered.count) events")
+      return
+    }
     guard case .executed(_, let cells) = ordered[2] else {
       Issue.record("Execute overtook the committed didChange")
       return

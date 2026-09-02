@@ -20,4 +20,7 @@ extension NotebookStore {
 
 public enum NotebookStoreError: Error, Sendable, Equatable {
   case compositionActive(UUID)
+  case environmentNotReady
+  case environmentMismatch
+  case executionNotTrusted
 }

@@ -461,3 +461,72 @@ MN-TEST-028:
   - NotebookSaveTests/saveAsMovesSession
 MN-TEST-029:
   - NotebookSynchronizationTests/untitledStructureKeepsSession
+MN-BASE-010:
+  - PythonEnvironmentTests/compatibilityBounds
+MN-BASE-011:
+  - PythonEnvironmentTests/compatibilityBounds
+MN-BASE-012:
+  - PythonEnvironmentTests/compatibilityBounds
+  - ArchitectureBoundaryTests/nativeEnvironmentAndTrustGate
+MN-BASE-013:
+  - UnknownNotificationTrackerTests/suppressesAfterOneHundred
+MN-BASE-014:
+  - PythonEnvironmentTests/compatibilityBounds
+MN-ENV-001:
+  - NotebookExecutionGateTests/preflightAndTrustGate
+MN-ENV-002:
+  - ArchitectureBoundaryTests/nativeEnvironmentAndTrustGate
+  - PythonEnvironmentTests/directPreflight
+MN-ENV-003:
+  - PythonEnvironmentTests/candidateOrder
+MN-ENV-005:
+  - PythonEnvironmentTests/candidateOrder
+MN-ENV-006:
+  - PythonEnvironmentTests/changedSavedExecutable
+  - NotebookExecutionGateTests/preflightAndTrustGate
+MN-ENV-010:
+  - PythonEnvironmentTests/directPreflight
+  - PythonPreflightIntegrationTests/bundledRuntimePreflight
+MN-ENV-011:
+  - PythonEnvironmentTests/directPreflight
+  - PythonPreflightIntegrationTests/virtualEnvironmentLaunchPath
+MN-ENV-012:
+  - PythonEnvironmentTests/resourceBounds
+  - PythonPreflightIntegrationTests/timeoutForceKillsProcess
+MN-ENV-013:
+  - PythonEnvironmentTests/compatibilityBounds
+  - PythonPreflightIntegrationTests/bundledRuntimePreflight
+MN-ENV-014:
+  - ArchitectureBoundaryTests/nativeEnvironmentAndTrustGate
+MN-ENV-016:
+  - ArchitectureBoundaryTests/nativeEnvironmentAndTrustGate
+MN-ENV-020:
+  - NotebookExecutionGateTests/openDoesNotPromptOrExecute
+MN-ENV-021:
+  - NotebookExecutionGateTests/untitledWorkingDirectory
+MN-ENV-022:
+  - NotebookExecutionGateTests/untitledWorkingDirectory
+MN-EXEC-002:
+  - NotebookExecutionGateTests/preflightAndTrustGate
+MN-EXEC-030:
+  - NotebookExecutionGateTests/openDoesNotPromptOrExecute
+MN-EXEC-031:
+  - ArchitectureBoundaryTests/nativeEnvironmentAndTrustGate
+MN-EXEC-032:
+  - ArchitectureBoundaryTests/nativeEnvironmentAndTrustGate
+MN-EXEC-033:
+  - FolderTrustStoreTests/identityNotPathAlone
+  - FolderTrustStoreTests/localFolderPersistence
+MN-EXEC-034:
+  - FolderTrustStoreTests/unsafeLocationsRequireReevaluation
+MN-EXEC-035:
+  - NotebookExecutionGateTests/preflightAndTrustGate
+MN-SEC-001:
+  - ArchitectureBoundaryTests/nativeEnvironmentAndTrustGate
+MN-SEC-002:
+  - NotebookExecutionGateTests/openDoesNotPromptOrExecute
+MN-SEC-003:
+  - PythonEnvironmentTests/directPreflight
+  - SidecarLaunchRequestTests/directLaunch
+MN-ACCEPT-009:
+  - ArchitectureBoundaryTests/nativeEnvironmentAndTrustGate

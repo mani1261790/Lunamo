@@ -3,6 +3,7 @@ import Foundation
 import MarimoApplication
 import MarimoDomain
 import MarimoEditor
+import MarimoEnvironment
 import SwiftUI
 
 public struct NotebookRootView: View {
@@ -43,6 +44,9 @@ public struct NotebookRootView: View {
     }
     .onOpenURL { url in
       Task { await store.open(url) }
+    }
+    .sheet(isPresented: trustPromptBinding) {
+      ExecutionTrustSheet(store: store)
     }
   }
 
@@ -93,10 +97,8 @@ public struct NotebookRootView: View {
         .accessibilityLabel("Document title: \(documentTitle)")
     }
     ToolbarItem {
-      Menu("No Python Environment", systemImage: "chevron.left.forwardslash.chevron.right") {
-        Text("Environment selection is configured in Gate C")
-      }
-      .help("Python Environment")
+      environmentMenu
+        .help("Python Environment")
     }
     ToolbarItem {
       Label(backendLabel, systemImage: backendIcon)
@@ -104,9 +106,11 @@ public struct NotebookRootView: View {
         .accessibilityValue(backendLabel)
     }
     ToolbarItemGroup {
-      Button("Run All", systemImage: "play.fill") {}
-        .disabled(!canRun)
-        .help("Run All (⇧⌘↩)")
+      Button("Run All", systemImage: "play.fill") {
+        Task { _ = await store.requestExecutionAuthorization() }
+      }
+      .disabled(!canRun)
+      .help("Run All (⇧⌘↩)")
       if store.backendStatus == .ready {
         Button("Interrupt", systemImage: "stop.fill") {}
           .disabled(true)
@@ -128,7 +132,7 @@ public struct NotebookRootView: View {
       Section("Session") {
         LabeledContent("Backend", value: backendLabel)
         LabeledContent("Kernel", value: "Not Started")
-        LabeledContent("Environment", value: "Not Configured")
+        environmentInspector
       }
       Section("Variables") {
         ContentUnavailableView(
@@ -147,7 +151,7 @@ public struct NotebookRootView: View {
   }
 
   private var canRun: Bool {
-    false
+    store.environmentAllowsExecutionRequest && store.backendStatus == .ready
   }
 
   private var backendLabel: String {
@@ -173,8 +177,91 @@ public struct NotebookRootView: View {
     case .deleteCell:
       guard store.focusedCellID == nil else { return }
       Task { await store.send(.deleteCell(cellID)) }
-    case .runAndAdvance, .runAndStay, .runAndInsert, .runAll, .interrupt:
+    case .runAndAdvance, .runAndStay, .runAndInsert, .runAll:
       guard canRun else { return }
+      Task { _ = await store.requestExecutionAuthorization() }
+    case .interrupt:
+      return
+    }
+  }
+
+  private var trustPromptBinding: Binding<Bool> {
+    Binding(
+      get: { store.executionTrustPromptPresented },
+      set: { if !$0 { store.cancelExecutionTrust() } }
+    )
+  }
+
+  private var environmentMenu: some View {
+    Menu {
+      ForEach(store.environmentCandidates) { candidate in
+        Button {
+          Task { await store.selectPythonEnvironment(candidate) }
+        } label: {
+          Label(candidate.executableURL.path, systemImage: "terminal")
+        }
+      }
+      if !store.environmentCandidates.isEmpty { Divider() }
+      Button("Choose Python Executable…") {
+        NotebookEnvironmentActions.chooseExecutable(for: store)
+      }
+      Button("Choose Working Directory…") {
+        NotebookEnvironmentActions.chooseWorkingDirectory(for: store)
+      }
+    } label: {
+      Label(environmentLabel, systemImage: "chevron.left.forwardslash.chevron.right")
+    }
+    .accessibilityLabel("Python Environment")
+    .accessibilityValue(environmentLabel)
+  }
+
+  @ViewBuilder
+  private var environmentInspector: some View {
+    switch store.environmentState {
+    case .notConfigured:
+      LabeledContent("Environment", value: "Not Configured")
+    case .selected(let candidate, let workingDirectory):
+      LabeledContent("Environment", value: candidate.kind.displayName)
+      LabeledContent("Executable", value: candidate.executableURL.path)
+      LabeledContent("Preflight", value: "Runs on first execution")
+      if let workingDirectory {
+        LabeledContent("Working Directory", value: workingDirectory.path)
+      }
+    case .checking(let candidate):
+      LabeledContent("Environment", value: "Checking \(candidate.executableURL.lastPathComponent)…")
+    case .invalid(let candidate, let failure):
+      LabeledContent("Environment", value: "Invalid")
+      LabeledContent("Executable", value: candidate.executableURL.path)
+      Text(failure.userMessage).foregroundStyle(.red)
+    case .needsWorkingDirectory(let details):
+      environmentDetails(details)
+      LabeledContent("Working Directory", value: "Required before first run")
+    case .ready(let details, let workingDirectory):
+      environmentDetails(details)
+      LabeledContent("Working Directory", value: workingDirectory.path)
+      LabeledContent("Execution Trust", value: store.executionAuthorizationLabel)
+    }
+  }
+
+  @ViewBuilder
+  private func environmentDetails(_ details: PythonEnvironmentDetails) -> some View {
+    LabeledContent("Environment", value: details.kind.displayName)
+    LabeledContent("Selected Executable", value: details.executableURL.path)
+    LabeledContent("Real Executable", value: details.realExecutableURL.path)
+    LabeledContent("Python", value: details.pythonVersion.description)
+    LabeledContent("Architecture", value: details.architecture)
+    LabeledContent("marimo", value: details.marimoVersion)
+    LabeledContent("marimo Module", value: details.marimoModuleURL.path)
+  }
+
+  private var environmentLabel: String {
+    switch store.environmentState {
+    case .notConfigured: "No Python Environment"
+    case .selected: "Python Environment · Not Inspected"
+    case .checking: "Checking Python…"
+    case .invalid: "Invalid Python Environment"
+    case .needsWorkingDirectory(let details): "Python \(details.pythonVersion) · Choose Folder"
+    case .ready(let details, _): "Python \(details.pythonVersion) · marimo \(details.marimoVersion)"
     }
   }
 

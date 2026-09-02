@@ -183,6 +183,36 @@ struct ArchitectureBoundaryTests {
     #expect(!rootView.contains("Merge"))
   }
 
+  @Test("Environment selection and trust remain explicit native gates")
+  func nativeEnvironmentAndTrustGate() throws {
+    let root = repositoryRoot()
+    let preflight = try String(
+      contentsOf: root.appending(path: "MarimoNative/Environment/PythonPreflightService.swift"),
+      encoding: .utf8
+    )
+    let trustSheet = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/ExecutionTrustSheet.swift"),
+      encoding: .utf8
+    )
+    let rootView = notebookSource(root)
+    let store = try String(
+      contentsOf: root.appending(path: "MarimoNative/Application/NotebookEnvironment.swift"),
+      encoding: .utf8
+    )
+    #expect(preflight.contains("arguments: [\"-I\", \"-c\", Self.fixedScript]"))
+    #expect(!preflight.contains("/bin/sh"))
+    #expect(!preflight.contains("pip install"))
+    for token in ["Run Once", "Trust This Folder", "Cancel", "arbitrary Python code"] {
+      #expect(trustSheet.contains(token), "Missing trust warning token: \(token)")
+    }
+    for token in ["Executable", "Python", "Architecture", "marimo", "Environment"] {
+      #expect(rootView.contains(token), "Missing environment UI field: \(token)")
+    }
+    #expect(store.contains("public var interactiveWidgetsAllowed"))
+    #expect(store.contains("runOnceAuthorized || executionFolderTrusted"))
+    #expect(store.contains("environmentState = .selected("))
+  }
+
   private func repositoryRoot() -> URL {
     URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent()

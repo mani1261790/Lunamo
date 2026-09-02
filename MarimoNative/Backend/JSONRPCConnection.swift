@@ -178,7 +178,7 @@ public actor JSONRPCConnection {
   }
 
   public func forceTerminate() async {
-    await transport.terminate()
+    await transport.forceTerminate()
     state = .closed
     releaseAll(with: JSONRPCConnectionError.closed)
     eventTask?.cancel()
