@@ -18,4 +18,5 @@ public enum NotebookIntent: Sendable, Equatable {
   case updateRuntime(cellID: UUID, runtime: CellRuntimeState)
   case setKernelSessionID(String?)
   case runCell(cellID: UUID, executable: String, workingDirectory: String)
+  case runAll(executable: String, workingDirectory: String)
 }

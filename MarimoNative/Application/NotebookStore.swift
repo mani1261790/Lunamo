@@ -7,9 +7,9 @@ import MarimoEnvironment
 @MainActor
 public final class NotebookStore: ObservableObject {
   @Published public internal(set) var document: NotebookDocumentState
-  @Published public private(set) var backendStatus: BackendStatus = .unavailable
+  @Published public internal(set) var backendStatus: BackendStatus = .unavailable
   @Published public private(set) var openState: OpenState = .idle
-  @Published public private(set) var synchronizationError: String?
+  @Published public internal(set) var synchronizationError: String?
   @Published public internal(set) var focusedCellID: UUID?
   @Published public var inspectorPresented = true
   @Published public internal(set) var saveConflictURL: URL?
@@ -18,8 +18,9 @@ public final class NotebookStore: ObservableObject {
   @Published public internal(set) var environmentState: NotebookEnvironmentState = .notConfigured
   @Published public internal(set) var executionTrustPromptPresented = false
   @Published public internal(set) var executionFolderTrusted = false
+  @Published public internal(set) var sessionState: NotebookSessionState = .notStarted
 
-  private let backend: any MarimoBackend
+  let backend: any MarimoBackend
   private let documentService: DocumentService
   private let fileWriter: AtomicFileWriter
   let environmentDiscovery: PythonEnvironmentDiscovery
@@ -28,6 +29,12 @@ public final class NotebookStore: ObservableObject {
   private var synchronizedURI: String?
   private var synchronizedCellURIs: [String] = []
   var runOnceAuthorized = false
+  var pendingRunRequest: PendingRunRequest?
+  var backendEventTask: Task<Void, Never>?
+  var sessionResolutionTask: Task<Void, Never>?
+  var pendingTextSynchronizations: [UUID: Task<Void, Error>] = [:]
+  var runAwaitingCompletion = false
+  let sessionResolutionTimeout: Duration
 
   public init(
     backend: any MarimoBackend,
@@ -36,7 +43,8 @@ public final class NotebookStore: ObservableObject {
     fileWriter: AtomicFileWriter = AtomicFileWriter(),
     environmentDiscovery: PythonEnvironmentDiscovery = PythonEnvironmentDiscovery(),
     environmentPreflight: PythonPreflightService = PythonPreflightService(),
-    folderTrustStore: FolderTrustStore = FolderTrustStore()
+    folderTrustStore: FolderTrustStore = FolderTrustStore(),
+    sessionResolutionTimeout: Duration = .seconds(15)
   ) {
     self.backend = backend
     self.document = document
@@ -45,6 +53,7 @@ public final class NotebookStore: ObservableObject {
     self.environmentDiscovery = environmentDiscovery
     self.environmentPreflight = environmentPreflight
     self.folderTrustStore = folderTrustStore
+    self.sessionResolutionTimeout = sessionResolutionTimeout
   }
 
   public func send(_ intent: NotebookIntent) async {
@@ -52,23 +61,6 @@ public final class NotebookStore: ObservableObject {
       try await perform(intent)
       synchronizationError = nil
     } catch {
-      synchronizationError = String(describing: error)
-    }
-  }
-
-  public func refreshBackendStatus() async {
-    backendStatus = await backend.status()
-  }
-
-  public func startBackend() async {
-    do {
-      try await backend.start()
-      backendStatus = await backend.status()
-      if backendStatus == .ready {
-        try await synchronizeOpenDocument()
-      }
-    } catch {
-      backendStatus = .unavailable
       synchronizationError = String(describing: error)
     }
   }
@@ -83,7 +75,8 @@ public final class NotebookStore: ObservableObject {
       }
       switch try await backend.parseNotebook(source: snapshot.source) {
       case .success(let parsed):
-        try await closeSynchronizedDocument()
+        try await closeDocumentSynchronization()
+        resetSessionState(to: .notStarted)
         document = NotebookDocumentState(
           sourceURL: url,
           owned: parsed.owned,
@@ -96,6 +89,7 @@ public final class NotebookStore: ObservableObject {
         try await synchronizeOpenDocument()
         openState = .loaded(url)
         await discoverPythonEnvironments(for: url)
+        await reattachSessionIfAvailable()
       case .invalidSyntax(let line, let column):
         openState = .invalidSyntax(url, line: line, column: column)
       case .convertible:
@@ -104,12 +98,6 @@ public final class NotebookStore: ObservableObject {
     } catch {
       openState = .failed(url, String(describing: error))
     }
-  }
-
-  public func shutdownBackend() async {
-    try? await closeDocumentSynchronization()
-    await backend.shutdown()
-    backendStatus = .unavailable
   }
 
   public func recordSuccessfulSave(fileIdentity: FileIdentity? = nil) async {
@@ -155,6 +143,7 @@ public final class NotebookStore: ObservableObject {
     do {
       try await closeDocumentSynchronization()
       document.dirty = false
+      resetSessionState(to: .closed)
       synchronizationError = nil
     } catch {
       synchronizationError = String(describing: error)
@@ -228,7 +217,7 @@ public final class NotebookStore: ObservableObject {
     return sessionMoveFailed ? .savedWithSessionReset(target) : .saved(target)
   }
 
-  private func closeDocumentSynchronization() async throws {
+  func closeDocumentSynchronization() async throws {
     let uri = synchronizedURI ?? document.notebookURI
     try await closeSynchronizedDocument()
     if document.kernelSessionID != nil {
@@ -290,27 +279,13 @@ public final class NotebookStore: ObservableObject {
     case .setKernelSessionID(let sessionID):
       document.kernelSessionID = sessionID
     case .runCell(let cellID, let executable, let workingDirectory):
-      guard let index = cellIndex(cellID) else { return }
-      guard !document.cells[index].editor.hasMarkedText else {
-        throw NotebookStoreError.compositionActive(cellID)
-      }
-      guard case .ready(let details, let configuredWorkingDirectory) = environmentState else {
-        throw NotebookStoreError.environmentNotReady
-      }
-      guard
-        normalizedExecutableURL(URL(fileURLWithPath: executable)).path
-          == details.executableURL.path,
-        canonicalURL(URL(fileURLWithPath: workingDirectory)).path == configuredWorkingDirectory.path
-      else { throw NotebookStoreError.environmentMismatch }
-      guard await consumeExecutionAuthorization() else {
-        throw NotebookStoreError.executionNotTrusted
-      }
-      let cell = document.cells[index]
-      try await backend.execute(
-        notebookURI: document.notebookURI,
+      try await performRun(
+        cellIDs: [cellID], executable: executable, workingDirectory: workingDirectory)
+    case .runAll(let executable, let workingDirectory):
+      try await performRun(
+        cellIDs: document.cells.map(\.runtimeID),
         executable: executable,
-        workingDirectory: workingDirectory,
-        cells: [NotebookExecutionCell(runtimeID: cell.runtimeID, code: cell.code)]
+        workingDirectory: workingDirectory
       )
     }
   }
@@ -333,11 +308,20 @@ public final class NotebookStore: ObservableObject {
       previous: previous,
       current: code
     )
-    try await backend.didChangeNotebook(
-      uri: document.notebookURI,
-      version: document.notebookVersion,
-      change: .text(change)
-    )
+    let synchronizationID = UUID()
+    let backend = self.backend
+    let notebookURI = document.notebookURI
+    let notebookVersion = document.notebookVersion
+    let task = Task {
+      try await backend.didChangeNotebook(
+        uri: notebookURI,
+        version: notebookVersion,
+        change: .text(change)
+      )
+    }
+    pendingTextSynchronizations[synchronizationID] = task
+    defer { pendingTextSynchronizations.removeValue(forKey: synchronizationID) }
+    try await task.value
   }
 
   private func insertCell(after cellID: UUID?) async throws {
@@ -474,7 +458,7 @@ public final class NotebookStore: ObservableObject {
     )
   }
 
-  private func synchronizeOpenDocument() async throws {
+  func synchronizeOpenDocument() async throws {
     guard backendStatus == .ready else { return }
     let snapshot = NotebookSynchronization.snapshot(document)
     try await backend.didOpenNotebook(snapshot)

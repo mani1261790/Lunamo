@@ -13,6 +13,7 @@ def _():
 @app.cell
 def _(first):
     second = first + 22
+    second
     return (second,)
 
 

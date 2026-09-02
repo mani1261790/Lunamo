@@ -184,6 +184,77 @@ public enum MarimoBackendCapabilityError: Error, Sendable, Equatable {
   case unavailable
 }
 
+public struct MarimoKernelEvent: Sendable, Equatable {
+  public let notebookURI: String
+  public let sessionID: String
+  public let operation: String
+  public let payload: [String: JSONValue]
+
+  public init(
+    notebookURI: String,
+    sessionID: String,
+    operation: String,
+    payload: [String: JSONValue]
+  ) {
+    self.notebookURI = notebookURI
+    self.sessionID = sessionID
+    self.operation = operation
+    self.payload = payload
+  }
+}
+
+public struct MarimoSessionInfo: Codable, Sendable, Equatable {
+  public let sessionID: String
+  public let notebookURI: String
+  public let filename: String?
+  public let executable: String
+  public let workingDirectory: String
+  public let startedAt: Double
+  public let status: String
+  public let attached: Bool
+
+  enum CodingKeys: String, CodingKey {
+    case sessionID = "sessionId"
+    case notebookURI = "notebookUri"
+    case filename, executable, workingDirectory, startedAt, status, attached
+  }
+
+  public init(
+    sessionID: String,
+    notebookURI: String,
+    filename: String? = nil,
+    executable: String,
+    workingDirectory: String,
+    startedAt: Double = 0,
+    status: String,
+    attached: Bool = true
+  ) {
+    self.sessionID = sessionID
+    self.notebookURI = notebookURI
+    self.filename = filename
+    self.executable = executable
+    self.workingDirectory = workingDirectory
+    self.startedAt = startedAt
+    self.status = status
+    self.attached = attached
+  }
+}
+
+public struct MarimoCellReplay: Sendable, Equatable {
+  public let payload: [String: JSONValue]
+  public let executedSource: String?
+
+  public init(payload: [String: JSONValue], executedSource: String?) {
+    self.payload = payload
+    self.executedSource = executedSource
+  }
+}
+
+public enum MarimoBackendEvent: Sendable, Equatable {
+  case kernel(MarimoKernelEvent)
+  case sessionsChanged([MarimoSessionInfo])
+}
+
 public protocol MarimoBackend: Sendable {
   func status() async -> BackendStatus
   func start() async throws
@@ -203,6 +274,9 @@ public protocol MarimoBackend: Sendable {
     workingDirectory: String,
     cells: [NotebookExecutionCell]
   ) async throws
+  func backendEvents() async -> AsyncStream<MarimoBackendEvent>
+  func listSessions() async throws -> [MarimoSessionInfo]
+  func readNotebookOutputs(notebookURI: String) async throws -> [MarimoCellReplay]
   func shutdown() async
 }
 
@@ -232,4 +306,9 @@ extension MarimoBackend {
     workingDirectory _: String,
     cells _: [NotebookExecutionCell]
   ) async throws {}
+  public func backendEvents() async -> AsyncStream<MarimoBackendEvent> {
+    AsyncStream { continuation in continuation.finish() }
+  }
+  public func listSessions() async throws -> [MarimoSessionInfo] { [] }
+  public func readNotebookOutputs(notebookURI _: String) async throws -> [MarimoCellReplay] { [] }
 }

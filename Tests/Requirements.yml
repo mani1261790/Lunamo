@@ -530,3 +530,77 @@ MN-SEC-003:
   - SidecarLaunchRequestTests/directLaunch
 MN-ACCEPT-009:
   - ArchitectureBoundaryTests/nativeEnvironmentAndTrustGate
+MN-CMD-010:
+  - ProtocolContractTests/commandFixturesRoundTrip
+  - NotebookSessionTests/runCellLifecycle
+MN-CMD-011:
+  - NotebookSessionTests/runCellLifecycle
+  - BundledSidecarIntegrationTests/twoCellReactiveExecution
+MN-CMD-012:
+  - NotebookSessionTests/runAllPayload
+MN-CMD-013:
+  - NotebookSessionTests/runCellLifecycle
+  - BundledSidecarIntegrationTests/twoCellReactiveExecution
+MN-SES-001:
+  - NotebookSessionTests/runCellLifecycle
+MN-SES-002:
+  - NotebookExecutionGateTests/openDoesNotPromptOrExecute
+MN-SES-003:
+  - NotebookSessionTests/runCellLifecycle
+  - BundledSidecarIntegrationTests/storeSessionLifecycle
+MN-SES-004:
+  - NotebookSessionTests/sessionResolutionFallbackFindsMatch
+MN-SES-005:
+  - NotebookSessionTests/sessionResolutionFallback
+MN-SES-006:
+  - NotebookSessionTests/runCellLifecycle
+MN-SES-007:
+  - NotebookSessionTests/runCellLifecycle
+MN-SES-008:
+  - NotebookSessionTests/partialCellOperation
+MN-SES-009:
+  - NotebookSessionTests/reattach
+MN-SES-010:
+  - NotebookSessionTests/partialCellOperation
+MN-SES-011:
+  - NotebookSessionTests/runCellLifecycle
+  - BundledSidecarIntegrationTests/storeSessionLifecycle
+MN-SES-012:
+  - NotebookSessionTests/runCellLifecycle
+MN-SES-013:
+  - NotebookSessionTests/kernelStartupError
+MN-NOTIF-020:
+  - NotebookSessionTests/partialCellOperation
+MN-NOTIF-021:
+  - NotebookSessionTests/partialCellOperation
+MN-NOTIF-022:
+  - NotebookSessionTests/partialCellOperation
+MN-NOTIF-023:
+  - NotebookSessionTests/partialCellOperation
+MN-NOTIF-024:
+  - NotebookSessionTests/partialCellOperation
+MN-NOTIF-025:
+  - NotebookSessionTests/partialCellOperation
+MN-NOTIF-026:
+  - NotebookSessionTests/partialCellOperation
+MN-EXEC-001:
+  - ArchitectureBoundaryTests/notebookShortcutsAreDiscoverable
+  - NotebookSessionTests/trustResumesPendingRunAll
+MN-EXEC-003:
+  - NotebookSessionTests/executeFlushesCommittedText
+MN-EXEC-004:
+  - NotebookSessionTests/runCellLifecycle
+MN-EXEC-005:
+  - NotebookSessionTests/partialCellOperation
+MN-EXEC-006:
+  - NotebookSessionTests/runCellLifecycle
+MN-EXEC-010:
+  - NotebookSessionTests/runAllPayload
+MN-EXEC-011:
+  - NotebookSessionTests/runAllPayload
+MN-TEST-020:
+  - BundledSidecarIntegrationTests/twoCellReactiveExecution
+MN-TEST-021:
+  - BundledSidecarIntegrationTests/requiredKernelFixturesParse
+MN-TEST-022:
+  - BundledSidecarIntegrationTests/twoCellReactiveExecution

@@ -117,6 +117,7 @@ extension NotebookStore {
   public func authorizeRunOnce() {
     runOnceAuthorized = true
     executionTrustPromptPresented = false
+    resumePendingRun()
   }
 
   public func trustCurrentFolder() async {
@@ -130,6 +131,7 @@ extension NotebookStore {
       }
       executionFolderTrusted = true
       executionTrustPromptPresented = false
+      await executePendingRun()
     } catch {
       saveMessage = "Folder trust could not be saved: \(error.localizedDescription)"
     }
@@ -139,6 +141,7 @@ extension NotebookStore {
     runOnceAuthorized = false
     executionFolderTrusted = false
     executionTrustPromptPresented = false
+    pendingRunRequest = nil
   }
 
   public func consumeExecutionAuthorization() async -> Bool {

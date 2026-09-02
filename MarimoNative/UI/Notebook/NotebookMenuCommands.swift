@@ -13,18 +13,29 @@ public struct NotebookMenuCommands: Commands {
     SidebarCommands()
 
     CommandMenu("Notebook") {
-      Button("Run Cell and Advance") {}
-        .keyboardShortcut(.return, modifiers: [.shift])
-        .disabled(true)
-      Button("Run Cell") {}
-        .keyboardShortcut(.return, modifiers: [.command])
-        .disabled(true)
-      Button("Run Cell and Insert Below") {}
-        .keyboardShortcut(.return, modifiers: [.option])
-        .disabled(true)
-      Button("Run All") {}
-        .keyboardShortcut(.return, modifiers: [.command, .shift])
-        .disabled(true)
+      Button("Run Cell and Advance") {
+        guard let cellID = store.document.selectedCellID else { return }
+        Task { await store.requestRunCell(cellID, advance: true) }
+      }
+      .keyboardShortcut(.return, modifiers: [.shift])
+      .disabled(!canRunSelectedCell)
+      Button("Run Cell") {
+        guard let cellID = store.document.selectedCellID else { return }
+        Task { await store.requestRunCell(cellID) }
+      }
+      .keyboardShortcut(.return, modifiers: [.command])
+      .disabled(!canRunSelectedCell)
+      Button("Run Cell and Insert Below") {
+        guard let cellID = store.document.selectedCellID else { return }
+        Task { await store.requestRunCell(cellID, insertBelow: true) }
+      }
+      .keyboardShortcut(.return, modifiers: [.option])
+      .disabled(!canRunSelectedCell)
+      Button("Run All") {
+        Task { await store.requestRunAll() }
+      }
+      .keyboardShortcut(.return, modifiers: [.command, .shift])
+      .disabled(!canRun)
       Button("Interrupt") {}
         .keyboardShortcut(".", modifiers: [.command])
         .disabled(true)
@@ -89,6 +100,15 @@ public struct NotebookMenuCommands: Commands {
       let index = store.document.cells.firstIndex(where: { $0.runtimeID == selected })
     else { return false }
     return store.document.cells.indices.contains(index + offset)
+  }
+
+  private var canRun: Bool {
+    store.backendStatus == .ready && store.environmentAllowsExecutionRequest
+      && store.sessionAllowsRun
+  }
+
+  private var canRunSelectedCell: Bool {
+    canRun && store.document.selectedCellID != nil
   }
 
   private func moveSelectedCell(by offset: Int) {

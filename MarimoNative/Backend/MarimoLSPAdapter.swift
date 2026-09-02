@@ -2,6 +2,7 @@ import Foundation
 import MarimoDomain
 import MarimoProcess
 import MarimoProtocol
+import OSLog
 
 public actor MarimoLSPAdapter: MarimoBackend {
   public enum SynchronizationError: Error, Sendable, Equatable {
@@ -10,8 +11,13 @@ public actor MarimoLSPAdapter: MarimoBackend {
 
   private let connection: JSONRPCConnection
   private let launchRequest: ProcessLaunchRequest
+  private let eventStream: AsyncStream<MarimoBackendEvent>
+  private let eventContinuation: AsyncStream<MarimoBackendEvent>.Continuation
+  private let unknownTracker = UnknownNotificationTracker()
+  private let logger = Logger(subsystem: "MarimoNative", category: "MarimoLSPAdapter")
   private var backendStatus: BackendStatus = .unavailable
   private var openNotebookCells: [String: [String]] = [:]
+  private var notificationTask: Task<Void, Never>?
 
   public init(
     sidecarDirectory: URL,
@@ -19,6 +25,7 @@ public actor MarimoLSPAdapter: MarimoBackend {
   ) throws {
     self.connection = connection
     launchRequest = try SidecarLaunchRequest.make(sidecarDirectory: sidecarDirectory)
+    (eventStream, eventContinuation) = AsyncStream.makeStream()
   }
 
   public func status() async -> BackendStatus {
@@ -29,8 +36,10 @@ public actor MarimoLSPAdapter: MarimoBackend {
   public func start() async throws {
     if await connection.currentState() == .ready {
       backendStatus = .ready
+      await startNotificationForwarding()
       return
     }
+    await startNotificationForwarding()
     _ = try await connection.startAndInitialize(request: launchRequest)
     backendStatus = .ready
   }
@@ -221,7 +230,31 @@ public actor MarimoLSPAdapter: MarimoBackend {
     )
   }
 
+  public func backendEvents() async -> AsyncStream<MarimoBackendEvent> { eventStream }
+
+  public func listSessions() async throws -> [MarimoSessionInfo] {
+    let result = try await connection.request(
+      method: "marimo/command",
+      params: try encodeAsJSONValue(MarimoCommand.listSessions)
+    )
+    return try decode(SessionListResponse.self, from: result).sessions
+  }
+
+  public func readNotebookOutputs(notebookURI: String) async throws -> [MarimoCellReplay] {
+    let result = try await connection.request(
+      method: "marimo/command",
+      params: try encodeAsJSONValue(
+        MarimoCommand.readNotebookOutputs(notebookURI: notebookURI, sessionCachePath: nil)
+      )
+    )
+    return try decode(CellReplayResponse.self, from: result).cells.map {
+      MarimoCellReplay(payload: $0.notification.payload, executedSource: $0.executedSource)
+    }
+  }
+
   public func shutdown() async {
+    notificationTask?.cancel()
+    notificationTask = nil
     let connection = self.connection
     let graceful = await withTaskGroup(of: Bool.self) { group in
       group.addTask { [self] in
@@ -242,6 +275,60 @@ public actor MarimoLSPAdapter: MarimoBackend {
     }
     backendStatus = .unavailable
     openNotebookCells.removeAll()
+  }
+
+  private func startNotificationForwarding() async {
+    guard notificationTask == nil else { return }
+    let notifications = await connection.notifications()
+    notificationTask = Task { [weak self] in
+      for await message in notifications {
+        guard !Task.isCancelled else { return }
+        await self?.route(message)
+      }
+    }
+  }
+
+  private func route(_ message: JSONRPCMessage) async {
+    guard case .notification(let method, let params) = message, let params else { return }
+    do {
+      switch method {
+      case "marimo/kernelNotification":
+        let envelope = try decode(KernelNotificationEnvelope.self, from: params)
+        let operation: String
+        let payload: [String: JSONValue]
+        switch envelope.notification {
+        case .known(let known, let value):
+          operation = known.rawValue
+          payload = value
+        case .unknown(let value, let raw):
+          operation = value
+          payload = raw
+          if await unknownTracker.record(
+            sessionID: envelope.sessionID, notification: envelope.notification)
+          {
+            logger.debug("Ignoring unknown kernel notification: \(value, privacy: .public)")
+          }
+        }
+        eventContinuation.yield(
+          .kernel(
+            MarimoKernelEvent(
+              notebookURI: envelope.notebookURI,
+              sessionID: envelope.sessionID,
+              operation: operation,
+              payload: payload
+            )
+          )
+        )
+      case "marimo/sessionsChanged":
+        eventContinuation.yield(
+          .sessionsChanged(try decode(SessionListResponse.self, from: params).sessions)
+        )
+      default:
+        break
+      }
+    } catch {
+      logger.error("Dropped invalid backend notification: \(method, privacy: .public)")
+    }
   }
 
   private func notebookDocument(_ snapshot: NotebookSyncSnapshot) throws -> JSONValue {
@@ -296,5 +383,40 @@ public actor MarimoLSPAdapter: MarimoBackend {
 
   private func decode<T: Decodable>(_ type: T.Type, from value: JSONValue) throws -> T {
     try JSONDecoder().decode(type, from: JSONEncoder().encode(value))
+  }
+}
+
+private struct SessionListResponse: Codable {
+  let sessions: [MarimoSessionInfo]
+}
+
+private struct CellReplayResponse: Codable {
+  let cells: [CellReplayRecord]
+}
+
+private struct CellReplayRecord: Codable {
+  let kind: String
+  let notification: CellReplayNotification
+  let executedSource: String?
+
+  enum CodingKeys: String, CodingKey {
+    case kind, notification
+    case executedSource = "executedSource"
+  }
+}
+
+private struct CellReplayNotification: Codable {
+  let payload: [String: JSONValue]
+
+  init(from decoder: Decoder) throws {
+    var object = try [String: JSONValue](from: decoder)
+    object.removeValue(forKey: "op")
+    payload = object
+  }
+
+  func encode(to encoder: Encoder) throws {
+    var object = payload
+    object["op"] = .string("cell-op")
+    try object.encode(to: encoder)
   }
 }

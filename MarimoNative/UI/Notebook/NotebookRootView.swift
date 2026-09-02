@@ -107,7 +107,7 @@ public struct NotebookRootView: View {
     }
     ToolbarItemGroup {
       Button("Run All", systemImage: "play.fill") {
-        Task { _ = await store.requestExecutionAuthorization() }
+        Task { await store.requestRunAll() }
       }
       .disabled(!canRun)
       .help("Run All (⇧⌘↩)")
@@ -131,7 +131,7 @@ public struct NotebookRootView: View {
     Form {
       Section("Session") {
         LabeledContent("Backend", value: backendLabel)
-        LabeledContent("Kernel", value: "Not Started")
+        LabeledContent("Kernel", value: store.sessionStatusLabel)
         environmentInspector
       }
       Section("Variables") {
@@ -152,6 +152,7 @@ public struct NotebookRootView: View {
 
   private var canRun: Bool {
     store.environmentAllowsExecutionRequest && store.backendStatus == .ready
+      && store.sessionAllowsRun
   }
 
   private var backendLabel: String {
@@ -177,9 +178,18 @@ public struct NotebookRootView: View {
     case .deleteCell:
       guard store.focusedCellID == nil else { return }
       Task { await store.send(.deleteCell(cellID)) }
-    case .runAndAdvance, .runAndStay, .runAndInsert, .runAll:
+    case .runAndAdvance:
       guard canRun else { return }
-      Task { _ = await store.requestExecutionAuthorization() }
+      Task { await store.requestRunCell(cellID, advance: true) }
+    case .runAndStay:
+      guard canRun else { return }
+      Task { await store.requestRunCell(cellID) }
+    case .runAndInsert:
+      guard canRun else { return }
+      Task { await store.requestRunCell(cellID, insertBelow: true) }
+    case .runAll:
+      guard canRun else { return }
+      Task { await store.requestRunAll() }
     case .interrupt:
       return
     }

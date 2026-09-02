@@ -23,4 +23,5 @@ public enum NotebookStoreError: Error, Sendable, Equatable {
   case environmentNotReady
   case environmentMismatch
   case executionNotTrusted
+  case noCellsToExecute
 }
