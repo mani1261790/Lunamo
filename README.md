@@ -13,7 +13,7 @@ DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer xcrun swift-format
 ./Tools/verify-source-policy.sh
 ./Tools/build-sidecar.sh
 ./Tools/verify-sidecar.sh
-./Tools/smoke-sidecar.py .build/Sidecar --deny-network
+./Tools/smoke-sidecar.py .build/Sidecar --deny-network --runtime-acceptance
 ./Tools/build-debug-app.sh
 ./Tools/verify-gate-a.sh
 ./Tools/verify-current-gates.sh

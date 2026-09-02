@@ -2,7 +2,23 @@
 set -eu
 
 project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-developer_dir=${DEVELOPER_DIR:-/Applications/Xcode-beta.app/Contents/Developer}
+developer_dir=${DEVELOPER_DIR:-$(xcode-select -p)}
+if [ "$developer_dir" = "/Library/Developer/CommandLineTools" ]; then
+  for candidate in \
+    /Applications/Xcode.app/Contents/Developer \
+    /Applications/Xcode-beta.app/Contents/Developer \
+    /Applications/Xcode_*.app/Contents/Developer
+  do
+    if [ -x "$candidate/usr/bin/xcodebuild" ]; then
+      developer_dir=$candidate
+      break
+    fi
+  done
+fi
+if ! DEVELOPER_DIR="$developer_dir" xcrun --find xcodebuild >/dev/null 2>&1; then
+  echo "A full Xcode installation is required; set DEVELOPER_DIR to its Contents/Developer directory" >&2
+  exit 1
+fi
 identity=${MARIMONATIVE_CODESIGN_IDENTITY:-}
 artifact_directory=${MARIMONATIVE_ARTIFACT_DIR:-"$project_root/.build/release-artifacts"}
 app_root="$artifact_directory/MarimoNative.app"

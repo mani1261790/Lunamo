@@ -7,13 +7,19 @@ exact notarized archive. A pending checklist is produced beside every release ca
 ## Automated release candidate
 
 1. Run `Tools/build-release-app.sh` with `MARIMONATIVE_CODESIGN_IDENTITY` set to a
-   Developer ID Application identity.
+   Developer ID Application identity. A full Xcode installation is required; when
+   `xcode-select` points at Command Line Tools, the scripts select an installed Xcode or
+   require an explicit `DEVELOPER_DIR`.
 2. Run `Tools/verify-release-prerequisites.sh` to reject a non-Developer ID identity,
    incomplete Notary API credentials, an insecure private-key mode, or the wrong host.
 3. Run `Tools/notarize-release.sh` with App Store Connect notary credentials.
 4. Run `Tools/measure-release-performance.py` against the signed app on an M2 16 GB-class
    Mac.
-5. Generate the checklist with the bundled sidecar Python:
+5. The artifact verifier runs the packaged sidecar with external networking denied while
+   preserving localhost IPC. It selects the packaged Python by absolute path, executes a
+   sample Notebook, requires output `42`, verifies the selected executable reported by the
+   live session, shuts down every session, and waits for the kernel process to disappear.
+6. Generate the checklist with the bundled sidecar Python:
 
    `.build/Sidecar/bin/python3 -I Tools/create-release-checklist.py --artifact .build/release-artifacts/MarimoNative-0.1.0.zip --output .build/release-artifacts/ReleaseChecklist.yml`
 

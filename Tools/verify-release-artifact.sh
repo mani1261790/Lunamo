@@ -49,7 +49,8 @@ EOF
 test "$nested_count" -gt 0
 
 "$project_root/Tools/verify-sidecar.sh" "$app_root/Contents/Resources/Sidecar"
-"$project_root/Tools/smoke-sidecar.py" "$app_root/Contents/Resources/Sidecar" --deny-network
+"$project_root/Tools/smoke-sidecar.py" "$app_root/Contents/Resources/Sidecar" \
+  --deny-network --runtime-acceptance
 
 case "$verification" in
   development) ;;
