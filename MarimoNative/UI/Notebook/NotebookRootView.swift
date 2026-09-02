@@ -49,6 +49,8 @@ public struct NotebookRootView: View {
   private var notebookCanvas: some View {
     ScrollView {
       LazyVStack(spacing: 16) {
+        saveConflictBanner
+        saveMessageBanner
         openStateBanner
         ForEach(store.document.cells) { cell in
           CellView(
@@ -74,6 +76,7 @@ public struct NotebookRootView: View {
     }
     .background(Color(nsColor: .textBackgroundColor))
     .accessibilityLabel("Notebook canvas")
+    .background(NotebookWindowLifecycleView(store: store))
   }
 
   @ToolbarContentBuilder
@@ -180,6 +183,50 @@ public struct NotebookRootView: View {
       return
     }
     Task { await store.send(.moveCell(cellID, to: index + offset)) }
+  }
+
+  @ViewBuilder
+  private var saveConflictBanner: some View {
+    if let target = store.saveConflictURL {
+      VStack(alignment: .leading, spacing: 8) {
+        Label("File changed on disk", systemImage: "exclamationmark.triangle")
+          .font(.headline)
+        Text(target.lastPathComponent)
+          .foregroundStyle(.secondary)
+        HStack {
+          Button("Reload from Disk") {
+            Task { await store.reloadConflictedDocument() }
+          }
+          Button("Save Local Copy") {
+            NotebookSaveActions.saveAs(store)
+          }
+          Button("Cancel") {
+            store.cancelSaveConflict()
+          }
+        }
+      }
+      .padding()
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+      .accessibilityElement(children: .contain)
+    }
+  }
+
+  @ViewBuilder
+  private var saveMessageBanner: some View {
+    if let message = store.saveMessage {
+      HStack {
+        Label(message, systemImage: "exclamationmark.circle")
+        Spacer()
+        Button("Dismiss", systemImage: "xmark") {
+          store.dismissSaveMessage()
+        }
+        .labelStyle(.iconOnly)
+      }
+      .padding()
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    }
   }
 
   @ViewBuilder

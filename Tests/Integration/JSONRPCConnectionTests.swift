@@ -36,16 +36,22 @@ private actor MockProcessTransport: ProcessTransport {
         terminate()
         continue
       }
-      if case .request(let id, let method, _) = message,
+      if case .request(let id, let method, let params) = message,
         !methodsWithoutAutomaticResponse.contains(method)
       {
-        let result: JSONValue =
-          method == "initialize"
-          ? .object([
+        let result: JSONValue
+        if method == "initialize" {
+          result = .object([
             "serverInfo": .object(["name": .string("mock")]),
             "capabilities": .object(["notebookDocumentSync": .bool(true)]),
           ])
-          : .object(["method": .string(method)])
+        } else if method == "marimo/command",
+          params?.object?["kind"] == .string("print-notebook")
+        {
+          result = .object(["source": .string("# printed exactly\r\n")])
+        } else {
+          result = .object(["method": .string(method)])
+        }
         try emit(.response(id: id, result: result))
       }
     }
@@ -217,6 +223,77 @@ struct JSONRPCConnectionTests {
     let range = content?["changes"]?.array?.first?.object?["range"]?.object
     #expect(range?["start"]?.object?["character"] == .integer(3))
     await adapter.shutdown()
+  }
+
+  @Test("Adapter orders save-session commands before graceful LSP shutdown")
+  func saveAndShutdownWireShape() async throws {
+    let transport = MockProcessTransport()
+    let connection = JSONRPCConnection(transport: transport)
+    let sidecar = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .appending(path: ".build/Sidecar")
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar, connection: connection)
+    try await adapter.start()
+    let document = OwnedNotebookDocumentV1(
+      cells: [OwnedNotebookCell(code: "value = 1", name: "_")],
+      header: ""
+    )
+
+    #expect(try await adapter.printNotebook(document) == "# printed exactly\r\n")
+    try await adapter.moveSession(notebookURI: "untitled:old", newNotebookURI: "file:///new.py")
+    try await adapter.closeSession(notebookURI: "file:///new.py")
+    await adapter.shutdown()
+
+    let messages = await transport.snapshot()
+    let commandKinds = messages.compactMap { message -> String? in
+      guard case .request(_, "marimo/command", let params) = message else { return nil }
+      guard case .string(let kind) = params?.object?["kind"] else { return nil }
+      return kind
+    }
+    #expect(
+      commandKinds == [
+        "print-notebook", "move-session", "close-session", "shutdown-all-sessions",
+      ]
+    )
+    let shutdownIndex = messages.firstIndex {
+      if case .request(_, "shutdown", _) = $0 { true } else { false }
+    }
+    let shutdownAllIndex = messages.firstIndex {
+      guard case .request(_, "marimo/command", let params) = $0 else { return false }
+      return params?.object?["kind"] == .string("shutdown-all-sessions")
+    }
+    #expect(shutdownAllIndex != nil)
+    #expect(shutdownIndex != nil)
+    if let shutdownAllIndex, let shutdownIndex {
+      #expect(shutdownAllIndex < shutdownIndex)
+    }
+    #expect(messages.last == JSONRPCMessage.notification(method: "exit", params: nil))
+  }
+
+  @Test("Adapter force-terminates when graceful shutdown reaches five seconds")
+  func boundedAdapterShutdown() async throws {
+    let transport = MockProcessTransport()
+    let connection = JSONRPCConnection(transport: transport)
+    let sidecar = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .appending(path: ".build/Sidecar")
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar, connection: connection)
+    try await adapter.start()
+    await transport.disableAutomaticResponse(for: "marimo/command")
+
+    let clock = ContinuousClock()
+    let start = clock.now
+    await adapter.shutdown()
+    let elapsed = start.duration(to: clock.now)
+
+    #expect(elapsed >= .seconds(5))
+    #expect(elapsed < .seconds(6))
+    #expect(await transport.processIdentifier() == nil)
+    #expect(await connection.currentState() == .closed)
   }
 
   @Test("Timeout releases a pending request")

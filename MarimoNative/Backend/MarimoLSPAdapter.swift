@@ -51,6 +51,41 @@ public actor MarimoLSPAdapter: MarimoBackend {
     }
   }
 
+  public func printNotebook(_ document: OwnedNotebookDocumentV1) async throws -> String {
+    let result = try await connection.request(
+      method: "marimo/command",
+      params: try encodeAsJSONValue(MarimoCommand.printNotebook(document))
+    )
+    return try decode(PrintNotebookResult.self, from: result).source
+  }
+
+  public func moveSession(notebookURI: String, newNotebookURI: String) async throws {
+    _ = try await connection.request(
+      method: "marimo/command",
+      params: try encodeAsJSONValue(
+        MarimoCommand.moveSession(
+          MoveSessionCommand(notebookURI: notebookURI, newNotebookURI: newNotebookURI)
+        )
+      )
+    )
+  }
+
+  public func closeSession(notebookURI: String) async throws {
+    _ = try await connection.request(
+      method: "marimo/command",
+      params: try encodeAsJSONValue(
+        MarimoCommand.closeSession(NotebookURICommand(notebookURI: notebookURI))
+      )
+    )
+  }
+
+  public func shutdownAllSessions() async throws {
+    _ = try await connection.request(
+      method: "marimo/command",
+      params: try encodeAsJSONValue(MarimoCommand.shutdownAllSessions)
+    )
+  }
+
   public func didOpenNotebook(_ snapshot: NotebookSyncSnapshot) async throws {
     if let alreadyOpen = openNotebookCells[snapshot.uri] {
       try await didCloseNotebook(uri: snapshot.uri, cellURIs: alreadyOpen)
@@ -187,7 +222,24 @@ public actor MarimoLSPAdapter: MarimoBackend {
   }
 
   public func shutdown() async {
-    await connection.shutdown()
+    let connection = self.connection
+    let graceful = await withTaskGroup(of: Bool.self) { group in
+      group.addTask { [self] in
+        try? await shutdownAllSessions()
+        await connection.shutdown()
+        return true
+      }
+      group.addTask {
+        try? await Task.sleep(for: .seconds(5))
+        return false
+      }
+      let completed = await group.next() ?? false
+      group.cancelAll()
+      return completed
+    }
+    if !graceful {
+      await connection.forceTerminate()
+    }
     backendStatus = .unavailable
     openNotebookCells.removeAll()
   }

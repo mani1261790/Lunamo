@@ -180,10 +180,18 @@ public enum NotebookParseOutcome: Sendable, Equatable {
   case convertible
 }
 
+public enum MarimoBackendCapabilityError: Error, Sendable, Equatable {
+  case unavailable
+}
+
 public protocol MarimoBackend: Sendable {
   func status() async -> BackendStatus
   func start() async throws
   func parseNotebook(source: String) async throws -> NotebookParseOutcome
+  func printNotebook(_ document: OwnedNotebookDocumentV1) async throws -> String
+  func moveSession(notebookURI: String, newNotebookURI: String) async throws
+  func closeSession(notebookURI: String) async throws
+  func shutdownAllSessions() async throws
   func didOpenNotebook(_ snapshot: NotebookSyncSnapshot) async throws
   func didChangeNotebook(uri: String, version: UInt64, change: NotebookSyncChange) async throws
   func didSaveNotebook(uri: String) async throws
@@ -199,6 +207,12 @@ public protocol MarimoBackend: Sendable {
 }
 
 extension MarimoBackend {
+  public func printNotebook(_: OwnedNotebookDocumentV1) async throws -> String {
+    throw MarimoBackendCapabilityError.unavailable
+  }
+  public func moveSession(notebookURI _: String, newNotebookURI _: String) async throws {}
+  public func closeSession(notebookURI _: String) async throws {}
+  public func shutdownAllSessions() async throws {}
   public func didOpenNotebook(_: NotebookSyncSnapshot) async throws {}
   public func didChangeNotebook(
     uri _: String,

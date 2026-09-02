@@ -390,3 +390,74 @@ MN-EDIT-030:
 MN-EDIT-031:
   - ArchitectureBoundaryTests/notebookShortcutsAreDiscoverable
   - manual: Command-mode deletion and editor-mode protection verified in the native app on Issue 7
+MN-FILE-001:
+  - NotebookSaveTests/newNotebookShape
+MN-FILE-002:
+  - NotebookSaveTests/newNotebookShape
+  - NotebookSaveTests/successfulSave
+MN-FILE-020:
+  - NotebookSaveTests/successfulSave
+MN-FILE-021:
+  - NotebookSaveTests/successfulSave
+  - BundledSidecarIntegrationTests/officialMarimoSaveRoundTrip
+MN-FILE-022:
+  - AtomicFileWriterTests/successfulReplacement
+MN-FILE-023:
+  - AtomicFileWriterTests/successfulReplacement
+MN-FILE-024:
+  - AtomicFileWriterTests/diskConflict
+  - NotebookSaveTests/externalEditConflict
+MN-FILE-025:
+  - NotebookSaveTests/externalEditConflict
+  - ArchitectureBoundaryTests/nativeSaveLifecycle
+  - manual: Native conflict banner exposes only Reload from Disk, Save Local Copy, and Cancel on Issue 8
+MN-FILE-026:
+  - ArchitectureBoundaryTests/nativeSaveLifecycle
+MN-FILE-027:
+  - NotebookSaveTests/successfulSave
+MN-FILE-028:
+  - NotebookSaveTests/cleanSaveIsNoOp
+  - manual: Native Command-S preserved inode, mtime, size, and SHA-256 on Issue 8
+MN-FILE-029:
+  - ArchitectureBoundaryTests/nativeSaveLifecycle
+  - manual: Native dirty-close Save, Cancel, and Don't Save sheet verified on Issue 8
+MN-FILE-030:
+  - NotebookSaveTests/closeOrdering
+MN-FILE-031:
+  - JSONRPCConnectionTests/saveAndShutdownWireShape
+MN-FILE-032:
+  - JSONRPCConnectionTests/boundedAdapterShutdown
+MN-FILE-033:
+  - BundledSidecarIntegrationTests/initializeAndShutdown
+  - manual: Native app close left no app or bundled sidecar process on Issue 8
+MN-FILE-034:
+  - NotebookSaveTests/saveAsMovesSession
+  - NotebookSaveTests/saveAsMoveFailureFallsBack
+MN-FILE-035:
+  - NotebookSaveTests/saveAsSameURLUsesSave
+MN-FILE-036:
+  - NotebookSaveTests/saveAsMovesSession
+MN-FILE-037:
+  - NotebookSaveTests/saveAsMovesSession
+MN-FILE-038:
+  - NotebookSaveTests/saveAsMoveFailureFallsBack
+  - NotebookSaveTests/saveAsMoveAndCloseFailureFallsBack
+MN-FILE-039:
+  - NotebookSaveTests/saveAsMovesSession
+  - NotebookSaveTests/saveAsMoveFailureFallsBack
+  - manual: Native Save As retained both original and destination files on Issue 8
+MN-TEST-007:
+  - AtomicFileWriterTests/successfulReplacement
+  - AtomicFileWriterTests/diskConflict
+  - AtomicFileWriterTests/permissionFailureCleanup
+  - AtomicFileWriterTests/lateConflictCleansTemporaryFile
+MN-TEST-025:
+  - BundledSidecarIntegrationTests/officialMarimoSaveRoundTrip
+MN-TEST-026:
+  - BundledSidecarIntegrationTests/officialMarimoSaveRoundTrip
+MN-TEST-027:
+  - BundledSidecarIntegrationTests/initializeAndShutdown
+MN-TEST-028:
+  - NotebookSaveTests/saveAsMovesSession
+MN-TEST-029:
+  - NotebookSynchronizationTests/untitledStructureKeepsSession

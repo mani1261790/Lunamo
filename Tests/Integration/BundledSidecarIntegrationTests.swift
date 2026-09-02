@@ -1,4 +1,5 @@
 import Foundation
+import MarimoApplication
 import MarimoBackend
 import MarimoDomain
 import MarimoProcess
@@ -23,8 +24,10 @@ struct BundledSidecarIntegrationTests {
       request: SidecarLaunchRequest.make(sidecarDirectory: sidecar)
     )
     #expect(await connection.currentState() == .ready)
-    await connection.shutdown()
     let clock = ContinuousClock()
+    let shutdownStart = clock.now
+    await connection.shutdown()
+    #expect(shutdownStart.duration(to: clock.now) < .seconds(5))
     let deadline = clock.now.advanced(by: .seconds(2))
     while await process.processIdentifier() != nil, clock.now < deadline {
       try await Task.sleep(for: .milliseconds(25))
@@ -123,6 +126,53 @@ struct BundledSidecarIntegrationTests {
     #expect(await adapter.status() == .ready)
     try await adapter.didCloseNotebook(uri: uri, cellURIs: [first.uri, second.uri])
     await adapter.shutdown()
+  }
+
+  @Test("Official marimo fixture round-trips through native atomic save")
+  func officialMarimoSaveRoundTrip() async throws {
+    let root = repositoryRoot()
+    let sidecar = root.appending(path: ".build/Sidecar")
+    guard FileManager.default.fileExists(atPath: sidecar.path) else {
+      Issue.record("Build .build/Sidecar before running integration tests")
+      return
+    }
+    let directory = FileManager.default.temporaryDirectory.appending(
+      path: "marimonative-official-roundtrip-\(UUID().uuidString)",
+      directoryHint: .isDirectory
+    )
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let target = directory.appending(path: "roundtrip.py")
+    try FileManager.default.copyItem(
+      at: root.appending(path: "Tests/Fixtures/two_cell_notebook.py"),
+      to: target
+    )
+
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar)
+    let store = await NotebookStore(backend: adapter)
+    await store.startBackend()
+    await store.open(target)
+    let openedCells = await store.document.cells
+    let firstCellID = try #require(openedCells.first?.runtimeID)
+    await store.send(.updateCode(cellID: firstCellID, code: "first = 21"))
+    #expect(try await store.save() == .saved(target))
+    let isDirty = await store.document.dirty
+    #expect(!isDirty)
+    await store.close()
+    await store.shutdownBackend()
+
+    let verifier = try MarimoLSPAdapter(sidecarDirectory: sidecar)
+    try await verifier.start()
+    let savedSource = try String(contentsOf: target, encoding: .utf8)
+    guard case .success(let reparsed) = try await verifier.parseNotebook(source: savedSource) else {
+      Issue.record("Official marimo could not parse the atomically saved source")
+      await verifier.shutdown()
+      return
+    }
+    #expect(reparsed.cells.count == 2)
+    #expect(reparsed.cells[0].code == "first = 21")
+    #expect(reparsed.cells[1].code.contains("second = first + 22"))
+    await verifier.shutdown()
   }
 
   private var notebookMetadata: [String: JSONValue] {

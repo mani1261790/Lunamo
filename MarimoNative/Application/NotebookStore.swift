@@ -5,35 +5,31 @@ import MarimoDomain
 
 @MainActor
 public final class NotebookStore: ObservableObject {
-  public enum OpenState: Sendable, Equatable {
-    case idle
-    case loading(URL)
-    case loaded(URL)
-    case invalidSyntax(URL, line: Int?, column: Int?)
-    case convertible(URL)
-    case failed(URL, String)
-  }
-
   @Published public private(set) var document: NotebookDocumentState
   @Published public private(set) var backendStatus: BackendStatus = .unavailable
   @Published public private(set) var openState: OpenState = .idle
   @Published public private(set) var synchronizationError: String?
   @Published public private(set) var focusedCellID: UUID?
   @Published public var inspectorPresented = true
+  @Published public private(set) var saveConflictURL: URL?
+  @Published public private(set) var saveMessage: String?
 
   private let backend: any MarimoBackend
   private let documentService: DocumentService
+  private let fileWriter: AtomicFileWriter
   private var synchronizedURI: String?
   private var synchronizedCellURIs: [String] = []
 
   public init(
     backend: any MarimoBackend,
     document: NotebookDocumentState = NotebookDocumentState(),
-    documentService: DocumentService = DocumentService()
+    documentService: DocumentService = DocumentService(),
+    fileWriter: AtomicFileWriter = AtomicFileWriter()
   ) {
     self.backend = backend
     self.document = document
     self.documentService = documentService
+    self.fileWriter = fileWriter
   }
 
   public func send(_ intent: NotebookIntent) async {
@@ -65,16 +61,23 @@ public final class NotebookStore: ObservableObject {
   public func open(_ url: URL) async {
     openState = .loading(url)
     do {
-      let source = try await documentService.readSource(at: url)
+      let snapshot = try await documentService.readSnapshot(at: url)
       if backendStatus != .ready {
         try await backend.start()
         backendStatus = await backend.status()
       }
-      switch try await backend.parseNotebook(source: source) {
+      switch try await backend.parseNotebook(source: snapshot.source) {
       case .success(let parsed):
         try await closeSynchronizedDocument()
-        document = NotebookDocumentState(sourceURL: url, owned: parsed.owned, dirty: false)
+        document = NotebookDocumentState(
+          sourceURL: url,
+          owned: parsed.owned,
+          dirty: false,
+          lastSavedFileIdentity: snapshot.identity
+        )
         focusedCellID = nil
+        saveConflictURL = nil
+        saveMessage = nil
         try await synchronizeOpenDocument()
         openState = .loaded(url)
       case .invalidSyntax(let line, let column):
@@ -88,29 +91,151 @@ public final class NotebookStore: ObservableObject {
   }
 
   public func shutdownBackend() async {
-    try? await closeSynchronizedDocument()
+    try? await closeDocumentSynchronization()
     await backend.shutdown()
     backendStatus = .unavailable
   }
 
   public func recordSuccessfulSave(fileIdentity: FileIdentity? = nil) async {
-    document.lastSavedFileIdentity = fileIdentity
-    document.dirty = false
+    if let fileIdentity { document.lastSavedFileIdentity = fileIdentity }
     guard synchronizedURI == document.notebookURI else { return }
     do {
       try await backend.didSaveNotebook(uri: document.notebookURI)
+      document.dirty = false
       synchronizationError = nil
     } catch {
       synchronizationError = String(describing: error)
     }
   }
 
+  public func save() async throws -> SaveOutcome {
+    guard let target = document.sourceURL else { return .needsDestination }
+    guard document.dirty else { return .unchanged }
+    guard saveConflictURL == nil else { throw AtomicWriteError.conflict(target) }
+    guard let expected = document.lastSavedFileIdentity else {
+      saveConflictURL = target
+      throw AtomicWriteError.conflict(target)
+    }
+    return try await saveCurrentDocument(to: target, expecting: .matching(expected))
+  }
+
+  public func saveAs(to target: URL) async throws -> SaveOutcome {
+    let target = target.standardizedFileURL
+    if document.sourceURL?.standardizedFileURL == target {
+      return try await save()
+    }
+    return try await saveCurrentDocument(to: target, expecting: .unchecked, moving: true)
+  }
+
+  public func cancelSaveConflict() {
+    saveConflictURL = nil
+  }
+
+  public func reloadConflictedDocument() async {
+    guard let target = saveConflictURL else { return }
+    saveConflictURL = nil
+    await open(target)
+  }
+
+  public func dismissSaveMessage() {
+    saveMessage = nil
+  }
+
+  public func reportSaveFailure(_ error: any Error) {
+    saveMessage = "Save failed: \(error.localizedDescription)"
+  }
+
   public func close() async {
+    guard !document.dirty else {
+      saveMessage = "Save changes before closing this notebook."
+      return
+    }
+    await closeDiscardingChanges()
+  }
+
+  public func closeDiscardingChanges() async {
     do {
-      try await closeSynchronizedDocument()
+      try await closeDocumentSynchronization()
+      document.dirty = false
       synchronizationError = nil
     } catch {
       synchronizationError = String(describing: error)
+    }
+  }
+
+  private func saveCurrentDocument(
+    to target: URL,
+    expecting expectation: AtomicWriteExpectation,
+    moving: Bool = false
+  ) async throws -> SaveOutcome {
+    let source = try await backend.printNotebook(document.persistentDocumentForSaving())
+    let identity: FileIdentity
+    do {
+      identity = try await fileWriter.write(source: source, to: target, expecting: expectation)
+    } catch let error as AtomicWriteError {
+      if case .conflict = error { saveConflictURL = document.sourceURL }
+      throw error
+    }
+
+    if moving {
+      return try await adoptSaveAs(target: target, identity: identity)
+    }
+    document.lastSavedFileIdentity = identity
+    try await backend.didSaveNotebook(uri: document.notebookURI)
+    document.dirty = false
+    saveConflictURL = nil
+    saveMessage = nil
+    return .saved(target)
+  }
+
+  private func adoptSaveAs(target: URL, identity: FileIdentity) async throws -> SaveOutcome {
+    let oldURI = document.notebookURI
+    let newURI = target.resolvingSymlinksInPath().standardizedFileURL.absoluteString
+    let hadLiveSession = document.kernelSessionID != nil
+    var sessionMoveFailed = false
+
+    if hadLiveSession {
+      do {
+        try await backend.moveSession(notebookURI: oldURI, newNotebookURI: newURI)
+      } catch {
+        sessionMoveFailed = true
+      }
+    }
+    document.sourceURL = target
+    document.lastSavedFileIdentity = identity
+    if synchronizedURI == oldURI {
+      if sessionMoveFailed {
+        try? await backend.didCloseNotebook(uri: oldURI, cellURIs: synchronizedCellURIs)
+      } else {
+        try await backend.didCloseNotebook(uri: oldURI, cellURIs: synchronizedCellURIs)
+      }
+      synchronizedURI = nil
+      synchronizedCellURIs = []
+    }
+
+    if sessionMoveFailed {
+      try? await backend.closeSession(notebookURI: oldURI)
+      document.kernelSessionID = nil
+      for index in document.cells.indices {
+        document.cells[index].runtime = CellRuntimeState()
+      }
+      saveMessage = "The file was saved, but the previous Python session could not be moved."
+    } else {
+      saveMessage = nil
+    }
+    try await synchronizeOpenDocument()
+    try await backend.didSaveNotebook(uri: newURI)
+    document.dirty = false
+    saveConflictURL = nil
+    return sessionMoveFailed ? .savedWithSessionReset(target) : .saved(target)
+  }
+
+  private func closeDocumentSynchronization() async throws {
+    let uri = synchronizedURI ?? document.notebookURI
+    try await closeSynchronizedDocument()
+    if document.kernelSessionID != nil {
+      try await backend.closeSession(notebookURI: uri)
+      document.kernelSessionID = nil
     }
   }
 
@@ -368,8 +493,4 @@ public final class NotebookStore: ObservableObject {
   private func cellIndex(_ cellID: UUID) -> Int? {
     document.cells.firstIndex { $0.runtimeID == cellID }
   }
-}
-
-public enum NotebookStoreError: Error, Sendable, Equatable {
-  case compositionActive(UUID)
 }

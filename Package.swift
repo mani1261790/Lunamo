@@ -84,7 +84,9 @@ let package = Package(
     ),
     .testTarget(
       name: "MarimoIntegrationTests",
-      dependencies: ["MarimoBackend", "MarimoDomain", "MarimoProcess", "MarimoProtocol"],
+      dependencies: [
+        "MarimoApplication", "MarimoBackend", "MarimoDomain", "MarimoProcess", "MarimoProtocol",
+      ],
       path: "Tests/Integration",
       swiftSettings: strictConcurrency
     ),

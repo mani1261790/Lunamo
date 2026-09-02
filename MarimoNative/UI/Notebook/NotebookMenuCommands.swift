@@ -72,12 +72,15 @@ public struct NotebookMenuCommands: Commands {
     }
 
     CommandGroup(after: .saveItem) {
-      Button("Save Notebook") {}
-        .keyboardShortcut("s", modifiers: [.command])
-        .disabled(true)
-      Button("Save Notebook As…") {}
-        .keyboardShortcut("s", modifiers: [.command, .shift])
-        .disabled(true)
+      Button("Save Notebook") {
+        NotebookSaveActions.save(store)
+      }
+      .keyboardShortcut("s", modifiers: [.command])
+      .disabled(store.saveConflictURL != nil)
+      Button("Save Notebook As…") {
+        NotebookSaveActions.saveAs(store)
+      }
+      .keyboardShortcut("s", modifiers: [.command, .shift])
     }
   }
 

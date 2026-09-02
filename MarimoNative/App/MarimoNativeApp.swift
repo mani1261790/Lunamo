@@ -6,6 +6,7 @@ import SwiftUI
 
 @main
 struct MarimoNativeApp: App {
+  @NSApplicationDelegateAdaptor(MarimoAppDelegate.self) private var appDelegate
   @StateObject private var store: NotebookStore
   private let startupURL: URL?
 
@@ -28,6 +29,9 @@ struct MarimoNativeApp: App {
   var body: some Scene {
     Window("MarimoNative", id: "notebook") {
       NotebookRootView(store: store, startupURL: startupURL)
+        .onAppear {
+          appDelegate.store = store
+        }
     }
     .defaultSize(width: 1_320, height: 800)
     .windowResizability(.contentSize)

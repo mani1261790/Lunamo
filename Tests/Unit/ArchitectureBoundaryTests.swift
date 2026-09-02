@@ -157,6 +157,32 @@ struct ArchitectureBoundaryTests {
     }
   }
 
+  @Test("Native save and close controls expose the required recovery choices")
+  func nativeSaveLifecycle() throws {
+    let root = repositoryRoot()
+    let commands = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookMenuCommands.swift"),
+      encoding: .utf8
+    )
+    let lifecycle = try String(
+      contentsOf: root.appending(
+        path: "MarimoNative/UI/Notebook/NotebookWindowLifecycleView.swift"
+      ),
+      encoding: .utf8
+    )
+    let rootView = notebookSource(root)
+    #expect(commands.contains("NotebookSaveActions.save(store)"))
+    #expect(commands.contains("NotebookSaveActions.saveAs(store)"))
+    for token in ["Save changes before closing?", "Don't Save", "Cancel"] {
+      #expect(lifecycle.contains(token))
+    }
+    for token in ["Reload from Disk", "Save Local Copy", "Cancel"] {
+      #expect(rootView.contains(token))
+    }
+    #expect(!rootView.contains("Auto Save"))
+    #expect(!rootView.contains("Merge"))
+  }
+
   private func repositoryRoot() -> URL {
     URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent()

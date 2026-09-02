@@ -11,7 +11,10 @@ struct DocumentServiceTests {
     var data = Data([0xEF, 0xBB, 0xBF])
     data.append(Data("print('ok')\n".utf8))
     try data.write(to: url)
-    #expect(try await DocumentService().readSource(at: url) == "print('ok')\n")
+    let service = DocumentService()
+    #expect(try await service.readSource(at: url) == "print('ok')\n")
+    let snapshot = try await service.readSnapshot(at: url)
+    #expect(snapshot.identity == (try await AtomicFileWriter().identity(at: url)))
   }
 
   @Test("Invalid UTF-8 is rejected without replacement")

@@ -165,7 +165,7 @@ public actor JSONRPCConnection {
     }
     let clock = ContinuousClock()
     let deadline = clock.now.advanced(by: .seconds(5))
-    while state != .closed, clock.now < deadline {
+    while state != .closed, clock.now < deadline, !Task.isCancelled {
       try? await Task.sleep(for: .milliseconds(50))
     }
     if state != .closed {
@@ -173,6 +173,14 @@ public actor JSONRPCConnection {
       state = .closed
       releaseAll(with: JSONRPCConnectionError.closed)
     }
+    eventTask?.cancel()
+    eventTask = nil
+  }
+
+  public func forceTerminate() async {
+    await transport.terminate()
+    state = .closed
+    releaseAll(with: JSONRPCConnectionError.closed)
     eventTask?.cancel()
     eventTask = nil
   }
