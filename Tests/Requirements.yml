@@ -957,6 +957,7 @@ MN-SCOPE-011:
   - UnknownNotificationTrackerTests/suppressesAfterOneHundred
 MN-DIST-001:
   - Tools/notarize-release.sh
+  - Tools/verify-release-prerequisites.sh
   - manual: Developer ID authority and Apple Notary Service acceptance
 MN-DIST-002:
   - Tools/build-release-app.sh
@@ -1004,6 +1005,7 @@ MN-CI-002:
   - manual: Clean macOS 26 arm64 acceptance run using the notarized artifact
 MN-CI-003:
   - .github/workflows/release.yml
+  - Tools/verify-release-prerequisites.sh
   - Tools/verify-release-artifact.sh
 MN-TRACE-002:
   - Tools/verify-requirements.py

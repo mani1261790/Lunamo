@@ -8,10 +8,12 @@ exact notarized archive. A pending checklist is produced beside every release ca
 
 1. Run `Tools/build-release-app.sh` with `MARIMONATIVE_CODESIGN_IDENTITY` set to a
    Developer ID Application identity.
-2. Run `Tools/notarize-release.sh` with App Store Connect notary credentials.
-3. Run `Tools/measure-release-performance.py` against the signed app on an M2 16 GB-class
+2. Run `Tools/verify-release-prerequisites.sh` to reject a non-Developer ID identity,
+   incomplete Notary API credentials, an insecure private-key mode, or the wrong host.
+3. Run `Tools/notarize-release.sh` with App Store Connect notary credentials.
+4. Run `Tools/measure-release-performance.py` against the signed app on an M2 16 GB-class
    Mac.
-4. Generate the checklist with the bundled sidecar Python:
+5. Generate the checklist with the bundled sidecar Python:
 
    `.build/Sidecar/bin/python3 -I Tools/create-release-checklist.py --artifact .build/release-artifacts/MarimoNative-0.1.0.zip --output .build/release-artifacts/ReleaseChecklist.yml`
 
