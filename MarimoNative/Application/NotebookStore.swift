@@ -9,7 +9,7 @@ import MarimoWidgets
 public final class NotebookStore: ObservableObject {
   @Published public internal(set) var document: NotebookDocumentState
   @Published public internal(set) var backendStatus: BackendStatus = .unavailable
-  @Published public private(set) var openState: OpenState = .idle
+  @Published public internal(set) var openState: OpenState = .idle
   @Published public internal(set) var synchronizationError: String?
   @Published public internal(set) var focusedCellID: UUID?
   @Published public var inspectorPresented = true
@@ -26,17 +26,25 @@ public final class NotebookStore: ObservableObject {
   @Published public var backendLogsPresented = false
   @Published public internal(set) var sidebarFiles: [NotebookSidebarFile] = []
   @Published public internal(set) var variables: [NotebookVariableState] = []
+  @Published public internal(set) var externalFileState: ExternalFileState = .none
+  @Published public internal(set) var conflictBannerDismissed = false
+  @Published public internal(set) var recentDocuments: [URL] = []
+  @Published public internal(set) var userFacingError: NotebookUserFacingError?
+  @Published public var recoverySourcePresented = false
 
   public let widgetValueStore: WidgetValueStore
 
   let backend: any MarimoBackend
-  private let documentService: DocumentService
-  private let fileWriter: AtomicFileWriter
+  let documentService: DocumentService
+  let fileWriter: AtomicFileWriter
+  let recentDocumentStore: RecentDocumentStore
   let environmentDiscovery: PythonEnvironmentDiscovery
   let environmentPreflight: PythonPreflightService
   let folderTrustStore: FolderTrustStore
-  private var synchronizedURI: String?
-  private var synchronizedCellURIs: [String] = []
+  var synchronizedURI: String?
+  var synchronizedCellURIs: [String] = []
+  var filePresenter: NotebookFilePresenter?
+  var ignoreExternalChangesUntilNextSave = false
   var runOnceAuthorized = false
   var pendingRunRequest: PendingRunRequest?
   var backendEventTask: Task<Void, Never>?
@@ -56,6 +64,7 @@ public final class NotebookStore: ObservableObject {
     environmentDiscovery: PythonEnvironmentDiscovery = PythonEnvironmentDiscovery(),
     environmentPreflight: PythonPreflightService = PythonPreflightService(),
     folderTrustStore: FolderTrustStore = FolderTrustStore(),
+    recentDocumentStore: RecentDocumentStore = RecentDocumentStore(),
     widgetValueStore: WidgetValueStore = WidgetValueStore(),
     sessionResolutionTimeout: Duration = .seconds(15),
     interruptTimeout: Duration = .seconds(10)
@@ -67,6 +76,7 @@ public final class NotebookStore: ObservableObject {
     self.environmentDiscovery = environmentDiscovery
     self.environmentPreflight = environmentPreflight
     self.folderTrustStore = folderTrustStore
+    self.recentDocumentStore = recentDocumentStore
     self.widgetValueStore = widgetValueStore
     self.sessionResolutionTimeout = sessionResolutionTimeout
     self.interruptTimeout = interruptTimeout
@@ -91,6 +101,7 @@ public final class NotebookStore: ObservableObject {
       }
       switch try await backend.parseNotebook(source: snapshot.source) {
       case .success(let parsed):
+        stopFileMonitoring()
         try await closeDocumentSynchronization()
         resetSessionState(to: .notStarted)
         document = NotebookDocumentState(
@@ -101,149 +112,44 @@ public final class NotebookStore: ObservableObject {
         )
         focusedCellID = nil
         saveConflictURL = nil
+        externalFileState = .none
+        conflictBannerDismissed = false
+        ignoreExternalChangesUntilNextSave = false
+        userFacingError = nil
         saveMessage = nil
         try await synchronizeOpenDocument()
         openState = .loaded(url)
         await refreshSidebarFiles()
         await discoverPythonEnvironments(for: url)
         await reattachSessionIfAvailable()
+        await recordRecentDocument(url)
+        restartFileMonitoring(at: url)
       case .invalidSyntax(let line, let column):
         openState = .invalidSyntax(url, line: line, column: column)
+        presentError(
+          code: .documentSyntax,
+          cause:
+            "Python syntax error at line \(line.map(String.init) ?? "unknown"), column \(column.map(String.init) ?? "unknown").",
+          target: url.path,
+          recoveryActions: ["Edit the source in another application", "Open Another Notebook"]
+        )
       case .convertible:
         openState = .convertible(url)
+        presentError(
+          code: .documentConvert,
+          cause: "The source is Python, but it is not a marimo notebook.",
+          target: url.path,
+          recoveryActions: ["Open Another Notebook"]
+        )
       }
     } catch {
       openState = .failed(url, String(describing: error))
-    }
-  }
-
-  public func recordSuccessfulSave(fileIdentity: FileIdentity? = nil) async {
-    if let fileIdentity { document.lastSavedFileIdentity = fileIdentity }
-    guard synchronizedURI == document.notebookURI else { return }
-    do {
-      try await backend.didSaveNotebook(uri: document.notebookURI)
-      document.dirty = false
-      synchronizationError = nil
-    } catch {
-      synchronizationError = String(describing: error)
-    }
-  }
-
-  public func save() async throws -> SaveOutcome {
-    guard let target = document.sourceURL else { return .needsDestination }
-    guard document.dirty else { return .unchanged }
-    guard saveConflictURL == nil else { throw AtomicWriteError.conflict(target) }
-    guard let expected = document.lastSavedFileIdentity else {
-      saveConflictURL = target
-      throw AtomicWriteError.conflict(target)
-    }
-    return try await saveCurrentDocument(to: target, expecting: .matching(expected))
-  }
-
-  public func saveAs(to target: URL) async throws -> SaveOutcome {
-    let target = target.standardizedFileURL
-    if document.sourceURL?.standardizedFileURL == target {
-      return try await save()
-    }
-    return try await saveCurrentDocument(to: target, expecting: .unchecked, moving: true)
-  }
-
-  public func close() async {
-    guard !document.dirty else {
-      saveMessage = "Save changes before closing this notebook."
-      return
-    }
-    await closeDiscardingChanges()
-  }
-
-  public func closeDiscardingChanges() async {
-    do {
-      try await closeDocumentSynchronization()
-      document.dirty = false
-      resetSessionState(to: .closed)
-      synchronizationError = nil
-    } catch {
-      synchronizationError = String(describing: error)
-    }
-  }
-
-  private func saveCurrentDocument(
-    to target: URL,
-    expecting expectation: AtomicWriteExpectation,
-    moving: Bool = false
-  ) async throws -> SaveOutcome {
-    let source = try await backend.printNotebook(document.persistentDocumentForSaving())
-    let identity: FileIdentity
-    do {
-      identity = try await fileWriter.write(source: source, to: target, expecting: expectation)
-    } catch let error as AtomicWriteError {
-      if case .conflict = error { saveConflictURL = document.sourceURL }
-      throw error
-    }
-
-    if moving {
-      return try await adoptSaveAs(target: target, identity: identity)
-    }
-    document.lastSavedFileIdentity = identity
-    try await backend.didSaveNotebook(uri: document.notebookURI)
-    document.dirty = false
-    saveConflictURL = nil
-    saveMessage = nil
-    return .saved(target)
-  }
-
-  private func adoptSaveAs(target: URL, identity: FileIdentity) async throws -> SaveOutcome {
-    let oldURI = document.notebookURI
-    let newURI = target.resolvingSymlinksInPath().standardizedFileURL.absoluteString
-    let hadLiveSession = document.kernelSessionID != nil
-    var sessionMoveFailed = false
-
-    if hadLiveSession {
-      do {
-        try await backend.moveSession(notebookURI: oldURI, newNotebookURI: newURI)
-      } catch {
-        sessionMoveFailed = true
-      }
-    }
-    document.sourceURL = target
-    document.lastSavedFileIdentity = identity
-    if synchronizedURI == oldURI {
-      if sessionMoveFailed {
-        try? await backend.didCloseNotebook(uri: oldURI, cellURIs: synchronizedCellURIs)
-      } else {
-        try await backend.didCloseNotebook(uri: oldURI, cellURIs: synchronizedCellURIs)
-      }
-      synchronizedURI = nil
-      synchronizedCellURIs = []
-    }
-
-    if sessionMoveFailed {
-      try? await backend.closeSession(notebookURI: oldURI)
-      document.kernelSessionID = nil
-      widgetValueStore.clear()
-      variables = []
-      for index in document.cells.indices {
-        document.cells[index].runtime = CellRuntimeState()
-      }
-      saveMessage = "The file was saved, but the previous Python session could not be moved."
-    } else {
-      saveMessage = nil
-    }
-    try await synchronizeOpenDocument()
-    try await backend.didSaveNotebook(uri: newURI)
-    await refreshSidebarFiles()
-    document.dirty = false
-    saveConflictURL = nil
-    return sessionMoveFailed ? .savedWithSessionReset(target) : .saved(target)
-  }
-
-  func closeDocumentSynchronization() async throws {
-    let uri = synchronizedURI ?? document.notebookURI
-    try await closeSynchronizedDocument()
-    if document.kernelSessionID != nil {
-      try await backend.closeSession(notebookURI: uri)
-      document.kernelSessionID = nil
-      widgetValueStore.clear()
+      presentError(
+        code: errorCode(for: error),
+        cause: error.localizedDescription,
+        target: url.path,
+        recoveryActions: ["Retry", "Open Another Notebook"]
+      )
     }
   }
 
@@ -488,7 +394,7 @@ public final class NotebookStore: ObservableObject {
     synchronizedCellURIs = snapshot.cells.map(\.uri)
   }
 
-  private func closeSynchronizedDocument() async throws {
+  func closeSynchronizedDocument() async throws {
     guard let synchronizedURI else { return }
     try await backend.didCloseNotebook(uri: synchronizedURI, cellURIs: synchronizedCellURIs)
     self.synchronizedURI = nil

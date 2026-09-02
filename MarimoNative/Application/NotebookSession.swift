@@ -34,6 +34,7 @@ extension NotebookStore {
     } catch {
       backendStatus = .unavailable
       synchronizationError = String(describing: error)
+      presentBackendStartError(error)
     }
   }
 
@@ -343,6 +344,7 @@ extension NotebookStore {
         let message = event.payload.string(for: "error") ?? "Kernel startup failed."
         runAwaitingCompletion = false
         sessionState = .failed(message)
+        presentKernelStartError(message, sessionID: event.sessionID)
       default:
         break
       }

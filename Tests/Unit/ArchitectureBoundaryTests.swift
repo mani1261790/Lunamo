@@ -175,6 +175,7 @@ struct ArchitectureBoundaryTests {
     #expect(preparation.contains("CSVStreamingParser.parse"))
     #expect(cache.contains("entries.min"))
     #expect(!output.contains("WKWebView"))
+    #expect(output.contains("DisclosureGroup(\"Details\")"))
   }
 
   @Test("Web fallback is cell-local, isolated, bounded, and bundle-only")
@@ -305,16 +306,42 @@ struct ArchitectureBoundaryTests {
       encoding: .utf8
     )
     let rootView = notebookSource(root)
+    let externalFileBanners = try String(
+      contentsOf: root.appending(
+        path: "MarimoNative/UI/Notebook/ExternalFileBanners.swift"
+      ),
+      encoding: .utf8
+    )
+    let recoveryUI = rootView + externalFileBanners
     #expect(commands.contains("NotebookSaveActions.save(store)"))
     #expect(commands.contains("NotebookSaveActions.saveAs(store)"))
     for token in ["Save changes before closing?", "Don't Save", "Cancel"] {
       #expect(lifecycle.contains(token))
     }
     for token in ["Reload from Disk", "Save Local Copy", "Cancel"] {
-      #expect(rootView.contains(token))
+      #expect(recoveryUI.contains(token))
     }
     #expect(!rootView.contains("Auto Save"))
     #expect(!rootView.contains("Merge"))
+  }
+
+  @Test("External file recovery exposes codes, causes, targets, and explicit actions")
+  func externalRecoveryUIArchitecture() throws {
+    let root = repositoryRoot()
+    let banners = try String(
+      contentsOf: root.appending(
+        path: "MarimoNative/UI/Notebook/ExternalFileBanners.swift"
+      ),
+      encoding: .utf8
+    )
+    for token in [
+      "error.code.rawValue", "error.cause", "error.target", "error.recoveryActions",
+      "View Disk Source", "Disk source read-only buffer", "Recreate at Original Location",
+      ".textSelection(.enabled)",
+    ] {
+      #expect(banners.contains(token), "Missing external recovery UI token: \(token)")
+    }
+    #expect(!banners.contains("TextEditor(text: .constant"))
   }
 
   @Test("Environment selection and trust remain explicit native gates")

@@ -2,13 +2,11 @@ import Foundation
 
 extension NotebookStore {
   public func cancelSaveConflict() {
-    saveConflictURL = nil
+    dismissConflictBanner()
   }
 
   public func reloadConflictedDocument() async {
-    guard let target = saveConflictURL else { return }
-    saveConflictURL = nil
-    await open(target)
+    await reloadPresentedFile()
   }
 
   public func dismissSaveMessage() {
@@ -17,6 +15,12 @@ extension NotebookStore {
 
   public func reportSaveFailure(_ error: any Error) {
     saveMessage = "Save failed: \(error.localizedDescription)"
+    presentError(
+      code: error is AtomicWriteError ? .documentSave : .lspProtocol,
+      cause: error.localizedDescription,
+      target: document.sourceURL?.path ?? document.notebookURI,
+      recoveryActions: ["Retry", "Save As"]
+    )
   }
 
   public func focusEditor(_ cellID: UUID) {

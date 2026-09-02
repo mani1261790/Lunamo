@@ -881,3 +881,37 @@ MN-A11Y-006:
   - NotebookPanelTests/localizationResources
 MN-A11Y-007:
   - NotebookPanelTests/localizationResources
+MN-FILE-040:
+  - NotebookExternalFileTests/presenterAndErrorArchitecture
+  - NotebookExternalFileTests/presenterReportsDeletion
+MN-FILE-041:
+  - NotebookExternalFileTests/selfSaveAndConflictClassification
+MN-FILE-042:
+  - NotebookExternalFileTests/selfSaveAndConflictClassification
+MN-FILE-043:
+  - NotebookExternalFileTests/selfSaveAndConflictClassification
+  - ArchitectureBoundaryTests/nativeSaveLifecycle
+MN-FILE-044:
+  - NotebookExternalFileTests/reloadOrderingAndRecovery
+MN-FILE-045:
+  - NotebookExternalFileTests/reloadOrderingAndRecovery
+MN-FILE-046:
+  - NotebookExternalFileTests/reloadOrderingAndRecovery
+  - ArchitectureBoundaryTests/externalRecoveryUIArchitecture
+MN-FILE-047:
+  - NotebookExternalFileTests/moveDeleteAndRecreate
+MN-FILE-048:
+  - NotebookExternalFileTests/moveDeleteAndRecreate
+  - NotebookExternalFileTests/presenterReportsDeletion
+  - ArchitectureBoundaryTests/externalRecoveryUIArchitecture
+MN-ERR-001:
+  - NotebookExternalFileTests/presenterAndErrorArchitecture
+MN-ERR-002:
+  - ArchitectureBoundaryTests/externalRecoveryUIArchitecture
+MN-ERR-003:
+  - ArchitectureBoundaryTests/nativeOutputArchitecture
+MN-ERR-004:
+  - NotebookExternalFileTests/reloadOrderingAndRecovery
+  - NotebookExternalFileTests/moveDeleteAndRecreate
+MN-SEC-008:
+  - NotebookExternalFileTests/recentDocumentsAreLocalAndBounded

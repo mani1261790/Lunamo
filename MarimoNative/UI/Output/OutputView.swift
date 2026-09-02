@@ -106,22 +106,24 @@ public struct OutputView: View {
       }
       .accessibilityLabel("Execution errors")
     case .traceback(let lines):
-      VStack(alignment: .leading, spacing: 2) {
-        ForEach(lines) { line in
-          if let url = line.fileURL {
-            HStack(alignment: .firstTextBaseline) {
-              Text(line.text)
-                .font(.body.monospaced())
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-              Link(destination: url) {
-                Image(systemName: "arrow.up.forward.square")
+      DisclosureGroup("Details") {
+        VStack(alignment: .leading, spacing: 2) {
+          ForEach(lines) { line in
+            if let url = line.fileURL {
+              HStack(alignment: .firstTextBaseline) {
+                Text(line.text)
+                  .font(.body.monospaced())
+                  .textSelection(.enabled)
+                  .frame(maxWidth: .infinity, alignment: .leading)
+                Link(destination: url) {
+                  Image(systemName: "arrow.up.forward.square")
+                }
+                .accessibilityLabel("Open traceback source")
               }
-              .accessibilityLabel("Open traceback source")
+              .help(line.line.map { "Open \(url.path), line \($0)" } ?? "Open \(url.path)")
+            } else {
+              Text(line.text).font(.body.monospaced()).textSelection(.enabled)
             }
-            .help(line.line.map { "Open \(url.path), line \($0)" } ?? "Open \(url.path)")
-          } else {
-            Text(line.text).font(.body.monospaced()).textSelection(.enabled)
           }
         }
       }

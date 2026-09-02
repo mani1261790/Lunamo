@@ -35,6 +35,7 @@ public struct NotebookRootView: View {
       if reduceMotion { transaction.animation = nil }
     }
     .task {
+      await store.loadRecentDocuments()
       await store.startBackend()
       if let startupURL {
         await store.open(startupURL)
@@ -49,6 +50,9 @@ public struct NotebookRootView: View {
     .sheet(isPresented: $store.backendLogsPresented) {
       backendLogSheet
     }
+    .sheet(isPresented: $store.recoverySourcePresented) {
+      RecoverySourceView(store: store)
+    }
   }
 
   private var notebookCanvas: some View {
@@ -56,7 +60,8 @@ public struct NotebookRootView: View {
       ScrollView {
         LazyVStack(spacing: 16) {
           backendRecoveryBanner
-          saveConflictBanner
+          NotebookErrorBanner(store: store)
+          ExternalFileBanner(store: store)
           saveMessageBanner
           openStateBanner
           ForEach(Array(store.document.cells.enumerated()), id: \.element.runtimeID) {
@@ -324,33 +329,6 @@ public struct NotebookRootView: View {
       return
     }
     Task { await store.send(.moveCell(cellID, to: index + offset)) }
-  }
-
-  @ViewBuilder
-  private var saveConflictBanner: some View {
-    if let target = store.saveConflictURL {
-      VStack(alignment: .leading, spacing: 8) {
-        Label("File changed on disk", systemImage: "exclamationmark.triangle")
-          .font(.headline)
-        Text(target.lastPathComponent)
-          .foregroundStyle(.secondary)
-        HStack {
-          Button("Reload from Disk") {
-            Task { await store.reloadConflictedDocument() }
-          }
-          Button("Save Local Copy") {
-            NotebookSaveActions.saveAs(store)
-          }
-          Button("Cancel") {
-            store.cancelSaveConflict()
-          }
-        }
-      }
-      .padding()
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
-      .accessibilityElement(children: .contain)
-    }
   }
 
   @ViewBuilder

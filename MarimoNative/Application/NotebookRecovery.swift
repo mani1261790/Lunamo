@@ -3,6 +3,24 @@ import MarimoBackend
 import MarimoDomain
 
 extension NotebookStore {
+  func presentBackendStartError(_ error: any Error) {
+    presentError(
+      code: .lspStart,
+      cause: error.localizedDescription,
+      target: "Bundled sidecar",
+      recoveryActions: ["Restart Backend", "Open Logs"]
+    )
+  }
+
+  func presentKernelStartError(_ message: String, sessionID: String) {
+    presentError(
+      code: .kernelStart,
+      cause: message,
+      target: sessionID,
+      recoveryActions: ["Restart Kernel", "Choose Python Environment"]
+    )
+  }
+
   public var sessionAllowsInterrupt: Bool {
     (sessionState == .running || sessionState == .interrupting) && document.kernelSessionID != nil
   }
@@ -26,6 +44,12 @@ extension NotebookStore {
       try? await Task.sleep(for: timeout)
       guard !Task.isCancelled, let self, self.sessionState == .interrupting else { return }
       self.forceRestartAvailable = true
+      self.presentError(
+        code: .kernelInterrupt,
+        cause: "The kernel did not acknowledge Interrupt within the bounded timeout.",
+        target: self.document.kernelSessionID ?? self.document.notebookURI,
+        recoveryActions: ["Force Restart Kernel", "Open Logs"]
+      )
     }
     do {
       try await backend.interrupt(
@@ -103,6 +127,12 @@ extension NotebookStore {
     widgetValueStore.clear()
     variables = []
     sessionState = .failed("Backend disconnected.")
+    presentError(
+      code: .lspProtocol,
+      cause: "The backend connection closed unexpectedly. The editor buffer is intact.",
+      target: document.notebookURI,
+      recoveryActions: ["Restart Backend", "Open Logs"]
+    )
     for index in document.cells.indices {
       document.cells[index].runtime.status = .idle
       document.cells[index].runtime.widgetIDs = []

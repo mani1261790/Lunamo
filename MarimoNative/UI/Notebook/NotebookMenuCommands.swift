@@ -17,6 +17,13 @@ public struct NotebookMenuCommands: Commands {
         NotebookOpenActions.open(store)
       }
       .keyboardShortcut("o", modifiers: [.command])
+      if !store.recentDocuments.isEmpty {
+        Menu("Open Recent") {
+          ForEach(store.recentDocuments, id: \.self) { url in
+            Button(url.lastPathComponent) { Task { await store.open(url) } }
+          }
+        }
+      }
     }
 
     CommandMenu("Notebook") {
