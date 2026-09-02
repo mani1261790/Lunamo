@@ -213,6 +213,34 @@ struct ArchitectureBoundaryTests {
     #expect(store.contains("environmentState = .selected("))
   }
 
+  @Test("Secure stdin uses native ephemeral input")
+  func secureStdinIsNativeAndEphemeral() throws {
+    let root = repositoryRoot()
+    let cell = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Cell/CellView.swift"),
+      encoding: .utf8
+    )
+    let recovery = try String(
+      contentsOf: root.appending(path: "MarimoNative/Application/NotebookRecovery.swift"),
+      encoding: .utf8
+    )
+    #expect(cell.contains("SecureField("))
+    #expect(cell.contains("stdinText = \"\""))
+    #expect(cell.contains(".disabled(prompt.submitted)"))
+    #expect(!recovery.contains("Logger("))
+    #expect(!recovery.contains("UserDefaults"))
+  }
+
+  @Test("Stopped backend recovery exposes logs and manual restart actions")
+  func backendRecoveryActionsAreVisible() throws {
+    let rootView = notebookSource(repositoryRoot())
+    for token in [
+      "Backend restart limit reached", "Open Logs", "Restart Backend", "Force Restart Kernel",
+    ] {
+      #expect(rootView.contains(token), "Missing backend recovery action: \(token)")
+    }
+  }
+
   private func repositoryRoot() -> URL {
     URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent()

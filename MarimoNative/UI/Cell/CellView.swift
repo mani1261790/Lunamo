@@ -11,10 +11,12 @@ public struct CellView: View {
   private let send: @MainActor @Sendable (NotebookIntent) -> Void
   private let focusEditor: @MainActor @Sendable () -> Void
   private let command: @MainActor @Sendable (CodeEditorCommand) -> Void
+  private let submitStdin: @MainActor @Sendable (String) -> Void
 
   @State private var editorHeight: CGFloat = 72
   @State private var internallyScrollable = false
   @State private var hovering = false
+  @State private var stdinText = ""
 
   public init(
     cell: NotebookCellState,
@@ -23,7 +25,8 @@ public struct CellView: View {
     canRun: Bool,
     send: @escaping @MainActor @Sendable (NotebookIntent) -> Void,
     focusEditor: @escaping @MainActor @Sendable () -> Void,
-    command: @escaping @MainActor @Sendable (CodeEditorCommand) -> Void
+    command: @escaping @MainActor @Sendable (CodeEditorCommand) -> Void,
+    submitStdin: @escaping @MainActor @Sendable (String) -> Void = { _ in }
   ) {
     self.cell = cell
     self.selected = selected
@@ -32,6 +35,7 @@ public struct CellView: View {
     self.send = send
     self.focusEditor = focusEditor
     self.command = command
+    self.submitStdin = submitStdin
   }
 
   public var body: some View {
@@ -91,6 +95,29 @@ public struct CellView: View {
           .allowsHitTesting(false)
         }
       }
+
+      if let prompt = cell.runtime.stdinPrompt {
+        stdinField(prompt)
+      }
+
+      if let output = plainText(from: cell.runtime.output), !output.isEmpty {
+        Text(output)
+          .font(.body.monospaced())
+          .textSelection(.enabled)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(10)
+          .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+          .accessibilityLabel("Cell text output")
+      }
+
+      ForEach(Array(cell.runtime.console.enumerated()), id: \.offset) { _, item in
+        if !isStdin(item), let text = plainText(from: item), !text.isEmpty {
+          Text(text)
+            .font(.body.monospaced())
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+      }
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 12)
@@ -111,6 +138,54 @@ public struct CellView: View {
     .onHover { hovering = $0 }
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Cell \(cell.name)")
+  }
+
+  @ViewBuilder
+  private func stdinField(_ prompt: StdinPromptState) -> some View {
+    HStack {
+      if prompt.password {
+        SecureField(prompt.prompt.isEmpty ? "Password" : prompt.prompt, text: $stdinText)
+          .textFieldStyle(.roundedBorder)
+          .onSubmit { submitCurrentStdin() }
+      } else {
+        TextField(prompt.prompt.isEmpty ? "Input" : prompt.prompt, text: $stdinText)
+          .textFieldStyle(.roundedBorder)
+          .onSubmit { submitCurrentStdin() }
+      }
+      if prompt.submitted {
+        ProgressView().controlSize(.small)
+      }
+    }
+    .disabled(prompt.submitted)
+    .accessibilityLabel(prompt.password ? "Secure Python input" : "Python input")
+  }
+
+  private func submitCurrentStdin() {
+    guard cell.runtime.stdinPrompt?.submitted == false else { return }
+    let submitted = stdinText
+    stdinText = ""
+    submitStdin(submitted)
+  }
+
+  private func plainText(from value: JSONValue?) -> String? {
+    guard let value else { return nil }
+    switch value {
+    case .string(let text):
+      return text
+    case .object(let object):
+      guard object["mimetype"] == .string("text/plain") || object["mimetype"] == nil else {
+        return nil
+      }
+      guard case .string(let text)? = object["data"] else { return nil }
+      return text
+    default:
+      return nil
+    }
+  }
+
+  private func isStdin(_ value: JSONValue) -> Bool {
+    guard case .object(let object) = value else { return false }
+    return object["channel"] == .string("stdin")
   }
 
   @ViewBuilder

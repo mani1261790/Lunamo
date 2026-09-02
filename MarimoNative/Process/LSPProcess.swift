@@ -65,9 +65,12 @@ public actor LSPProcess: ProcessTransport {
         continuation.yield(.stderr(data))
       }
     }
-    process.terminationHandler = { process in
-      continuation.yield(.terminated(process.terminationStatus))
-      continuation.finish()
+    process.terminationHandler = { [weak self] process in
+      Task {
+        await self?.didTerminate(process)
+        continuation.yield(.terminated(process.terminationStatus))
+        continuation.finish()
+      }
     }
 
     do {
@@ -107,5 +110,15 @@ public actor LSPProcess: ProcessTransport {
 
   public func processIdentifier() -> Int32? {
     process?.isRunning == true ? process?.processIdentifier : nil
+  }
+
+  private func didTerminate(_ terminatedProcess: Process) {
+    guard process === terminatedProcess else { return }
+    standardOutput?.fileHandleForReading.readabilityHandler = nil
+    standardError?.fileHandleForReading.readabilityHandler = nil
+    process = nil
+    standardInput = nil
+    standardOutput = nil
+    standardError = nil
   }
 }

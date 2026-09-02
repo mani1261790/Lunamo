@@ -35,6 +35,7 @@ public struct CellRuntimeState: Sendable, Equatable {
   public var console: [JSONValue]
   public var lastExecutedCode: String?
   public var widgetIDs: [UUID]
+  public var stdinPrompt: StdinPromptState?
 
   public init(
     status: ExecutionStatus = .idle,
@@ -42,7 +43,8 @@ public struct CellRuntimeState: Sendable, Equatable {
     output: JSONValue? = nil,
     console: [JSONValue] = [],
     lastExecutedCode: String? = nil,
-    widgetIDs: [UUID] = []
+    widgetIDs: [UUID] = [],
+    stdinPrompt: StdinPromptState? = nil
   ) {
     self.status = status
     self.stale = stale
@@ -50,6 +52,19 @@ public struct CellRuntimeState: Sendable, Equatable {
     self.console = console
     self.lastExecutedCode = lastExecutedCode
     self.widgetIDs = widgetIDs
+    self.stdinPrompt = stdinPrompt
+  }
+}
+
+public struct StdinPromptState: Sendable, Equatable {
+  public let prompt: String
+  public let password: Bool
+  public var submitted: Bool
+
+  public init(prompt: String, password: Bool, submitted: Bool = false) {
+    self.prompt = prompt
+    self.password = password
+    self.submitted = submitted
   }
 }
 

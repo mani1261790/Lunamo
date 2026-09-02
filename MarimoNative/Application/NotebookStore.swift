@@ -19,6 +19,10 @@ public final class NotebookStore: ObservableObject {
   @Published public internal(set) var executionTrustPromptPresented = false
   @Published public internal(set) var executionFolderTrusted = false
   @Published public internal(set) var sessionState: NotebookSessionState = .notStarted
+  @Published public internal(set) var forceRestartAvailable = false
+  @Published public internal(set) var backendRecoveryStopped = false
+  @Published public internal(set) var backendLogs: [String] = []
+  @Published public var backendLogsPresented = false
 
   let backend: any MarimoBackend
   private let documentService: DocumentService
@@ -35,6 +39,8 @@ public final class NotebookStore: ObservableObject {
   var pendingTextSynchronizations: [UUID: Task<Void, Error>] = [:]
   var runAwaitingCompletion = false
   let sessionResolutionTimeout: Duration
+  var interruptTimeoutTask: Task<Void, Never>?
+  let interruptTimeout: Duration
 
   public init(
     backend: any MarimoBackend,
@@ -44,7 +50,8 @@ public final class NotebookStore: ObservableObject {
     environmentDiscovery: PythonEnvironmentDiscovery = PythonEnvironmentDiscovery(),
     environmentPreflight: PythonPreflightService = PythonPreflightService(),
     folderTrustStore: FolderTrustStore = FolderTrustStore(),
-    sessionResolutionTimeout: Duration = .seconds(15)
+    sessionResolutionTimeout: Duration = .seconds(15),
+    interruptTimeout: Duration = .seconds(10)
   ) {
     self.backend = backend
     self.document = document
@@ -54,6 +61,7 @@ public final class NotebookStore: ObservableObject {
     self.environmentPreflight = environmentPreflight
     self.folderTrustStore = folderTrustStore
     self.sessionResolutionTimeout = sessionResolutionTimeout
+    self.interruptTimeout = interruptTimeout
   }
 
   public func send(_ intent: NotebookIntent) async {

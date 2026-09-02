@@ -9,7 +9,7 @@ public actor MarimoLSPAdapter: MarimoBackend {
     case versionOverflow(UInt64)
   }
 
-  private let connection: JSONRPCConnection
+  let connection: JSONRPCConnection
   private let launchRequest: ProcessLaunchRequest
   private let eventStream: AsyncStream<MarimoBackendEvent>
   private let eventContinuation: AsyncStream<MarimoBackendEvent>.Continuation
@@ -18,6 +18,9 @@ public actor MarimoLSPAdapter: MarimoBackend {
   private var backendStatus: BackendStatus = .unavailable
   private var openNotebookCells: [String: [String]] = [:]
   private var notificationTask: Task<Void, Never>?
+  private var connectionEventTask: Task<Void, Never>?
+  private var automaticRestartAttempts: [ContinuousClock.Instant] = []
+  private var shuttingDown = false
 
   public init(
     sidecarDirectory: URL,
@@ -34,6 +37,8 @@ public actor MarimoLSPAdapter: MarimoBackend {
   }
 
   public func start() async throws {
+    shuttingDown = false
+    await startConnectionMonitoring()
     if await connection.currentState() == .ready {
       backendStatus = .ready
       await startNotificationForwarding()
@@ -253,8 +258,11 @@ public actor MarimoLSPAdapter: MarimoBackend {
   }
 
   public func shutdown() async {
+    shuttingDown = true
     notificationTask?.cancel()
     notificationTask = nil
+    connectionEventTask?.cancel()
+    connectionEventTask = nil
     let connection = self.connection
     let graceful = await withTaskGroup(of: Bool.self) { group in
       group.addTask { [self] in
@@ -275,6 +283,48 @@ public actor MarimoLSPAdapter: MarimoBackend {
     }
     backendStatus = .unavailable
     openNotebookCells.removeAll()
+  }
+
+  private func startConnectionMonitoring() async {
+    guard connectionEventTask == nil else { return }
+    let events = await connection.events()
+    connectionEventTask = Task { [weak self] in
+      for await event in events {
+        guard !Task.isCancelled else { return }
+        await self?.handleConnectionFailure(event)
+      }
+    }
+  }
+
+  private func handleConnectionFailure(_: JSONRPCConnectionEvent) async {
+    guard !shuttingDown else { return }
+    backendStatus = .unavailable
+    openNotebookCells.removeAll()
+    eventContinuation.yield(.disconnected)
+    await attemptAutomaticRecovery()
+  }
+
+  private func attemptAutomaticRecovery() async {
+    let clock = ContinuousClock()
+    while !shuttingDown {
+      let cutoff = clock.now.advanced(by: .seconds(-60))
+      automaticRestartAttempts.removeAll { $0 < cutoff }
+      guard automaticRestartAttempts.count < 3 else {
+        eventContinuation.yield(
+          .automaticRestartStopped(stderr: await connection.stderrLines())
+        )
+        return
+      }
+      automaticRestartAttempts.append(clock.now)
+      do {
+        _ = try await connection.startAndInitialize(request: launchRequest)
+        backendStatus = .ready
+        eventContinuation.yield(.restarted)
+        return
+      } catch {
+        logger.error("Automatic sidecar restart failed")
+      }
+    }
   }
 
   private func startNotificationForwarding() async {
@@ -377,7 +427,7 @@ public actor MarimoLSPAdapter: MarimoBackend {
     return .integer(Int64(value))
   }
 
-  private func encodeAsJSONValue<T: Encodable>(_ value: T) throws -> JSONValue {
+  func encodeAsJSONValue<T: Encodable>(_ value: T) throws -> JSONValue {
     try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(value))
   }
 

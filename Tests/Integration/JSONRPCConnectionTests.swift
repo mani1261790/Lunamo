@@ -12,9 +12,11 @@ private actor MockProcessTransport: ProcessTransport {
   private var framer = JSONRPCFramer()
   var methodsWithoutAutomaticResponse: Set<String> = []
   private var writeDelays: [String: Duration] = [:]
+  private var startCount = 0
 
   func start(_: ProcessLaunchRequest) -> AsyncStream<ProcessEvent> {
     running = true
+    startCount += 1
     let (stream, continuation) = AsyncStream<ProcessEvent>.makeStream()
     self.continuation = continuation
     return stream
@@ -67,6 +69,7 @@ private actor MockProcessTransport: ProcessTransport {
   func processIdentifier() -> Int32? { running ? 42 : nil }
 
   func snapshot() -> [JSONRPCMessage] { messages }
+  func recordedStartCount() -> Int { startCount }
 
   func disableAutomaticResponse(for method: String) {
     methodsWithoutAutomaticResponse.insert(method)
@@ -272,6 +275,77 @@ struct JSONRPCConnectionTests {
     #expect(messages.last == JSONRPCMessage.notification(method: "exit", params: nil))
   }
 
+  @Test("Session-bound and restart commands use their exact pinned wire shape")
+  func recoveryCommandWireShape() async throws {
+    let transport = MockProcessTransport()
+    let connection = JSONRPCConnection(transport: transport)
+    let adapter = try MarimoLSPAdapter(
+      sidecarDirectory: sidecarDirectory(), connection: connection)
+    try await adapter.start()
+
+    try await adapter.interrupt(notebookURI: "file:///notebook.py", kernelSessionID: "current")
+    try await adapter.sendStdin(
+      notebookURI: "file:///notebook.py", kernelSessionID: "current", text: "secret")
+    try await adapter.restartSession(
+      notebookURI: "file:///notebook.py",
+      executable: "/venv/bin/python",
+      workingDirectory: "/workspace",
+      createIfMissing: false
+    )
+
+    let commands = await transport.snapshot().compactMap { message -> [String: JSONValue]? in
+      guard case .request(_, "marimo/command", let params) = message else { return nil }
+      return params?.object
+    }
+    let tail = Array(commands.suffix(3))
+    #expect(Set(tail[0].keys) == ["kind", "notebookUri", "kernelSessionId"])
+    #expect(tail[0]["kernelSessionId"] == .string("current"))
+    #expect(Set(tail[1].keys) == ["kind", "notebookUri", "kernelSessionId", "text"])
+    #expect(tail[1]["text"] == .string("secret"))
+    #expect(
+      Set(tail[2].keys)
+        == ["kind", "notebookUri", "executable", "workingDirectory", "createIfMissing"]
+    )
+    #expect(tail[2]["kernelSessionId"] == nil)
+    await adapter.shutdown()
+  }
+
+  @Test("Adapter restarts three times in 60 seconds and stops on the fourth crash")
+  func boundedAutomaticRecovery() async throws {
+    let transport = MockProcessTransport()
+    let connection = JSONRPCConnection(transport: transport)
+    let adapter = try MarimoLSPAdapter(
+      sidecarDirectory: sidecarDirectory(), connection: connection)
+    let events = await adapter.backendEvents()
+    let collector = Task { () -> [MarimoBackendEvent] in
+      var collected: [MarimoBackendEvent] = []
+      for await event in events {
+        collected.append(event)
+        if case .automaticRestartStopped = event { return collected }
+      }
+      return collected
+    }
+    try await adapter.start()
+
+    for expectedStartCount in 2...4 {
+      await transport.terminate()
+      try await waitUntil { await transport.recordedStartCount() == expectedStartCount }
+    }
+    await transport.emitStderr("fatal sidecar error\n")
+    await transport.terminate()
+    let collected = await collector.value
+
+    #expect(await transport.recordedStartCount() == 4)
+    #expect(collected.filter { if case .disconnected = $0 { true } else { false } }.count == 4)
+    #expect(collected.filter { if case .restarted = $0 { true } else { false } }.count == 3)
+    let stoppedLogs = collected.compactMap { event -> [String]? in
+      guard case .automaticRestartStopped(let stderr) = event else { return nil }
+      return stderr
+    }
+    #expect(stoppedLogs == [["fatal sidecar error"]])
+    await adapter.shutdown()
+  }
+
   @Test("Adapter force-terminates when graceful shutdown reaches five seconds")
   func boundedAdapterShutdown() async throws {
     let transport = MockProcessTransport()
@@ -427,6 +501,14 @@ struct JSONRPCConnectionTests {
 
   private func launchRequest() -> ProcessLaunchRequest {
     ProcessLaunchRequest(executableURL: URL(fileURLWithPath: "/mock/python"), arguments: [])
+  }
+
+  private func sidecarDirectory() -> URL {
+    URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .appending(path: ".build/Sidecar")
   }
 
   private func waitUntil(

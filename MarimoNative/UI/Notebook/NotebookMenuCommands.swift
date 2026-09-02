@@ -36,9 +36,15 @@ public struct NotebookMenuCommands: Commands {
       }
       .keyboardShortcut(.return, modifiers: [.command, .shift])
       .disabled(!canRun)
-      Button("Interrupt") {}
-        .keyboardShortcut(".", modifiers: [.command])
-        .disabled(true)
+      Button("Interrupt") {
+        Task { await store.requestInterrupt() }
+      }
+      .keyboardShortcut(".", modifiers: [.command])
+      .disabled(!store.sessionAllowsInterrupt)
+      Button(store.forceRestartAvailable ? "Force Restart Kernel" : "Restart Kernel") {
+        Task { await store.requestRestartKernel() }
+      }
+      .disabled(!store.sessionAllowsRestart)
 
       Divider()
 

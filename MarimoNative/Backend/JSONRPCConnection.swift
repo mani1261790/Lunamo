@@ -30,6 +30,10 @@ public enum JSONRPCConnectionState: Sendable, Equatable {
   case closed
 }
 
+public enum JSONRPCConnectionEvent: Sendable, Equatable {
+  case unexpectedExit(Int32)
+}
+
 public enum JSONRPCTimeouts {
   public static func duration(method: String, params: JSONValue?) -> Duration {
     if method == "initialize" { return .seconds(10) }
@@ -65,6 +69,8 @@ public actor JSONRPCConnection {
   private var unknownResponseIDs: [JSONRPCID] = []
   private let notificationStream: AsyncStream<JSONRPCMessage>
   private let notificationContinuation: AsyncStream<JSONRPCMessage>.Continuation
+  private let eventStream: AsyncStream<JSONRPCConnectionEvent>
+  private let eventContinuation: AsyncStream<JSONRPCConnectionEvent>.Continuation
 
   public init(
     transport: any ProcessTransport = LSPProcess(),
@@ -73,6 +79,7 @@ public actor JSONRPCConnection {
     self.transport = transport
     self.stderrBuffer = stderrBuffer
     (notificationStream, notificationContinuation) = AsyncStream.makeStream()
+    (eventStream, eventContinuation) = AsyncStream.makeStream()
   }
 
   deinit {
@@ -84,7 +91,12 @@ public actor JSONRPCConnection {
     rootURI: String? = nil,
     workspaceFolders: JSONValue = .null
   ) async throws -> JSONRPCInitializeRecord {
-    guard state == .idle else { throw JSONRPCConnectionError.alreadyStarted }
+    guard state == .idle || state == .closed else {
+      throw JSONRPCConnectionError.alreadyStarted
+    }
+    framer = JSONRPCFramer()
+    writeTail = nil
+    initializeRecord = nil
     state = .initializing
     do {
       let events = try await transport.start(launchRequest)
@@ -126,6 +138,7 @@ public actor JSONRPCConnection {
     } catch {
       state = .closed
       await transport.terminate()
+      await waitForTransportExit()
       releaseAll(with: error)
       throw error
     }
@@ -178,6 +191,7 @@ public actor JSONRPCConnection {
   }
 
   public func forceTerminate() async {
+    state = .shuttingDown
     await transport.forceTerminate()
     state = .closed
     releaseAll(with: JSONRPCConnectionError.closed)
@@ -196,6 +210,8 @@ public actor JSONRPCConnection {
   public func stderrLines() async -> [String] { await stderrBuffer.snapshot() }
 
   public func notifications() -> AsyncStream<JSONRPCMessage> { notificationStream }
+
+  public func events() -> AsyncStream<JSONRPCConnectionEvent> { eventStream }
 
   private func requestInternal(
     method: String,
@@ -267,15 +283,15 @@ public actor JSONRPCConnection {
         }
       } catch {
         logger.error("Protocol framing or decoding failed")
-        await transport.terminate()
-        state = .closed
         releaseAll(with: JSONRPCConnectionError.protocolFailure)
+        await transport.terminate()
       }
     case .stderr(let data):
       await stderrBuffer.append(String(decoding: data, as: UTF8.self))
     case .terminated(let status):
       let wasExpected = state == .shuttingDown || state == .closed
       state = .closed
+      if !wasExpected { eventContinuation.yield(.unexpectedExit(status)) }
       releaseAll(
         with: wasExpected ? JSONRPCConnectionError.closed : .processExited(status)
       )
@@ -354,7 +370,13 @@ public actor JSONRPCConnection {
       request.timeoutTask.cancel()
       request.continuation.resume(throwing: error)
     }
-    if state == .closed { notificationContinuation.finish() }
+  }
+
+  private func waitForTransportExit() async {
+    let deadline = ContinuousClock.now.advanced(by: .seconds(1))
+    while await transport.processIdentifier() != nil, ContinuousClock.now < deadline {
+      try? await Task.sleep(for: .milliseconds(10))
+    }
   }
 }
 

@@ -253,6 +253,9 @@ public struct MarimoCellReplay: Sendable, Equatable {
 public enum MarimoBackendEvent: Sendable, Equatable {
   case kernel(MarimoKernelEvent)
   case sessionsChanged([MarimoSessionInfo])
+  case disconnected
+  case restarted
+  case automaticRestartStopped(stderr: [String])
 }
 
 public protocol MarimoBackend: Sendable {
@@ -274,6 +277,14 @@ public protocol MarimoBackend: Sendable {
     workingDirectory: String,
     cells: [NotebookExecutionCell]
   ) async throws
+  func interrupt(notebookURI: String, kernelSessionID: String) async throws
+  func restartSession(
+    notebookURI: String,
+    executable: String,
+    workingDirectory: String,
+    createIfMissing: Bool
+  ) async throws
+  func sendStdin(notebookURI: String, kernelSessionID: String, text: String) async throws
   func backendEvents() async -> AsyncStream<MarimoBackendEvent>
   func listSessions() async throws -> [MarimoSessionInfo]
   func readNotebookOutputs(notebookURI: String) async throws -> [MarimoCellReplay]
@@ -306,6 +317,24 @@ extension MarimoBackend {
     workingDirectory _: String,
     cells _: [NotebookExecutionCell]
   ) async throws {}
+  public func interrupt(notebookURI _: String, kernelSessionID _: String) async throws {
+    throw MarimoBackendCapabilityError.unavailable
+  }
+  public func restartSession(
+    notebookURI _: String,
+    executable _: String,
+    workingDirectory _: String,
+    createIfMissing _: Bool
+  ) async throws {
+    throw MarimoBackendCapabilityError.unavailable
+  }
+  public func sendStdin(
+    notebookURI _: String,
+    kernelSessionID _: String,
+    text _: String
+  ) async throws {
+    throw MarimoBackendCapabilityError.unavailable
+  }
   public func backendEvents() async -> AsyncStream<MarimoBackendEvent> {
     AsyncStream { continuation in continuation.finish() }
   }

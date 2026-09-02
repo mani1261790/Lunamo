@@ -48,11 +48,15 @@ public struct NotebookRootView: View {
     .sheet(isPresented: trustPromptBinding) {
       ExecutionTrustSheet(store: store)
     }
+    .sheet(isPresented: $store.backendLogsPresented) {
+      backendLogSheet
+    }
   }
 
   private var notebookCanvas: some View {
     ScrollView {
       LazyVStack(spacing: 16) {
+        backendRecoveryBanner
         saveConflictBanner
         saveMessageBanner
         openStateBanner
@@ -70,6 +74,9 @@ public struct NotebookRootView: View {
             },
             command: { command in
               handle(command, cellID: cell.runtimeID)
+            },
+            submitStdin: { text in
+              Task { await store.submitStdin(cellID: cell.runtimeID, text: text) }
             }
           )
         }
@@ -112,9 +119,25 @@ public struct NotebookRootView: View {
       .disabled(!canRun)
       .help("Run All (⇧⌘↩)")
       if store.backendStatus == .ready {
-        Button("Interrupt", systemImage: "stop.fill") {}
-          .disabled(true)
+        if store.forceRestartAvailable {
+          Button(
+            "Force Restart Kernel",
+            systemImage: "exclamationmark.arrow.triangle.2.circlepath"
+          ) {
+            Task { await store.requestRestartKernel() }
+          }
+          .disabled(!store.sessionAllowsRestart)
+        } else {
+          Button("Interrupt", systemImage: "stop.fill") {
+            Task { await store.requestInterrupt() }
+          }
+          .disabled(!store.sessionAllowsInterrupt)
           .help("Interrupt (⌘.)")
+        }
+        Button("Restart Kernel", systemImage: "arrow.triangle.2.circlepath") {
+          Task { await store.requestRestartKernel() }
+        }
+        .disabled(!store.sessionAllowsRestart)
       } else {
         Button("Restart Backend", systemImage: "arrow.clockwise") {
           Task { await store.startBackend() }
@@ -125,6 +148,43 @@ public struct NotebookRootView: View {
       }
       .help("Toggle Inspector (⌥⌘I)")
     }
+  }
+
+  @ViewBuilder
+  private var backendRecoveryBanner: some View {
+    if store.backendRecoveryStopped {
+      VStack(alignment: .leading, spacing: 8) {
+        Label("Backend restart limit reached", systemImage: "exclamationmark.triangle.fill")
+          .font(.headline)
+        Text("Automatic restart stopped after three attempts in 60 seconds.")
+          .foregroundStyle(.secondary)
+        HStack {
+          Button("Open Logs") { store.backendLogsPresented = true }
+          Button("Restart Backend") { Task { await store.startBackend() } }
+        }
+      }
+      .padding()
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+    }
+  }
+
+  private var backendLogSheet: some View {
+    NavigationStack {
+      TextEditor(
+        text: .constant(
+          store.backendLogs.isEmpty
+            ? "No sidecar stderr was captured." : store.backendLogs.joined(separator: "\n")
+        )
+      )
+      .font(.system(.body, design: .monospaced))
+      .padding()
+      .navigationTitle("Backend Logs")
+      .toolbar {
+        Button("Done") { store.backendLogsPresented = false }
+      }
+    }
+    .frame(minWidth: 640, minHeight: 420)
   }
 
   private var inspector: some View {
@@ -191,7 +251,7 @@ public struct NotebookRootView: View {
       guard canRun else { return }
       Task { await store.requestRunAll() }
     case .interrupt:
-      return
+      Task { await store.requestInterrupt() }
     }
   }
 

@@ -1,8 +1,10 @@
+import Darwin
 import Foundation
 import MarimoApplication
 import MarimoBackend
 import MarimoDomain
 import MarimoEnvironment
+import MarimoProcess
 import Testing
 
 private actor KernelEventRecorder {
@@ -210,6 +212,99 @@ extension BundledSidecarIntegrationTests {
     await adapter.shutdown()
   }
 
+  @Test("Infinite execution interrupts within ten seconds and shutdown leaves no process")
+  @MainActor
+  func interruptAndProcessCleanup() async throws {
+    let root = kernelRepositoryRoot()
+    let sidecar = root.appending(path: ".build/Sidecar")
+    let python = sidecar.appending(path: "bin/python")
+    guard FileManager.default.isExecutableFile(atPath: python.path) else {
+      Issue.record("Build .build/Sidecar before running integration tests")
+      return
+    }
+
+    let process = LSPProcess()
+    let connection = JSONRPCConnection(transport: process)
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar, connection: connection)
+    let support = FileManager.default.temporaryDirectory.appending(
+      path: "marimonative-interrupt-test-\(UUID().uuidString)",
+      directoryHint: .isDirectory
+    )
+    defer { try? FileManager.default.removeItem(at: support) }
+    let cell = NotebookCellState(code: "while True:\n    pass")
+    let store = NotebookStore(
+      backend: adapter,
+      document: NotebookDocumentState(cells: [cell]),
+      folderTrustStore: FolderTrustStore(applicationSupportDirectory: support)
+    )
+    await store.startBackend()
+    await store.choosePythonExecutable(python)
+    store.chooseWorkingDirectory(root)
+    await store.requestRunCell(cell.runtimeID)
+    store.authorizeRunOnce()
+
+    let runningDeadline = ContinuousClock.now.advanced(by: .seconds(15))
+    while !store.sessionAllowsInterrupt, ContinuousClock.now < runningDeadline {
+      try? await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(store.sessionAllowsInterrupt)
+    let sidecarPID = try #require(await process.processIdentifier())
+    let launchedPIDs = [sidecarPID] + childProcessIDs(of: sidecarPID)
+
+    let interruptStart = ContinuousClock.now
+    await store.requestInterrupt()
+    while store.sessionState != .idle,
+      interruptStart.duration(to: .now) < .seconds(10)
+    {
+      try? await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(store.sessionState == .idle)
+    #expect(interruptStart.duration(to: .now) < .seconds(10))
+
+    await store.shutdownBackend()
+    let cleanupDeadline = ContinuousClock.now.advanced(by: .seconds(2))
+    while launchedPIDs.contains(where: processExists), ContinuousClock.now < cleanupDeadline {
+      try? await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(launchedPIDs.allSatisfy { !processExists($0) })
+  }
+
+  @Test("A crashed sidecar restarts and reopens the unsaved in-memory document")
+  @MainActor
+  func sidecarCrashReopensDirtyDocument() async throws {
+    let sidecar = kernelRepositoryRoot().appending(path: ".build/Sidecar")
+    guard FileManager.default.fileExists(atPath: sidecar.path) else {
+      Issue.record("Build .build/Sidecar before running integration tests")
+      return
+    }
+    let process = LSPProcess()
+    let connection = JSONRPCConnection(transport: process)
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar, connection: connection)
+    let cell = NotebookCellState(code: "value = 1")
+    let store = NotebookStore(backend: adapter, document: NotebookDocumentState(cells: [cell]))
+    await store.startBackend()
+    await store.send(.updateCode(cellID: cell.runtimeID, code: "unsaved = 99"))
+    let crashedPID = try #require(await process.processIdentifier())
+
+    #expect(kill(crashedPID, SIGKILL) == 0)
+    let recoveryDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+    var restartedPID: Int32?
+    while ContinuousClock.now < recoveryDeadline {
+      if let candidate = await process.processIdentifier(), candidate != crashedPID {
+        restartedPID = candidate
+        if store.backendStatus == .ready, store.synchronizationError == nil { break }
+      }
+      try? await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(restartedPID != nil)
+    #expect(await adapter.status() == .ready)
+    #expect(store.document.cells[0].code == "unsaved = 99")
+    #expect(store.document.dirty)
+
+    await store.shutdownBackend()
+    #expect(await process.processIdentifier() == nil)
+  }
+
   private func waitForCompletedRun(
     in recorder: KernelEventRecorder,
     notebookURI: String,
@@ -273,5 +368,23 @@ extension BundledSidecarIntegrationTests {
       .deletingLastPathComponent()
       .deletingLastPathComponent()
       .deletingLastPathComponent()
+  }
+
+  private func childProcessIDs(of parent: Int32) -> [Int32] {
+    let task = Process()
+    let output = Pipe()
+    task.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
+    task.arguments = ["-P", String(parent)]
+    task.standardOutput = output
+    try? task.run()
+    task.waitUntilExit()
+    let data = output.fileHandleForReading.readDataToEndOfFile()
+    return String(decoding: data, as: UTF8.self)
+      .split(whereSeparator: \.isWhitespace)
+      .compactMap { Int32($0) }
+  }
+
+  private func processExists(_ pid: Int32) -> Bool {
+    kill(pid, 0) == 0 || errno == EPERM
   }
 }

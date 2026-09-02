@@ -457,6 +457,7 @@ MN-TEST-026:
   - BundledSidecarIntegrationTests/officialMarimoSaveRoundTrip
 MN-TEST-027:
   - BundledSidecarIntegrationTests/initializeAndShutdown
+  - BundledSidecarIntegrationTests/interruptAndProcessCleanup
 MN-TEST-028:
   - NotebookSaveTests/saveAsMovesSession
 MN-TEST-029:
@@ -604,3 +605,47 @@ MN-TEST-021:
   - BundledSidecarIntegrationTests/requiredKernelFixturesParse
 MN-TEST-022:
   - BundledSidecarIntegrationTests/twoCellReactiveExecution
+MN-CMD-030:
+  - JSONRPCConnectionTests/recoveryCommandWireShape
+  - NotebookSessionTests/interruptIsSingleShot
+  - NotebookSessionTests/secureStdin
+MN-CMD-031:
+  - NotebookSessionTests/sessionBoundOperationsRequireCurrentSession
+MN-CMD-032:
+  - NotebookSessionTests/restartClearsKernelState
+MN-CMD-033:
+  - JSONRPCConnectionTests/recoveryCommandWireShape
+  - NotebookSessionTests/restartClearsKernelState
+MN-CMD-034:
+  - JSONRPCConnectionTests/saveAndShutdownWireShape
+MN-SES-014:
+  - NotebookSessionTests/interruptIsSingleShot
+MN-SES-015:
+  - NotebookSessionTests/interruptIsSingleShot
+MN-EXEC-020:
+  - NotebookSessionTests/secureStdin
+  - ArchitectureBoundaryTests/secureStdinIsNativeAndEphemeral
+MN-EXEC-021:
+  - NotebookSessionTests/secureStdin
+  - ArchitectureBoundaryTests/secureStdinIsNativeAndEphemeral
+MN-EXEC-022:
+  - NotebookSessionTests/secureStdin
+MN-LSP-031:
+  - NotebookSessionTests/backendRecoveryPreservesDocument
+  - JSONRPCConnectionTests/boundedAutomaticRecovery
+  - BundledSidecarIntegrationTests/sidecarCrashReopensDirtyDocument
+MN-LSP-032:
+  - JSONRPCConnectionTests/boundedAutomaticRecovery
+MN-LSP-033:
+  - NotebookSessionTests/backendRecoveryPreservesDocument
+  - BundledSidecarIntegrationTests/sidecarCrashReopensDirtyDocument
+MN-LSP-034:
+  - JSONRPCConnectionTests/boundedAutomaticRecovery
+  - ArchitectureBoundaryTests/backendRecoveryActionsAreVisible
+MN-ERR-010:
+  - NotebookSessionTests/backendRecoveryPreservesDocument
+  - BundledSidecarIntegrationTests/sidecarCrashReopensDirtyDocument
+MN-ERR-011:
+  - NotebookSessionTests/restartClearsKernelState
+MN-TEST-024:
+  - BundledSidecarIntegrationTests/interruptAndProcessCleanup

@@ -25,6 +25,7 @@ extension NotebookStore {
       startBackendEventRouting()
       try await backend.start()
       backendStatus = await backend.status()
+      backendRecoveryStopped = false
       if backendStatus == .ready {
         try await synchronizeOpenDocument()
         await reattachSessionIfAvailable()
@@ -206,11 +207,15 @@ extension NotebookStore {
     sessionResolutionTask = nil
     pendingRunRequest = nil
     runAwaitingCompletion = false
+    interruptTimeoutTask?.cancel()
+    interruptTimeoutTask = nil
+    forceRestartAvailable = false
     document.kernelSessionID = nil
     sessionState = state
     for index in document.cells.indices {
       document.cells[index].runtime.status = .idle
       document.cells[index].runtime.widgetIDs = []
+      document.cells[index].runtime.stdinPrompt = nil
     }
   }
 
@@ -233,7 +238,7 @@ extension NotebookStore {
     }
   }
 
-  private func scheduleSessionResolution() {
+  func scheduleSessionResolution() {
     sessionResolutionTask?.cancel()
     let timeout = sessionResolutionTimeout
     sessionResolutionTask = Task { @MainActor [weak self] in
@@ -257,14 +262,20 @@ extension NotebookStore {
     }
   }
 
-  private func applyBackendEvent(_ event: MarimoBackendEvent) {
+  func applyBackendEvent(_ event: MarimoBackendEvent) {
     switch event {
     case .sessionsChanged(let sessions):
-      guard document.kernelSessionID == nil, sessionState == .starting else { return }
+      guard document.kernelSessionID == nil,
+        sessionState == .starting || sessionState == .restarting
+      else { return }
       guard let match = sessions.first(where: { $0.notebookURI == document.notebookURI }) else {
         return
       }
+      let wasRestarting = sessionState == .restarting
       acceptSession(match.sessionID)
+      if wasRestarting {
+        sessionState = match.status == "running" ? .running : .idle
+      }
     case .kernel(let event):
       guard event.notebookURI == document.notebookURI else { return }
       if let current = document.kernelSessionID {
@@ -274,12 +285,15 @@ extension NotebookStore {
       }
       switch event.operation {
       case "kernel-ready":
-        if sessionState == .starting {
+        if sessionState == .starting || sessionState == .restarting {
           sessionState = runAwaitingCompletion ? .running : .idle
         }
       case "cell-op":
         applyCellOperation(event.payload, executedSource: nil)
       case "completed-run", "interrupted":
+        interruptTimeoutTask?.cancel()
+        interruptTimeoutTask = nil
+        forceRestartAvailable = false
         runAwaitingCompletion = false
         sessionState = .idle
       case "kernel-startup-error":
@@ -289,6 +303,12 @@ extension NotebookStore {
       default:
         break
       }
+    case .disconnected:
+      handleBackendDisconnected()
+    case .restarted:
+      handleBackendRestarted()
+    case .automaticRestartStopped(let stderr):
+      handleAutomaticRestartStopped(stderr: stderr)
     }
   }
 
@@ -300,6 +320,7 @@ extension NotebookStore {
     for index in document.cells.indices {
       document.cells[index].runtime.status = .idle
       document.cells[index].runtime.widgetIDs = []
+      document.cells[index].runtime.stdinPrompt = nil
     }
   }
 
@@ -318,6 +339,7 @@ extension NotebookStore {
       runtime.output = payload["output"] == .null ? nil : payload["output"]
     }
     if let console = payload["console"] {
+      if let prompt = stdinPrompt(from: console) { runtime.stdinPrompt = prompt }
       switch console {
       case .array(let values):
         if values.isEmpty {
@@ -341,6 +363,21 @@ extension NotebookStore {
     if let executedSource { runtime.lastExecutedCode = executedSource }
     document.cells[index].runtime = runtime
   }
+
+  private func stdinPrompt(from value: JSONValue) -> StdinPromptState? {
+    let values: [JSONValue]
+    if case .array(let array) = value { values = array } else { values = [value] }
+    for value in values.reversed() {
+      guard case .object(let object) = value,
+        object.string(for: "channel") == "stdin"
+      else { continue }
+      return StdinPromptState(
+        prompt: object.string(for: "data") ?? "",
+        password: object.string(for: "mimetype") == "text/password"
+      )
+    }
+    return nil
+  }
 }
 
 private enum NotebookSessionLog {
@@ -348,12 +385,12 @@ private enum NotebookSessionLog {
 }
 
 extension Dictionary where Key == String, Value == JSONValue {
-  fileprivate func string(for key: String) -> String? {
+  func string(for key: String) -> String? {
     guard case .string(let value)? = self[key] else { return nil }
     return value
   }
 
-  fileprivate func bool(for key: String) -> Bool? {
+  func bool(for key: String) -> Bool? {
     guard case .bool(let value)? = self[key] else { return nil }
     return value
   }

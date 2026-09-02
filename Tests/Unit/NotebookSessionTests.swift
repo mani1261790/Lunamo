@@ -16,6 +16,11 @@ private actor SessionBackend: MarimoBackend {
   private var listCount = 0
   private var sessions: [MarimoSessionInfo] = []
   private var replays: [MarimoCellReplay] = []
+  private var interruptCalls: [(String, String)] = []
+  private var restartCalls: [(String, String, String, Bool)] = []
+  private var stdinCalls: [(String, String, String)] = []
+  private var openCount = 0
+  private var startCount = 0
   private let stream: AsyncStream<MarimoBackendEvent>
   private let continuation: AsyncStream<MarimoBackendEvent>.Continuation
 
@@ -24,7 +29,10 @@ private actor SessionBackend: MarimoBackend {
   }
 
   func status() -> BackendStatus { ready ? .ready : .unavailable }
-  func start() { ready = true }
+  func start() {
+    ready = true
+    startCount += 1
+  }
   func parseNotebook(source _: String) -> NotebookParseOutcome { .convertible }
   func backendEvents() -> AsyncStream<MarimoBackendEvent> { stream }
   func execute(
@@ -40,6 +48,21 @@ private actor SessionBackend: MarimoBackend {
     return sessions
   }
   func readNotebookOutputs(notebookURI _: String) -> [MarimoCellReplay] { replays }
+  func didOpenNotebook(_: NotebookSyncSnapshot) { openCount += 1 }
+  func interrupt(notebookURI: String, kernelSessionID: String) {
+    interruptCalls.append((notebookURI, kernelSessionID))
+  }
+  func restartSession(
+    notebookURI: String,
+    executable: String,
+    workingDirectory: String,
+    createIfMissing: Bool
+  ) {
+    restartCalls.append((notebookURI, executable, workingDirectory, createIfMissing))
+  }
+  func sendStdin(notebookURI: String, kernelSessionID: String, text: String) {
+    stdinCalls.append((notebookURI, kernelSessionID, text))
+  }
   func shutdown() { ready = false }
 
   func emit(_ event: MarimoBackendEvent) { continuation.yield(event) }
@@ -47,6 +70,11 @@ private actor SessionBackend: MarimoBackend {
   func recordedListCount() -> Int { listCount }
   func setSessions(_ value: [MarimoSessionInfo]) { sessions = value }
   func setReplays(_ value: [MarimoCellReplay]) { replays = value }
+  func recordedInterrupts() -> [(String, String)] { interruptCalls }
+  func recordedRestarts() -> [(String, String, String, Bool)] { restartCalls }
+  func recordedStdin() -> [(String, String, String)] { stdinCalls }
+  func recordedOpenCount() -> Int { openCount }
+  func recordedStartCount() -> Int { startCount }
 }
 
 private actor BlockingSynchronizationBackend: MarimoBackend {
@@ -388,6 +416,173 @@ struct NotebookSessionTests {
     #expect(store.document.kernelSessionID == "session-error")
   }
 
+  @Test("Interrupt is sent once and exposes Force Restart only after timeout")
+  func interruptIsSingleShot() async {
+    let (store, backend, executable, workingDirectory) = await configuredStore(
+      interruptTimeout: .milliseconds(10)
+    )
+    await beginRunning(
+      store: store,
+      backend: backend,
+      executable: executable,
+      workingDirectory: workingDirectory
+    )
+
+    await store.requestInterrupt()
+    await store.requestInterrupt()
+    #expect(store.sessionState == .interrupting)
+    #expect(await backend.recordedInterrupts().count == 1)
+    #expect(!(store.forceRestartAvailable))
+    await eventually { store.forceRestartAvailable }
+
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "session-running",
+          operation: "interrupted",
+          payload: [:]
+        )
+      )
+    )
+    await eventually { store.sessionState == .idle }
+    #expect(!(store.forceRestartAvailable))
+  }
+
+  @Test("Session-bound operations require the current kernel session")
+  func sessionBoundOperationsRequireCurrentSession() async {
+    let (store, backend, _, _) = await configuredStore()
+    let cellID = store.document.cells[0].runtimeID
+    await store.send(
+      .updateRuntime(
+        cellID: cellID,
+        runtime: CellRuntimeState(
+          stdinPrompt: StdinPromptState(prompt: "Input", password: false)
+        )
+      )
+    )
+
+    await store.requestInterrupt()
+    await store.submitStdin(cellID: cellID, text: "ignored")
+    #expect(await backend.recordedInterrupts().isEmpty)
+    #expect(await backend.recordedStdin().isEmpty)
+    #expect(store.document.cells[0].runtime.stdinPrompt?.submitted == false)
+  }
+
+  @Test("Restart invalidates the old session and clears only transient kernel state")
+  func restartClearsKernelState() async {
+    let (store, backend, executable, workingDirectory) = await configuredStore()
+    await beginRunning(
+      store: store,
+      backend: backend,
+      executable: executable,
+      workingDirectory: workingDirectory
+    )
+    let cellID = store.document.cells[0].runtimeID
+    store.focusEditor(cellID)
+    await store.send(
+      .updateRuntime(
+        cellID: cellID,
+        runtime: CellRuntimeState(
+          status: .running,
+          output: .string("old output"),
+          widgetIDs: [UUID()],
+          stdinPrompt: StdinPromptState(prompt: "secret", password: true)
+        )
+      )
+    )
+
+    await store.requestRestartKernel()
+    #expect(store.document.kernelSessionID == nil)
+    #expect(store.sessionState == .restarting)
+    #expect(store.document.cells[0].code == "value = 1")
+    #expect(store.document.selectedCellID == cellID)
+    #expect(store.focusedCellID == cellID)
+    #expect(store.document.cells[0].runtime == CellRuntimeState())
+    let restart = await backend.recordedRestarts().first
+    #expect(restart?.0 == store.document.notebookURI)
+    #expect(restart?.1 == executable)
+    #expect(restart?.2 == workingDirectory)
+    #expect(restart?.3 == false)
+
+    await backend.emit(
+      .sessionsChanged([
+        MarimoSessionInfo(
+          sessionID: "session-restarted",
+          notebookURI: store.document.notebookURI,
+          executable: executable,
+          workingDirectory: workingDirectory,
+          status: "idle"
+        )
+      ])
+    )
+    await eventually { store.sessionState == .idle }
+    #expect(store.document.kernelSessionID == "session-restarted")
+  }
+
+  @Test("Password stdin keeps only prompt metadata and disables after one send")
+  func secureStdin() async {
+    let (store, backend, executable, workingDirectory) = await configuredStore()
+    await beginRunning(
+      store: store,
+      backend: backend,
+      executable: executable,
+      workingDirectory: workingDirectory
+    )
+    let cellID = store.document.cells[0].runtimeID
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "session-running",
+          operation: "cell-op",
+          payload: [
+            "cell_id": .string(cellID.uuidString),
+            "console": .object([
+              "channel": .string("stdin"),
+              "mimetype": .string("text/password"),
+              "data": .string("Password: "),
+            ]),
+          ]
+        )
+      )
+    )
+    await eventually { store.document.cells[0].runtime.stdinPrompt != nil }
+    #expect(store.document.cells[0].runtime.stdinPrompt?.password == true)
+
+    await store.submitStdin(cellID: cellID, text: "not-restored-secret")
+    await store.submitStdin(cellID: cellID, text: "duplicate")
+    #expect(store.document.cells[0].runtime.stdinPrompt?.submitted == true)
+    #expect(!String(describing: store.document).contains("not-restored-secret"))
+    let sent = await backend.recordedStdin()
+    #expect(sent.count == 1)
+    #expect(sent.first?.1 == "session-running")
+    #expect(sent.first?.2 == "not-restored-secret")
+  }
+
+  @Test("Backend recovery preserves the dirty editor buffer and reopens it")
+  func backendRecoveryPreservesDocument() async {
+    let (store, backend, _, _) = await configuredStore()
+    let cellID = store.document.cells[0].runtimeID
+    await store.send(.updateCode(cellID: cellID, code: "unsaved = 99"))
+    let opensBefore = await backend.recordedOpenCount()
+
+    await backend.emit(.disconnected)
+    await eventually { store.backendStatus == .unavailable }
+    #expect(store.document.cells[0].code == "unsaved = 99")
+    #expect(store.document.dirty)
+    await backend.emit(.restarted)
+    await eventually { store.backendStatus == .ready }
+    await eventually { store.sessionState == .notStarted }
+    #expect(await backend.recordedOpenCount() == opensBefore + 1)
+    #expect(store.document.cells[0].code == "unsaved = 99")
+    #expect(store.document.dirty)
+
+    await backend.emit(.automaticRestartStopped(stderr: ["fatal sidecar error"]))
+    await eventually { store.backendRecoveryStopped }
+    #expect(store.backendLogs == ["fatal sidecar error"])
+  }
+
   @Test("Reattach restores live output and session identity")
   func reattach() async throws {
     let backend = SessionBackend()
@@ -421,7 +616,8 @@ struct NotebookSessionTests {
   }
 
   private func configuredStore(
-    timeout: Duration = .seconds(15)
+    timeout: Duration = .seconds(15),
+    interruptTimeout: Duration = .seconds(10)
   ) async -> (NotebookStore, SessionBackend, String, String) {
     let executableURL = URL(fileURLWithPath: "/bin/sh")
     let (preflight, _) = successfulPreflight(executableURL: executableURL)
@@ -429,7 +625,8 @@ struct NotebookSessionTests {
     let store = NotebookStore(
       backend: backend,
       environmentPreflight: preflight,
-      sessionResolutionTimeout: timeout
+      sessionResolutionTimeout: timeout,
+      interruptTimeout: interruptTimeout
     )
     await store.startBackend()
     await store.choosePythonExecutable(executableURL)
@@ -440,6 +637,31 @@ struct NotebookSessionTests {
       normalizedExecutableURL(executableURL).path,
       canonicalURL(URL(fileURLWithPath: "/tmp")).path
     )
+  }
+
+  private func beginRunning(
+    store: NotebookStore,
+    backend: SessionBackend,
+    executable: String,
+    workingDirectory: String
+  ) async {
+    let cellID = store.document.cells[0].runtimeID
+    await store.send(.updateCode(cellID: cellID, code: "value = 1"))
+    store.authorizeRunOnce()
+    await store.send(
+      .runCell(cellID: cellID, executable: executable, workingDirectory: workingDirectory)
+    )
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "session-running",
+          operation: "kernel-ready",
+          payload: [:]
+        )
+      )
+    )
+    await eventually { store.sessionState == .running }
   }
 
   private func eventually(
