@@ -31,5 +31,8 @@ xcrun swift-format lint --recursive --strict MarimoNative Tests Package.swift
 ./Tools/verify-protocol-lock.sh
 .build/Sidecar/bin/python3 -I Tools/verify-requirements.py --all-must
 ./Tools/smoke-sidecar.py .build/Sidecar --deny-network --runtime-acceptance
+./Tools/build-debug-app.sh >/dev/null
+./Tools/verify-release-app-flow.py .build/MarimoNative.app \
+  --fixture Tests/Fixtures/two_cell_notebook.py
 
 echo "Implemented gates local verification passed"

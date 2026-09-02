@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-developer_dir=${DEVELOPER_DIR:-/Applications/Xcode-beta.app/Contents/Developer}
+developer_dir=${DEVELOPER_DIR:-$(xcode-select -p)}
 app_root=".build/MarimoNative.app"
 contents="$app_root/Contents"
 
