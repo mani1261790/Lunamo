@@ -12,6 +12,13 @@ public struct NotebookMenuCommands: Commands {
   public var body: some Commands {
     SidebarCommands()
 
+    CommandGroup(replacing: .newItem) {
+      Button("Open Notebook…") {
+        NotebookOpenActions.open(store)
+      }
+      .keyboardShortcut("o", modifiers: [.command])
+    }
+
     CommandMenu("Notebook") {
       Button("Run Cell and Advance") {
         guard let cellID = store.document.selectedCellID else { return }
@@ -110,7 +117,7 @@ public struct NotebookMenuCommands: Commands {
 
   private var canRun: Bool {
     store.backendStatus == .ready && store.environmentAllowsExecutionRequest
-      && store.sessionAllowsRun
+      && store.sessionAllowsRun && store.documentAllowsExecution
   }
 
   private var canRunSelectedCell: Bool {

@@ -10,6 +10,8 @@ public struct NotebookRootView: View {
   @ObservedObject private var store: NotebookStore
   private let startupURL: URL?
   @State private var columnVisibility: NavigationSplitViewVisibility = .all
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
   public init(store: NotebookStore, startupURL: URL? = nil) {
     self.store = store
@@ -18,24 +20,20 @@ public struct NotebookRootView: View {
 
   public var body: some View {
     NavigationSplitView(columnVisibility: $columnVisibility) {
-      List {
-        Section("Notebook") {
-          Label("Files", systemImage: "folder")
-          Label("Cells", systemImage: "list.number")
-        }
-      }
-      .navigationTitle("MarimoNative")
-      .navigationSplitViewColumnWidth(min: 180, ideal: 240, max: 360)
+      NotebookSidebarView(store: store)
     } detail: {
       notebookCanvas
         .navigationTitle(documentTitle)
         .toolbar { notebookToolbar }
     }
     .inspector(isPresented: $store.inspectorPresented) {
-      inspector
+      NotebookInspectorView(store: store)
         .inspectorColumnWidth(min: 260, ideal: 300, max: 440)
     }
     .frame(minWidth: 960, idealWidth: 1_320, minHeight: 640, idealHeight: 800)
+    .transaction { transaction in
+      if reduceMotion { transaction.animation = nil }
+    }
     .task {
       await store.startBackend()
       if let startupURL {
@@ -54,50 +52,59 @@ public struct NotebookRootView: View {
   }
 
   private var notebookCanvas: some View {
-    ScrollView {
-      LazyVStack(spacing: 16) {
-        backendRecoveryBanner
-        saveConflictBanner
-        saveMessageBanner
-        openStateBanner
-        ForEach(store.document.cells) { cell in
-          CellView(
-            cell: cell,
-            selected: store.document.selectedCellID == cell.runtimeID,
-            focused: store.focusedCellID == cell.runtimeID,
-            canRun: canRun,
-            send: { intent in
-              Task { await store.send(intent) }
-            },
-            focusEditor: {
-              store.focusEditor(cell.runtimeID)
-            },
-            command: { command in
-              handle(command, cellID: cell.runtimeID)
-            },
-            submitStdin: { text in
-              Task { await store.submitStdin(cellID: cell.runtimeID, text: text) }
-            },
-            widgetStore: store.widgetValueStore,
-            widgetsEnabled: store.interactiveWidgetsAllowed,
-            kernelSessionID: store.document.kernelSessionID,
-            submitWidgetValue: { objectID, value, sessionID in
-              Task {
-                await store.submitWidgetValue(
-                  objectID: objectID,
-                  value: value,
-                  expectedSessionID: sessionID
-                )
+    ScrollViewReader { proxy in
+      ScrollView {
+        LazyVStack(spacing: 16) {
+          backendRecoveryBanner
+          saveConflictBanner
+          saveMessageBanner
+          openStateBanner
+          ForEach(Array(store.document.cells.enumerated()), id: \.element.runtimeID) {
+            index, cell in
+            CellView(
+              cell: cell,
+              index: index + 1,
+              selected: store.document.selectedCellID == cell.runtimeID,
+              focused: store.focusedCellID == cell.runtimeID,
+              canRun: canRun,
+              send: { intent in
+                Task { await store.send(intent) }
+              },
+              focusEditor: {
+                store.focusEditor(cell.runtimeID)
+              },
+              command: { command in
+                handle(command, cellID: cell.runtimeID)
+              },
+              submitStdin: { text in
+                Task { await store.submitStdin(cellID: cell.runtimeID, text: text) }
+              },
+              widgetStore: store.widgetValueStore,
+              widgetsEnabled: store.interactiveWidgetsAllowed,
+              kernelSessionID: store.document.kernelSessionID,
+              submitWidgetValue: { objectID, value, sessionID in
+                Task {
+                  await store.submitWidgetValue(
+                    objectID: objectID,
+                    value: value,
+                    expectedSessionID: sessionID
+                  )
+                }
               }
-            }
-          )
+            )
+            .id(cell.runtimeID)
+          }
         }
+        .frame(maxWidth: 1_100)
+        .padding()
+        .frame(maxWidth: .infinity)
       }
-      .frame(maxWidth: 1_100)
-      .padding()
-      .frame(maxWidth: .infinity)
+      .onChange(of: store.document.selectedCellID) { _, selected in
+        guard let selected else { return }
+        proxy.scrollTo(selected, anchor: .center)
+      }
     }
-    .background(Color(nsColor: .textBackgroundColor))
+    .background(Color(nsColor: reduceTransparency ? .windowBackgroundColor : .textBackgroundColor))
     .accessibilityLabel("Notebook canvas")
     .background(NotebookWindowLifecycleView(store: store))
   }
@@ -113,16 +120,17 @@ public struct NotebookRootView: View {
     ToolbarItem {
       Text(documentTitle)
         .lineLimit(1)
-        .accessibilityLabel("Document title: \(documentTitle)")
+        .accessibilityLabel(localizedUI("Document title: %@", documentTitle))
     }
     ToolbarItem {
       environmentMenu
         .help("Python Environment")
     }
     ToolbarItem {
-      Label(backendLabel, systemImage: backendIcon)
+      Label(localizedSessionStatus, systemImage: sessionIcon)
         .foregroundStyle(.secondary)
-        .accessibilityValue(backendLabel)
+        .accessibilityLabel("Kernel Status")
+        .accessibilityValue(localizedSessionStatus)
     }
     ToolbarItemGroup {
       Button("Run All", systemImage: "play.fill") {
@@ -130,6 +138,7 @@ public struct NotebookRootView: View {
       }
       .disabled(!canRun)
       .help("Run All (⇧⌘↩)")
+      .accessibilityLabel("Run All")
       if store.backendStatus == .ready {
         if store.forceRestartAvailable {
           Button(
@@ -139,17 +148,21 @@ public struct NotebookRootView: View {
             Task { await store.requestRestartKernel() }
           }
           .disabled(!store.sessionAllowsRestart)
-        } else {
+        } else if store.sessionState == .running || store.sessionState == .interrupting {
           Button("Interrupt", systemImage: "stop.fill") {
             Task { await store.requestInterrupt() }
           }
           .disabled(!store.sessionAllowsInterrupt)
           .help("Interrupt (⌘.)")
+          .accessibilityLabel("Interrupt")
+        } else {
+          Button("Restart Kernel", systemImage: "arrow.triangle.2.circlepath") {
+            Task { await store.requestRestartKernel() }
+          }
+          .disabled(!store.sessionAllowsRestart)
+          .help("Restart Kernel")
+          .accessibilityLabel("Restart Kernel")
         }
-        Button("Restart Kernel", systemImage: "arrow.triangle.2.circlepath") {
-          Task { await store.requestRestartKernel() }
-        }
-        .disabled(!store.sessionAllowsRestart)
       } else {
         Button("Restart Backend", systemImage: "arrow.clockwise") {
           Task { await store.startBackend() }
@@ -159,6 +172,7 @@ public struct NotebookRootView: View {
         store.inspectorPresented.toggle()
       }
       .help("Toggle Inspector (⌥⌘I)")
+      .accessibilityLabel("Toggle Inspector")
     }
   }
 
@@ -199,40 +213,36 @@ public struct NotebookRootView: View {
     .frame(minWidth: 640, minHeight: 420)
   }
 
-  private var inspector: some View {
-    Form {
-      Section("Session") {
-        LabeledContent("Backend", value: backendLabel)
-        LabeledContent("Kernel", value: store.sessionStatusLabel)
-        environmentInspector
-      }
-      Section("Variables") {
-        ContentUnavailableView(
-          "No Variables",
-          systemImage: "list.bullet.rectangle",
-          description: Text("Run a cell to inspect variables.")
-        )
-      }
-    }
-    .formStyle(.grouped)
-    .navigationTitle("Inspector")
-  }
-
   private var documentTitle: String {
     store.document.sourceURL?.lastPathComponent ?? "Untitled"
   }
 
   private var canRun: Bool {
     store.environmentAllowsExecutionRequest && store.backendStatus == .ready
-      && store.sessionAllowsRun
+      && store.sessionAllowsRun && store.documentAllowsExecution
   }
 
-  private var backendLabel: String {
-    store.backendStatus == .ready ? "Backend Ready" : "Backend Offline"
+  private var sessionIcon: String {
+    switch store.sessionState {
+    case .running: "play.circle.fill"
+    case .interrupting, .restarting, .starting: "progress.indicator"
+    case .failed: "exclamationmark.circle.fill"
+    case .idle: "checkmark.circle"
+    case .notStarted, .closed: "circle"
+    }
   }
 
-  private var backendIcon: String {
-    store.backendStatus == .ready ? "checkmark.circle" : "exclamationmark.circle"
+  private var localizedSessionStatus: String {
+    switch store.sessionState {
+    case .notStarted: localizedUI("Not Started")
+    case .starting: localizedUI("Starting")
+    case .idle: localizedUI("Idle")
+    case .running: localizedUI("Running")
+    case .interrupting: localizedUI("Interrupting")
+    case .restarting: localizedUI("Restarting")
+    case .failed(let technicalDetail): "\(localizedUI("Failed")): \(technicalDetail)"
+    case .closed: localizedUI("Closed")
+    }
   }
 
   private func toggleSidebar() {
@@ -297,52 +307,14 @@ public struct NotebookRootView: View {
     .accessibilityValue(environmentLabel)
   }
 
-  @ViewBuilder
-  private var environmentInspector: some View {
-    switch store.environmentState {
-    case .notConfigured:
-      LabeledContent("Environment", value: "Not Configured")
-    case .selected(let candidate, let workingDirectory):
-      LabeledContent("Environment", value: candidate.kind.displayName)
-      LabeledContent("Executable", value: candidate.executableURL.path)
-      LabeledContent("Preflight", value: "Runs on first execution")
-      if let workingDirectory {
-        LabeledContent("Working Directory", value: workingDirectory.path)
-      }
-    case .checking(let candidate):
-      LabeledContent("Environment", value: "Checking \(candidate.executableURL.lastPathComponent)…")
-    case .invalid(let candidate, let failure):
-      LabeledContent("Environment", value: "Invalid")
-      LabeledContent("Executable", value: candidate.executableURL.path)
-      Text(failure.userMessage).foregroundStyle(.red)
-    case .needsWorkingDirectory(let details):
-      environmentDetails(details)
-      LabeledContent("Working Directory", value: "Required before first run")
-    case .ready(let details, let workingDirectory):
-      environmentDetails(details)
-      LabeledContent("Working Directory", value: workingDirectory.path)
-      LabeledContent("Execution Trust", value: store.executionAuthorizationLabel)
-    }
-  }
-
-  @ViewBuilder
-  private func environmentDetails(_ details: PythonEnvironmentDetails) -> some View {
-    LabeledContent("Environment", value: details.kind.displayName)
-    LabeledContent("Selected Executable", value: details.executableURL.path)
-    LabeledContent("Real Executable", value: details.realExecutableURL.path)
-    LabeledContent("Python", value: details.pythonVersion.description)
-    LabeledContent("Architecture", value: details.architecture)
-    LabeledContent("marimo", value: details.marimoVersion)
-    LabeledContent("marimo Module", value: details.marimoModuleURL.path)
-  }
-
   private var environmentLabel: String {
     switch store.environmentState {
-    case .notConfigured: "No Python Environment"
-    case .selected: "Python Environment · Not Inspected"
-    case .checking: "Checking Python…"
-    case .invalid: "Invalid Python Environment"
-    case .needsWorkingDirectory(let details): "Python \(details.pythonVersion) · Choose Folder"
+    case .notConfigured: localizedUI("No Python Environment")
+    case .selected: localizedUI("Python Environment · Not Inspected")
+    case .checking: localizedUI("Checking Python…")
+    case .invalid: localizedUI("Invalid Python Environment")
+    case .needsWorkingDirectory(let details):
+      localizedUI("Python %@ · Choose Folder", details.pythonVersion.description)
     case .ready(let details, _): "Python \(details.pythonVersion) · marimo \(details.marimoVersion)"
     }
   }

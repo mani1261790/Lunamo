@@ -105,11 +105,19 @@ struct ArchitectureBoundaryTests {
       contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookRootView.swift"),
       encoding: .utf8
     )
+    let commands = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookMenuCommands.swift"),
+      encoding: .utf8
+    )
+    let sidebar = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Sidebar/NotebookSidebarView.swift"),
+      encoding: .utf8
+    )
     #expect(app.contains("Window(\"MarimoNative\", id: \"notebook\")"))
     #expect(!app.contains("WindowGroup"))
-    #expect(app.contains("CommandGroup(replacing: .newItem)"))
+    #expect(commands.contains("CommandGroup(replacing: .newItem)"))
     #expect(notebook.contains("NavigationSplitView"))
-    #expect(notebook.contains("min: 180, ideal: 240, max: 360"))
+    #expect(sidebar.contains("min: 180, ideal: 240, max: 360"))
     #expect(notebook.contains("min: 260, ideal: 300, max: 440"))
     #expect(notebook.contains("maxWidth: 1_100"))
     #expect(notebook.contains("minWidth: 960, idealWidth: 1_320, minHeight: 640"))
@@ -320,7 +328,12 @@ struct ArchitectureBoundaryTests {
       contentsOf: root.appending(path: "MarimoNative/UI/Notebook/ExecutionTrustSheet.swift"),
       encoding: .utf8
     )
-    let rootView = notebookSource(root)
+    let rootView =
+      notebookSource(root)
+      + ((try? String(
+        contentsOf: root.appending(path: "MarimoNative/UI/Inspector/NotebookInspectorView.swift"),
+        encoding: .utf8
+      )) ?? "")
     let store = try String(
       contentsOf: root.appending(path: "MarimoNative/Application/NotebookEnvironment.swift"),
       encoding: .utf8

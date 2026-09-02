@@ -24,6 +24,8 @@ public final class NotebookStore: ObservableObject {
   @Published public internal(set) var backendRecoveryStopped = false
   @Published public internal(set) var backendLogs: [String] = []
   @Published public var backendLogsPresented = false
+  @Published public internal(set) var sidebarFiles: [NotebookSidebarFile] = []
+  @Published public internal(set) var variables: [NotebookVariableState] = []
 
   public let widgetValueStore: WidgetValueStore
 
@@ -102,6 +104,7 @@ public final class NotebookStore: ObservableObject {
         saveMessage = nil
         try await synchronizeOpenDocument()
         openState = .loaded(url)
+        await refreshSidebarFiles()
         await discoverPythonEnvironments(for: url)
         await reattachSessionIfAvailable()
       case .invalidSyntax(let line, let column):
@@ -218,6 +221,7 @@ public final class NotebookStore: ObservableObject {
       try? await backend.closeSession(notebookURI: oldURI)
       document.kernelSessionID = nil
       widgetValueStore.clear()
+      variables = []
       for index in document.cells.indices {
         document.cells[index].runtime = CellRuntimeState()
       }
@@ -227,6 +231,7 @@ public final class NotebookStore: ObservableObject {
     }
     try await synchronizeOpenDocument()
     try await backend.didSaveNotebook(uri: newURI)
+    await refreshSidebarFiles()
     document.dirty = false
     saveConflictURL = nil
     return sessionMoveFailed ? .savedWithSessionReset(target) : .saved(target)
@@ -490,7 +495,4 @@ public final class NotebookStore: ObservableObject {
     synchronizedCellURIs = []
   }
 
-  private func cellIndex(_ cellID: UUID) -> Int? {
-    document.cells.firstIndex { $0.runtimeID == cellID }
-  }
 }

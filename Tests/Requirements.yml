@@ -821,3 +821,63 @@ MN-TEST-006:
   - MarimoComponentDecoderTests/updateRateAndDebounce
 MN-TEST-023:
   - BundledSidecarIntegrationTests/realNativeSliderReactiveUpdate
+MN-UI-020:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-UI-021:
+  - NotebookSessionTests/interruptIsSingleShot
+MN-UI-022:
+  - NotebookPanelTests/invalidDocumentDisablesExecution
+  - NotebookExecutionGateTests/preflightAndTrustGate
+MN-UI-023:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-UI-040:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-UI-041:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-UI-042:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-UI-043:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-UI-044:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-UI-045:
+  - ArchitectureBoundaryTests/nativeCellAppearance
+MN-UI-046:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-PANEL-001:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-PANEL-002:
+  - NotebookPanelTests/fileTreeFiltering
+MN-PANEL-003:
+  - NotebookPanelTests/fileTreeFiltering
+MN-PANEL-004:
+  - NotebookPanelTests/fileTreeFiltering
+  - NotebookPanelTests/nativePanelArchitecture
+MN-PANEL-005:
+  - NotebookPanelTests/cellSidebarSummary
+  - NotebookPanelTests/nativePanelArchitecture
+MN-PANEL-010:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-PANEL-011:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-PANEL-012:
+  - NotebookPanelTests/variableNotificationMerge
+MN-PANEL-013:
+  - NotebookPanelTests/variableNotificationMerge
+MN-PANEL-014:
+  - NotebookPanelTests/variableNotificationMerge
+MN-A11Y-001:
+  - NotebookPanelTests/nativePanelArchitecture
+  - ArchitectureBoundaryTests/nativeSliderArchitecture
+MN-A11Y-002:
+  - ArchitectureBoundaryTests/nativeCellAppearance
+MN-A11Y-003:
+  - ArchitectureBoundaryTests/notebookShortcutsAreDiscoverable
+MN-A11Y-004:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-A11Y-005:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-A11Y-006:
+  - NotebookPanelTests/localizationResources
+MN-A11Y-007:
+  - NotebookPanelTests/localizationResources

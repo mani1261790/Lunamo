@@ -4,7 +4,7 @@ import MarimoDomain
 
 extension NotebookStore {
   public var sessionAllowsInterrupt: Bool {
-    sessionState == .running && document.kernelSessionID != nil
+    (sessionState == .running || sessionState == .interrupting) && document.kernelSessionID != nil
   }
 
   public var sessionAllowsRestart: Bool {
@@ -15,7 +15,7 @@ extension NotebookStore {
   }
 
   public func requestInterrupt() async {
-    guard sessionAllowsInterrupt, interruptTimeoutTask == nil,
+    guard sessionState == .running, sessionAllowsInterrupt, interruptTimeoutTask == nil,
       let sessionID = document.kernelSessionID
     else { return }
 
@@ -51,6 +51,7 @@ extension NotebookStore {
     runAwaitingCompletion = false
     document.kernelSessionID = nil
     widgetValueStore.clear()
+    variables = []
     sessionState = .restarting
     for index in document.cells.indices {
       document.cells[index].runtime = CellRuntimeState()
@@ -100,6 +101,7 @@ extension NotebookStore {
     runAwaitingCompletion = false
     document.kernelSessionID = nil
     widgetValueStore.clear()
+    variables = []
     sessionState = .failed("Backend disconnected.")
     for index in document.cells.indices {
       document.cells[index].runtime.status = .idle

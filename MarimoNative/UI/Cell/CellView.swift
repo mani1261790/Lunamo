@@ -7,6 +7,7 @@ import SwiftUI
 
 public struct CellView: View {
   private let cell: NotebookCellState
+  private let index: Int
   private let selected: Bool
   private let focused: Bool
   private let canRun: Bool
@@ -26,6 +27,7 @@ public struct CellView: View {
 
   public init(
     cell: NotebookCellState,
+    index: Int = 1,
     selected: Bool,
     focused: Bool,
     canRun: Bool,
@@ -39,6 +41,7 @@ public struct CellView: View {
     submitWidgetValue: @escaping @MainActor @Sendable (String, Double, String) -> Void
   ) {
     self.cell = cell
+    self.index = index
     self.selected = selected
     self.focused = focused
     self.canRun = canRun
@@ -158,7 +161,8 @@ public struct CellView: View {
     )
     .onHover { hovering = $0 }
     .accessibilityElement(children: .contain)
-    .accessibilityLabel("Cell \(cell.name)")
+    .accessibilityLabel(localizedUI("Cell %ld, %@", index, cell.name))
+    .accessibilityValue(statusLabel(cell.runtime.status))
   }
 
   @ViewBuilder

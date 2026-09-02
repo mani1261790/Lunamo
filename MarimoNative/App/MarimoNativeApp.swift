@@ -36,7 +36,6 @@ struct MarimoNativeApp: App {
     .defaultSize(width: 1_320, height: 800)
     .windowResizability(.contentSize)
     .commands {
-      CommandGroup(replacing: .newItem) {}
       NotebookMenuCommands(store: store)
     }
   }

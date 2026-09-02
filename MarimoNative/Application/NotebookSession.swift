@@ -222,6 +222,7 @@ extension NotebookStore {
     forceRestartAvailable = false
     document.kernelSessionID = nil
     widgetValueStore.clear()
+    variables = []
     sessionState = state
     for index in document.cells.indices {
       document.cells[index].runtime.status = .idle
@@ -324,6 +325,10 @@ extension NotebookStore {
         {
           widgetValueStore.receiveKernelValue(value, objectID: objectID)
         }
+      case "variables":
+        applyVariableNotification(event.payload, includesValues: false)
+      case "variable-values":
+        applyVariableNotification(event.payload, includesValues: true)
       case "completed-run", "interrupted":
         interruptTimeoutTask?.cancel()
         interruptTimeoutTask = nil
@@ -354,6 +359,7 @@ extension NotebookStore {
     guard document.kernelSessionID != sessionID else { return }
     document.kernelSessionID = sessionID
     widgetValueStore.clear()
+    variables = []
     sessionResolutionTask?.cancel()
     sessionResolutionTask = nil
     for index in document.cells.indices {
