@@ -945,3 +945,119 @@ MN-LOG-005:
 MN-LOG-006:
   - NotebookExportTests/reviewableLogIsRedacted
   - ArchitectureBoundaryTests/exportAndLoggingUIArchitecture
+MN-SCOPE-002:
+  - ArchitectureBoundaryTests/nativeEditorArchitecture
+MN-SCOPE-003:
+  - manual: mo.md and mo.sql fixtures open edit and execute as ordinary Python cells
+MN-SCOPE-010:
+  - NotebookPanelTests/nativePanelArchitecture
+  - ArchitectureBoundaryTests/productionCodeAvoidsForbiddenTokens
+MN-SCOPE-011:
+  - OutputTests/rendererRegistry
+  - UnknownNotificationTrackerTests/suppressesAfterOneHundred
+MN-DIST-001:
+  - Tools/notarize-release.sh
+  - manual: Developer ID authority and Apple Notary Service acceptance
+MN-DIST-002:
+  - Tools/build-release-app.sh
+  - Tools/verify-release-artifact.sh
+MN-DIST-003:
+  - MarimoNative/Resources/MarimoNative.entitlements
+  - Tools/verify-release-artifact.sh
+MN-DIST-004:
+  - MarimoNative/Resources/MarimoNative.entitlements
+  - Tools/verify-release-artifact.sh
+MN-DIST-005:
+  - Tools/build-release-app.sh
+  - Tools/verify-release-artifact.sh
+MN-DIST-006:
+  - Tools/notarize-release.sh
+MN-PERF-001:
+  - BundledSidecarIntegrationTests/warmOpenP95
+MN-PERF-002:
+  - Tools/measure-release-performance.py
+MN-PERF-003:
+  - PerformanceTests/typingToGlyphP95
+MN-PERF-004:
+  - Tools/measure-release-performance.py
+MN-PERF-006:
+  - PerformanceTests/runDispatchP95
+MN-PERF-007:
+  - Tools/measure-release-performance.py
+MN-TEST-003:
+  - NotebookSynchronizationTests/utf16IncrementalTextChange
+MN-TEST-004:
+  - NotebookSessionTests/partialCellOperation
+MN-TEST-031:
+  - manual: Native 100-cell scroll selection and focus verification
+MN-TEST-032:
+  - NotebookSynchronizationTests/imeComposition
+MN-TEST-033:
+  - NotebookPanelTests/nativePanelArchitecture
+  - ArchitectureBoundaryTests/notebookShortcutsAreDiscoverable
+  - manual: VoiceOver and Reduce Transparency release-candidate verification
+MN-CI-001:
+  - .github/workflows/ci.yml
+  - Tools/verify-current-gates.sh
+MN-CI-002:
+  - .github/workflows/release.yml
+  - manual: Clean macOS 26 arm64 acceptance run using the notarized artifact
+MN-CI-003:
+  - .github/workflows/release.yml
+  - Tools/verify-release-artifact.sh
+MN-TRACE-002:
+  - Tools/verify-requirements.py
+MN-TRACE-003:
+  - Tools/create-release-checklist.py
+  - Tools/verify-requirements.py
+MN-ACCEPT-001:
+  - BundledSidecarIntegrationTests/parseOutcomes
+  - ArchitectureBoundaryTests/notebookCanvasIsNative
+MN-ACCEPT-002:
+  - ArchitectureBoundaryTests/nativeNotebookLayout
+  - ArchitectureBoundaryTests/nativeEditorArchitecture
+MN-ACCEPT-003:
+  - BundledSidecarIntegrationTests/realNativeOutputWireDecode
+MN-ACCEPT-004:
+  - BundledSidecarIntegrationTests/twoCellReactiveExecution
+  - ArchitectureBoundaryTests/productionCodeAvoidsForbiddenTokens
+MN-ACCEPT-005:
+  - BundledSidecarIntegrationTests/realNativeSliderReactiveUpdate
+MN-ACCEPT-006:
+  - BundledSidecarIntegrationTests/officialMarimoSaveRoundTrip
+MN-ACCEPT-007:
+  - ArchitectureBoundaryTests/notebookCanvasIsNative
+MN-ACCEPT-008:
+  - BundledSidecarIntegrationTests/initializeAndShutdown
+  - BundledSidecarIntegrationTests/interruptAndProcessCleanup
+MN-ACCEPT-010:
+  - manual: Notarized artifact installed and exercised offline on clean macOS 26 arm64
+MN-EXT-001:
+  - ArchitectureBoundaryTests/swiftDoesNotGenerateMarimoSource
+MN-EXT-002:
+  - MarimoComponentDecoderTests/strictRootBoundary
+  - ProtocolContractTests/uiElementCountValidation
+MN-EXT-003:
+  - ArchitectureBoundaryTests/isolatedWebFallbackArchitecture
+MN-FINAL-001:
+  - ArchitectureBoundaryTests/notebookCanvasIsNative
+MN-FINAL-002:
+  - BundledSidecarIntegrationTests/twoCellReactiveExecution
+MN-FINAL-003:
+  - ArchitectureBoundaryTests/swiftDoesNotGenerateMarimoSource
+MN-FINAL-004:
+  - ArchitectureBoundaryTests/swiftDoesNotGenerateMarimoSource
+MN-FINAL-005:
+  - NotebookExecutionGateTests/preflightAndTrustGate
+MN-FINAL-006:
+  - SidecarLaunchRequestTests/directLaunch
+MN-FINAL-007:
+  - PrivacyAndTemporaryOutputTests/loggingArchitecture
+MN-FINAL-008:
+  - ArchitectureBoundaryTests/nativeCellAppearance
+MN-FINAL-009:
+  - OutputTests/rendererRegistry
+  - UnknownNotificationTrackerTests/suppressesAfterOneHundred
+MN-FINAL-010:
+  - .github/workflows/release.yml
+  - Tools/verify-release-artifact.sh

@@ -21,11 +21,22 @@ struct MarimoNativeApp: App {
     } else {
       backend = PlaceholderMarimoBackend()
     }
-    _store = StateObject(wrappedValue: NotebookStore(backend: backend))
-    startupURL = CommandLine.arguments.dropFirst().first(where: {
-      URL(fileURLWithPath: $0).pathExtension.lowercased() == "py"
-    }).map {
-      URL(fileURLWithPath: $0).standardizedFileURL
+    if let document = ReleasePerformanceProbe.fixtureDocument {
+      _store = StateObject(wrappedValue: NotebookStore(backend: backend, document: document))
+    } else {
+      _store = StateObject(wrappedValue: NotebookStore(backend: backend))
+    }
+    if CommandLine.arguments.contains("--performance-window-marker"),
+      let performanceNotebook = ProcessInfo.processInfo.environment[
+        "MARIMONATIVE_PERFORMANCE_NOTEBOOK"]
+    {
+      startupURL = URL(fileURLWithPath: performanceNotebook).standardizedFileURL
+    } else {
+      startupURL = CommandLine.arguments.dropFirst().first(where: {
+        URL(fileURLWithPath: $0).pathExtension.lowercased() == "py"
+      }).map {
+        URL(fileURLWithPath: $0).standardizedFileURL
+      }
     }
   }
 
@@ -34,6 +45,16 @@ struct MarimoNativeApp: App {
       NotebookRootView(store: store, startupURL: startupURL)
         .onAppear {
           appDelegate.store = store
+          ReleasePerformanceProbe.recordWindowPresented()
+          ReleasePerformanceProbe.recordLoadedCellCount(store.document.cells.count)
+          ReleasePerformanceProbe.recordBackendStatus(store.backendStatus)
+          Task { await ReleasePerformanceProbe.runScrollProbe() }
+        }
+        .onChange(of: store.document.cells.count) { _, count in
+          ReleasePerformanceProbe.recordLoadedCellCount(count)
+        }
+        .onChange(of: store.backendStatus) { _, status in
+          ReleasePerformanceProbe.recordBackendStatus(status)
         }
     }
     .defaultSize(width: 1_320, height: 800)
