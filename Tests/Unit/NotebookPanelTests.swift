@@ -103,6 +103,9 @@ struct NotebookPanelTests {
     let insertionBar = try String(
       contentsOf: root.appending(path: "MarimoNative/UI/Cell/CellInsertionBar.swift"),
       encoding: .utf8)
+    let assistant = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookAssistantView.swift"),
+      encoding: .utf8)
     #expect(rootView.contains("NavigationSplitView"))
     #expect(rootView.contains("ScrollViewReader"))
     #expect(sidebar.contains("OutlineGroup"))
@@ -130,7 +133,13 @@ struct NotebookPanelTests {
     #expect(cell.contains(".draggable(cell.runtimeID.uuidString)"))
     #expect(cell.contains("Duplicate Cell"))
     #expect(cell.contains("Delete Cell"))
-    for forbidden in ["Git", "Terminal", "Extension", "AI Assistant"] {
+    #expect(rootView.contains("Notebook Assistant"))
+    #expect(assistant.contains("SystemLanguageModel.default"))
+    #expect(assistant.contains("supportsLocale(Locale(identifier: \"ja\"))"))
+    #expect(assistant.contains("Replace Selected Cell"))
+    #expect(!assistant.contains("requestRun"))
+    #expect(!assistant.contains("save()"))
+    for forbidden in ["Git", "Terminal", "Extension"] {
       #expect(!rootView.contains(forbidden))
       #expect(!sidebar.contains(forbidden))
     }

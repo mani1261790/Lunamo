@@ -47,3 +47,15 @@ _Avoid_: Code block, Jupyter cell
 **Smart Text Cell**:
 A Markdown-focused editing projection that preserves the meaning of its corresponding Python Cell when opened and saved.
 _Avoid_: Plain text cell, independent Markdown cell
+
+**Package Inventory**:
+The read-only list of packages resolved from the exact Python executable in the current Execution Environment. It does not authorize installing, removing, or upgrading packages.
+_Avoid_: Terminal, package installer, global environment
+
+**Notebook Assistant**:
+A user-initiated, on-device Apple Intelligence action over the selected cell. It has no background access to notebook content and never saves or executes generated source.
+_Avoid_: Siri integration, AI chat, cloud assistant
+
+**Generated Preview**:
+Assistant output held outside the Owned Notebook Document until the user explicitly applies it to the selected cell. Applying it creates a normal Committed Edit only.
+_Avoid_: Auto-fix, generated cell, executed suggestion

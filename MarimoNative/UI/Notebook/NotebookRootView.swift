@@ -9,6 +9,7 @@ public struct NotebookRootView: View {
   @ObservedObject private var store: NotebookStore
   private let startupURL: URL?
   @State private var columnVisibility: NavigationSplitViewVisibility = .all
+  @State private var assistantPresented = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
   @Environment(\.colorScheme) private var colorScheme
@@ -57,6 +58,9 @@ public struct NotebookRootView: View {
     }
     .sheet(isPresented: $store.recoverySourcePresented) {
       RecoverySourceView(store: store)
+    }
+    .sheet(isPresented: $assistantPresented) {
+      NotebookAssistantView(store: store)
     }
   }
 
@@ -174,6 +178,13 @@ public struct NotebookRootView: View {
       }
       .help("Toggle Inspector (⌥⌘I)")
       .accessibilityLabel("Toggle Inspector")
+    }
+    ToolbarItem(placement: .primaryAction) {
+      Button("Notebook Assistant", systemImage: "sparkles") {
+        assistantPresented = true
+      }
+      .help("On-device Notebook Assistant")
+      .accessibilityLabel("Notebook Assistant")
     }
   }
 
