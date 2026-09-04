@@ -63,5 +63,9 @@ struct MarimoNativeApp: App {
     .commands {
       NotebookMenuCommands(store: store)
     }
+
+    Settings {
+      NotebookSettingsView(store: store)
+    }
   }
 }

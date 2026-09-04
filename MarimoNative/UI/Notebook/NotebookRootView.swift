@@ -12,6 +12,7 @@ public struct NotebookRootView: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
   @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.openSettings) private var openSettings
 
   public init(store: NotebookStore, startupURL: URL? = nil) {
     self.store = store
@@ -68,6 +69,7 @@ public struct NotebookRootView: View {
           ExternalFileBanner(store: store)
           saveMessageBanner
           openStateBanner
+          executionSetupBanner
           ForEach(Array(store.document.cells.enumerated()), id: \.element.runtimeID) {
             index, cell in
             CellView(
@@ -274,6 +276,55 @@ public struct NotebookRootView: View {
     }
   }
 
+  @ViewBuilder
+  private var executionSetupBanner: some View {
+    switch store.environmentState {
+    case .ready:
+      EmptyView()
+    case .checking:
+      HStack(spacing: 10) {
+        ProgressView().controlSize(.small)
+        Text("Checking Python…")
+        Spacer()
+        Button("Settings…") { openSettings() }
+      }
+      .executionSetupBannerStyle()
+    case .notConfigured:
+      environmentGuidance(
+        title: "Choose a Python environment",
+        message: "Select the Python installation and folder that will run this notebook."
+      )
+    case .selected:
+      environmentGuidance(
+        title: "Python has not been checked",
+        message: "The first Run checks Python and marimo, then asks before executing code."
+      )
+    case .needsWorkingDirectory:
+      environmentGuidance(
+        title: "Choose a working folder",
+        message: "Python is valid. Select the folder used when this notebook runs."
+      )
+    case .invalid(_, let failure):
+      environmentGuidance(title: "Python cannot run this notebook", message: failure.userMessage)
+    }
+  }
+
+  private func environmentGuidance(title: String, message: String) -> some View {
+    HStack(alignment: .top, spacing: 12) {
+      Image(systemName: "terminal")
+        .font(.title3)
+        .foregroundStyle(.secondary)
+        .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 3) {
+        Text(title).font(.headline)
+        Text(message).font(.callout).foregroundStyle(.secondary)
+      }
+      Spacer()
+      Button("Settings…") { openSettings() }
+    }
+    .executionSetupBannerStyle()
+  }
+
   private func move(_ cellID: UUID, offset: Int) {
     guard let index = store.document.cells.firstIndex(where: { $0.runtimeID == cellID }) else {
       return
@@ -327,5 +378,13 @@ public struct NotebookRootView: View {
         description: Text(message)
       )
     }
+  }
+}
+
+extension View {
+  fileprivate func executionSetupBannerStyle() -> some View {
+    padding(12)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
   }
 }

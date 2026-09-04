@@ -94,6 +94,9 @@ struct NotebookPanelTests {
       encoding: .utf8)
     let cell = try String(
       contentsOf: root.appending(path: "MarimoNative/UI/Cell/CellView.swift"), encoding: .utf8)
+    let settings = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookSettingsView.swift"),
+      encoding: .utf8)
     #expect(rootView.contains("NavigationSplitView"))
     #expect(rootView.contains("ScrollViewReader"))
     #expect(sidebar.contains("OutlineGroup"))
@@ -107,6 +110,10 @@ struct NotebookPanelTests {
     #expect(inspector.contains("Section(\"Variables\")"))
     #expect(!rootView.contains("glassEffect"))
     #expect(!cell.contains("glassEffect"))
+    #expect(settings.contains("Form"))
+    #expect(settings.contains("Section(\"Python Execution\")"))
+    #expect(settings.contains("Choose Python Executable…"))
+    #expect(settings.contains("Choose Working Directory…"))
     for forbidden in ["Git", "Terminal", "Extension", "AI Assistant"] {
       #expect(!rootView.contains(forbidden))
       #expect(!sidebar.contains(forbidden))
@@ -131,6 +138,8 @@ struct NotebookPanelTests {
       "Open Notebook…", "Run All", "Interrupt", "Files", "Cells", "Session", "Variables",
       "Export HTML…", "Export ipynb…", "Export Markdown…", "Open Logs…",
       "Review Logs Before Export", "Export Reviewed Logs…",
+      "Python Execution", "Execution Safety", "Choose Python Executable…",
+      "Choose Working Directory…", "Check Again", "Ready", "Settings…",
     ] {
       #expect(english.contains("\"\(key)\" ="))
       #expect(japanese.contains("\"\(key)\" ="))

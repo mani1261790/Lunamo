@@ -157,7 +157,11 @@ struct ArchitectureBoundaryTests {
     #expect(plist.contains("<string>AppIcon</string>"))
     #expect(debugBuild.contains("AppIcon.icns"))
     #expect(releaseBuild.contains("AppIcon.icns"))
-    #expect(FileManager.default.fileExists(atPath: root.appending(path: "MarimoNative/Resources/AppIcon.icns").path))
+    #expect(
+      FileManager.default.fileExists(
+        atPath: root.appending(path: "MarimoNative/Resources/AppIcon.icns").path
+      )
+    )
   }
 
   @Test("Cells expose non-color execution states without glass surfaces")

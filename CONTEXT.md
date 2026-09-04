@@ -31,3 +31,19 @@ _Avoid_: Keystroke, buffer update
 **Dirty**:
 The condition in which saveable notebook content differs from the last successful save. Runtime output, execution state, selection, and other transient changes never make a notebook Dirty.
 _Avoid_: Changed, modified state
+
+**Execution Environment**:
+The selected Python installation and working directory in which an Open Notebook runs. It is distinct from the bundled service that reads and writes marimo source.
+_Avoid_: Kernel, backend, sidecar
+
+**Workspace**:
+The local directory associated with an Open Notebook and shown in its Files browser. It supplies the trust and working context for execution without becoming part of the notebook itself.
+_Avoid_: Project, repository, file tree
+
+**Python Cell**:
+A notebook cell whose saved content is Python source, including source that produces Markdown through marimo.
+_Avoid_: Code block, Jupyter cell
+
+**Smart Text Cell**:
+A Markdown-focused editing projection that preserves the meaning of its corresponding Python Cell when opened and saved.
+_Avoid_: Plain text cell, independent Markdown cell
