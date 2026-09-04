@@ -12,7 +12,7 @@ public final class NotebookStore: ObservableObject {
   @Published public internal(set) var openState: OpenState = .idle
   @Published public internal(set) var synchronizationError: String?
   @Published public internal(set) var focusedCellID: UUID?
-  @Published public var inspectorPresented = true
+  @Published public var inspectorPresented = false
   @Published public internal(set) var saveConflictURL: URL?
   @Published public internal(set) var saveMessage: String?
   @Published public internal(set) var environmentCandidates: [PythonEnvironmentCandidate] = []

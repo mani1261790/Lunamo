@@ -239,3 +239,13 @@ public struct CellView: View {
     }
   }
 }
+
+private func statusLabel(_ status: ExecutionStatus) -> String {
+  switch status {
+  case .idle: localizedUI("Idle")
+  case .queued: localizedUI("Queued")
+  case .running: localizedUI("Running")
+  case .error: localizedUI("Error")
+  case .disabledTransitively: localizedUI("Disabled")
+  }
+}

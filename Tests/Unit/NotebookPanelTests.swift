@@ -97,10 +97,11 @@ struct NotebookPanelTests {
     #expect(rootView.contains("NavigationSplitView"))
     #expect(rootView.contains("ScrollViewReader"))
     #expect(sidebar.contains("OutlineGroup"))
-    #expect(sidebar.contains("Section(\"Files\")"))
-    #expect(sidebar.contains("Section(\"Cells\")"))
-    #expect(sidebar.contains(".accessibilityLabel(localizedUI(\"Cell "))
-    #expect(!sidebar.contains(".accessibilityLabel(\"Files\")"))
+    #expect(sidebar.contains(".navigationTitle(\"Files\")"))
+    #expect(sidebar.contains(".accessibilityLabel(\"Files\")"))
+    #expect(!sidebar.contains("Section(\"Cells\")"))
+    #expect(!sidebar.contains("selectedCellBinding"))
+    #expect(!sidebar.contains("localizedSummary"))
     #expect(!sidebar.contains(".accessibilityLabel(\"Cells\")"))
     #expect(inspector.contains("Section(\"Session\")"))
     #expect(inspector.contains("Section(\"Variables\")"))
@@ -110,6 +111,13 @@ struct NotebookPanelTests {
       #expect(!rootView.contains(forbidden))
       #expect(!sidebar.contains(forbidden))
     }
+  }
+
+  @Test("Inspector is hidden by default and remains available on demand")
+  @MainActor
+  func inspectorStartsHidden() {
+    let store = NotebookStore(backend: PlaceholderMarimoBackend())
+    #expect(!store.inspectorPresented)
   }
 
   @Test("English and Japanese UI localization ship together")
