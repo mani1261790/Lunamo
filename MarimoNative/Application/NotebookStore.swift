@@ -31,6 +31,9 @@ public final class NotebookStore: ObservableObject {
   @Published public internal(set) var recentDocuments: [URL] = []
   @Published public internal(set) var userFacingError: NotebookUserFacingError?
   @Published public var recoverySourcePresented = false
+  @Published public internal(set) var installedPackages: [NotebookPackage] = []
+  @Published public internal(set) var packagesLoading = false
+  @Published public internal(set) var packagesError: String?
 
   public let widgetValueStore: WidgetValueStore
 

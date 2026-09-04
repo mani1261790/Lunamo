@@ -51,6 +51,12 @@ private actor MockProcessTransport: ProcessTransport {
           switch params?.object?["kind"] {
           case .string("print-notebook"):
             result = .object(["source": .string("# printed exactly\r\n")])
+          case .string("list-packages"):
+            result = .object([
+              "packages": .array([
+                .object(["name": .string("marimo"), "version": .string("0.24.0")])
+              ])
+            ])
           case .string("export-html"), .string("export-ipynb"), .string("export-markdown"):
             result = .string("exported")
           default:
@@ -278,6 +284,38 @@ struct JSONRPCConnectionTests {
       #expect(shutdownAllIndex < shutdownIndex)
     }
     #expect(messages.last == JSONRPCMessage.notification(method: "exit", params: nil))
+  }
+
+  @Test("Adapter lists packages for the exact selected Python environment")
+  func packageListWireShape() async throws {
+    let transport = MockProcessTransport()
+    let connection = JSONRPCConnection(transport: transport)
+    let sidecar = URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .appending(path: ".build/Sidecar")
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar, connection: connection)
+    try await adapter.start()
+
+    let packages = try await adapter.listPackages(
+      notebookURI: "file:///workspace/notebook.py",
+      executable: "/workspace/.venv/bin/python"
+    )
+    #expect(packages == [NotebookPackage(name: "marimo", version: "0.24.0")])
+
+    let request = await transport.snapshot().compactMap { message -> JSONValue? in
+      guard case .request(_, "marimo/command", let params) = message,
+        params?.object?["kind"] == .string("list-packages")
+      else { return nil }
+      return params
+    }.last
+    #expect(request?.object?["source"]?.object?["kind"] == .string("venv"))
+    #expect(
+      request?.object?["source"]?.object?["executable"]
+        == .string("/workspace/.venv/bin/python")
+    )
+    await adapter.shutdown()
   }
 
   @Test("Session-bound and restart commands use their exact pinned wire shape")

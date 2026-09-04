@@ -9,13 +9,16 @@ case "$sidecar_path" in
 esac
 
 python="$sidecar_path/bin/python3"
+uv="$sidecar_path/bin/uv"
 launcher="$sidecar_path/launch_marimo_lsp.py"
 test -x "$python"
+test -x "$uv"
 test -f "$launcher"
 test -f "$sidecar_path/protocol-lock.json"
 test -s "$sidecar_path/THIRD_PARTY_NOTICES.md"
 cmp "$launcher" "$project_root/MarimoNative/Resources/Sidecar/launch_marimo_lsp.py"
 cmp "$sidecar_path/runtime-manifest.json" "$project_root/MarimoNative/Resources/Sidecar/runtime-manifest.json"
+test "$("$uv" --version | awk '{print $2}')" = "$(plutil -extract builder.uvVersion raw -o - "$sidecar_path/runtime-manifest.json")"
 
 PYTHONNOUSERSITE=1 PYTHONUTF8=1 "$python" -I -c '
 import importlib.metadata as metadata
@@ -38,5 +41,6 @@ fi
 
 grep -q 'PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2' "$sidecar_path/THIRD_PARTY_NOTICES.md"
 grep -q '^## marimo-lsp 0.1.0' "$sidecar_path/THIRD_PARTY_NOTICES.md"
+grep -q '^## uv$' "$sidecar_path/THIRD_PARTY_NOTICES.md"
 
 echo "sidecar structure and versions verified"

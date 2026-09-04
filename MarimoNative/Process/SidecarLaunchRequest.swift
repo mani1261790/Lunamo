@@ -20,7 +20,7 @@ public enum SidecarLaunchRequest {
       arguments: [launcher.path],
       environment: [
         "LANG": "en_US.UTF-8",
-        "PATH": "/usr/bin:/bin",
+        "PATH": "\(sidecarDirectory.appending(path: "bin").path):/usr/bin:/bin",
         "PYTHONNOUSERSITE": "1",
         "PYTHONUTF8": "1",
       ]

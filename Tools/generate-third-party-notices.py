@@ -25,13 +25,14 @@ def license_files(distribution: metadata.Distribution) -> list[Path]:
 
 
 def main() -> None:
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 5:
         raise SystemExit(
-            "usage: generate-third-party-notices.py OUTPUT CPYTHON_LICENSE MARIMO_LSP_LICENSE"
+            "usage: generate-third-party-notices.py OUTPUT CPYTHON_LICENSE MARIMO_LSP_LICENSE UV_LICENSE"
         )
     output = Path(sys.argv[1])
     cpython_license = Path(sys.argv[2]).read_text(encoding="utf-8")
     marimo_lsp_license = Path(sys.argv[3]).read_text(encoding="utf-8")
+    uv_license = Path(sys.argv[4]).read_text(encoding="utf-8")
     lines = [
         "# Third-Party Notices",
         "",
@@ -45,6 +46,15 @@ def main() -> None:
         "",
         "```text",
         cpython_license.rstrip(),
+        "```",
+        "",
+        "## uv",
+        "",
+        "Source: https://github.com/astral-sh/uv",
+        "License: MIT",
+        "",
+        "```text",
+        uv_license.rstrip(),
         "```",
         "",
     ]

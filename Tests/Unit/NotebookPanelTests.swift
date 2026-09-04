@@ -118,6 +118,8 @@ struct NotebookPanelTests {
     #expect(!cell.contains("glassEffect"))
     #expect(settings.contains("Form"))
     #expect(settings.contains("Section(\"Python Execution\")"))
+    #expect(settings.contains("Section(\"Packages\")"))
+    #expect(settings.contains("refreshInstalledPackages"))
     #expect(settings.contains("Choose Python Executable…"))
     #expect(settings.contains("Choose Working Directory…"))
     #expect(commands.contains("Find in Selected Cell"))
@@ -157,6 +159,8 @@ struct NotebookPanelTests {
       "Find in Selected Cell",
       "Insert Code Cell", "Drag Cell to Reorder", "Move Cell Up", "Move Cell Down",
       "Duplicate Cell", "Delete Cell",
+      "Packages", "Refresh", "No package list loaded.",
+      "Installed in the selected Python environment",
     ] {
       #expect(english.contains("\"\(key)\" ="))
       #expect(japanese.contains("\"\(key)\" ="))

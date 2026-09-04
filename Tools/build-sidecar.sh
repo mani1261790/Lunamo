@@ -37,6 +37,8 @@ lock_hash=$(plutil -extract marimoLSP.uvLockSHA256 raw -o - "$manifest")
 expected_uv=$(plutil -extract builder.uvVersion raw -o - "$manifest")
 uv_url=$(plutil -extract builder.url raw -o - "$manifest")
 uv_hash=$(plutil -extract builder.sha256 raw -o - "$manifest")
+uv_license_url=$(plutil -extract builder.licenseURL raw -o - "$manifest")
+uv_license_hash=$(plutil -extract builder.licenseSHA256 raw -o - "$manifest")
 
 build_root=$(mktemp -d)
 cleanup() {
@@ -49,6 +51,7 @@ python_archive="$build_root/python.tar.gz"
 lsp_archive="$build_root/marimo-lsp.tar.gz"
 uv_archive="$build_root/uv.tar.gz"
 python_license="$build_root/CPYTHON_LICENSE.txt"
+uv_license="$build_root/UV_LICENSE.txt"
 
 curl --fail --location --silent --show-error "$python_url" --output "$python_archive"
 echo "$python_hash  $python_archive" | shasum -a 256 --check --status
@@ -58,6 +61,8 @@ curl --fail --location --silent --show-error "$lsp_url" --output "$lsp_archive"
 echo "$lsp_hash  $lsp_archive" | shasum -a 256 --check --status
 curl --fail --location --silent --show-error "$uv_url" --output "$uv_archive"
 echo "$uv_hash  $uv_archive" | shasum -a 256 --check --status
+curl --fail --location --silent --show-error "$uv_license_url" --output "$uv_license"
+echo "$uv_license_hash  $uv_license" | shasum -a 256 --check --status
 
 mkdir -p "$build_root/python" "$build_root/lsp" "$build_root/uv"
 tar -xzf "$python_archive" -C "$build_root/python" --strip-components=1
@@ -69,6 +74,7 @@ if [ "$actual_uv" != "$expected_uv" ]; then
   echo "Pinned uv version mismatch: expected $expected_uv, found $actual_uv" >&2
   exit 1
 fi
+cp "$uv" "$build_root/python/bin/uv"
 
 actual_lock_hash=$(shasum -a 256 "$build_root/lsp/uv.lock" | awk '{print $1}')
 if [ "$actual_lock_hash" != "$lock_hash" ]; then
@@ -92,7 +98,7 @@ fi
 cp "$launcher" "$build_root/python/launch_marimo_lsp.py"
 cp "$manifest" "$build_root/python/runtime-manifest.json"
 cp "$protocol_lock" "$build_root/python/protocol-lock.json"
-PYTHONNOUSERSITE=1 PYTHONUTF8=1 "$build_root/python/bin/python3" "$project_root/Tools/generate-third-party-notices.py" "$build_root/python/THIRD_PARTY_NOTICES.md" "$python_license" "$build_root/lsp/LICENSE"
+PYTHONNOUSERSITE=1 PYTHONUTF8=1 "$build_root/python/bin/python3" "$project_root/Tools/generate-third-party-notices.py" "$build_root/python/THIRD_PARTY_NOTICES.md" "$python_license" "$build_root/lsp/LICENSE" "$uv_license"
 
 mkdir -p "$(dirname "$output_path")"
 mv "$build_root/python" "$output_path"

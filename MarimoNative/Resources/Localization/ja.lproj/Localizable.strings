@@ -100,6 +100,11 @@
 "Ready" = "実行可能";
 "Settings" = "設定";
 "Settings…" = "設定…";
+"Packages" = "パッケージ";
+"Refresh" = "更新";
+"Installed in the selected Python environment" = "選択中のPython環境にインストール済み";
+"No package list loaded." = "パッケージ一覧はまだ読み込まれていません。";
+"Installing and removing packages is unavailable until the pinned marimo service provides a confirmation-safe command." = "固定版marimoサービスが確認付きの安全な操作に対応するまで、追加と削除は利用できません。";
 "Opening a notebook never runs Python. The first Run asks before code is executed in the selected folder." = "ノートブックを開くだけではPythonを実行しません。最初の実行時に、選択したフォルダでコードを動かしてよいか確認します。";
 "Requires Python 3.10–3.14, Apple silicon, and marimo 0.24.0." = "Python 3.10〜3.14、Apple silicon、marimo 0.24.0が必要です。";
 "Choose a Python environment" = "Python実行環境を選んでください";

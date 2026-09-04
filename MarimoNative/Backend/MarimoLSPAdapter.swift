@@ -73,6 +73,21 @@ public actor MarimoLSPAdapter: MarimoBackend {
     return try decode(PrintNotebookResult.self, from: result).source
   }
 
+  public func listPackages(notebookURI: String, executable: String) async throws
+    -> [NotebookPackage]
+  {
+    let result = try await connection.request(
+      method: "marimo/command",
+      params: try encodeAsJSONValue(
+        MarimoCommand.listPackages(
+          notebookURI: notebookURI,
+          source: .venv(executable: executable)
+        )
+      )
+    )
+    return try decode(ListPackagesResponse.self, from: result).packages
+  }
+
   public func moveSession(notebookURI: String, newNotebookURI: String) async throws {
     _ = try await connection.request(
       method: "marimo/command",
@@ -458,6 +473,10 @@ public actor MarimoLSPAdapter: MarimoBackend {
 
 private struct SessionListResponse: Codable {
   let sessions: [MarimoSessionInfo]
+}
+
+private struct ListPackagesResponse: Codable {
+  let packages: [NotebookPackage]
 }
 
 private struct CellReplayResponse: Codable {

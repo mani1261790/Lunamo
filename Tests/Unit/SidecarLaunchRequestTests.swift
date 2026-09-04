@@ -20,6 +20,9 @@ struct SidecarLaunchRequestTests {
     #expect(request.arguments == [sidecar.appending(path: "launch_marimo_lsp.py").path])
     #expect(request.environment["PYTHONNOUSERSITE"] == "1")
     #expect(request.environment["PYTHONUTF8"] == "1")
+    #expect(
+      request.environment["PATH"]?.hasPrefix("\(sidecar.appending(path: "bin").path):") == true
+    )
     #expect(!request.arguments.contains("-c"))
     #expect(!request.executableURL.path.contains("/bin/sh"))
     #expect(!request.executableURL.path.contains("/zsh"))

@@ -100,6 +100,11 @@
 "Ready" = "Ready";
 "Settings" = "Settings";
 "Settings…" = "Settings…";
+"Packages" = "Packages";
+"Refresh" = "Refresh";
+"Installed in the selected Python environment" = "Installed in the selected Python environment";
+"No package list loaded." = "No package list loaded.";
+"Installing and removing packages is unavailable until the pinned marimo service provides a confirmation-safe command." = "Installing and removing packages is unavailable until the pinned marimo service provides a confirmation-safe command.";
 "Opening a notebook never runs Python. The first Run asks before code is executed in the selected folder." = "Opening a notebook never runs Python. The first Run asks before code is executed in the selected folder.";
 "Requires Python 3.10–3.14, Apple silicon, and marimo 0.24.0." = "Requires Python 3.10–3.14, Apple silicon, and marimo 0.24.0.";
 "Choose a Python environment" = "Choose a Python environment";

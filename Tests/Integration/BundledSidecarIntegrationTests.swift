@@ -130,6 +130,24 @@ struct BundledSidecarIntegrationTests {
     await adapter.shutdown()
   }
 
+  @Test("Real sidecar lists packages from the exact selected environment")
+  func packageListing() async throws {
+    let sidecar = repositoryRoot().appending(path: ".build/Sidecar")
+    guard FileManager.default.fileExists(atPath: sidecar.path) else {
+      Issue.record("Build .build/Sidecar before running integration tests")
+      return
+    }
+    let adapter = try MarimoLSPAdapter(sidecarDirectory: sidecar)
+    try await adapter.start()
+    let packages = try await adapter.listPackages(
+      notebookURI: "untitled:package-list",
+      executable: sidecar.appending(path: "bin/python").path
+    )
+    #expect(packages.contains { $0.name == "marimo-base" && $0.version == "0.24.0" })
+    #expect(packages == packages.sorted { $0.name < $1.name })
+    await adapter.shutdown()
+  }
+
   @Test("Official marimo fixture round-trips through native atomic save")
   func officialMarimoSaveRoundTrip() async throws {
     let root = repositoryRoot()

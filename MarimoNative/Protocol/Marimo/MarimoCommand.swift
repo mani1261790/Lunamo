@@ -181,6 +181,31 @@ public struct ExportHTMLCommand: Codable, Sendable, Equatable {
 
 public enum DisplayTheme: String, Codable, Sendable, Equatable { case light, dark }
 
+public enum PackageSource: Codable, Sendable, Equatable {
+  case venv(executable: String)
+
+  enum CodingKeys: String, CodingKey { case kind, executable }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    switch try container.decode(String.self, forKey: .kind) {
+    case "venv": self = .venv(executable: try container.decode(String.self, forKey: .executable))
+    case let kind:
+      throw DecodingError.dataCorruptedError(
+        forKey: .kind, in: container, debugDescription: "Unknown package source: \(kind)")
+    }
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    switch self {
+    case .venv(let executable):
+      try container.encode("venv", forKey: .kind)
+      try container.encode(executable, forKey: .executable)
+    }
+  }
+}
+
 public enum MarimoCommand: Codable, Sendable, Equatable {
   case execute(ExecuteCommand)
   case updateUIElement(UpdateUIElementCommand)
@@ -192,6 +217,7 @@ public enum MarimoCommand: Codable, Sendable, Equatable {
   case moveSession(MoveSessionCommand)
   case listSessions
   case shutdownAllSessions
+  case listPackages(notebookURI: String, source: PackageSource)
   case printNotebook(OwnedNotebookDocumentV1)
   case parseNotebook(source: String)
   case readNotebookOutputs(notebookURI: String, sessionCachePath: String?)
@@ -240,6 +266,11 @@ public enum MarimoCommand: Codable, Sendable, Equatable {
     case "move-session": self = .moveSession(try MoveSessionCommand(from: decoder))
     case "list-sessions": self = .listSessions
     case "shutdown-all-sessions": self = .shutdownAllSessions
+    case "list-packages":
+      self = .listPackages(
+        notebookURI: try container.decode(String.self, forKey: .notebookURI),
+        source: try container.decode(PackageSource.self, forKey: .source)
+      )
     case "print-notebook":
       self = .printNotebook(try container.decode(OwnedNotebookDocumentV1.self, forKey: .document))
     case "parse-notebook":
@@ -306,6 +337,10 @@ public enum MarimoCommand: Codable, Sendable, Equatable {
       try container.encode(value.newNotebookURI, forKey: .newNotebookURI)
     case .listSessions: try container.encode("list-sessions", forKey: .kind)
     case .shutdownAllSessions: try container.encode("shutdown-all-sessions", forKey: .kind)
+    case .listPackages(let notebookURI, let source):
+      try container.encode("list-packages", forKey: .kind)
+      try container.encode(notebookURI, forKey: .notebookURI)
+      try container.encode(source, forKey: .source)
     case .printNotebook(let document):
       try container.encode("print-notebook", forKey: .kind)
       try container.encode(document, forKey: .document)

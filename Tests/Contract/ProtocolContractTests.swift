@@ -34,6 +34,27 @@ struct ProtocolContractTests {
     }
   }
 
+  @Test("Package listing encodes the selected environment without a shell command")
+  func packageListingWireShape() throws {
+    let command = MarimoCommand.listPackages(
+      notebookURI: "file:///workspace/notebook.py",
+      source: .venv(executable: "/workspace/.venv/bin/python")
+    )
+    let value = try JSONDecoder().decode(
+      JSONValue.self, from: JSONEncoder().encode(command)
+    )
+    guard case .object(let object) = value,
+      case .object(let source)? = object["source"]
+    else {
+      Issue.record("Expected a package-list command object")
+      return
+    }
+    #expect(object["kind"] == .string("list-packages"))
+    #expect(object["notebookUri"] == .string("file:///workspace/notebook.py"))
+    #expect(source["kind"] == .string("venv"))
+    #expect(source["executable"] == .string("/workspace/.venv/bin/python"))
+  }
+
   @Test("UI element updates reject mismatched object and value counts")
   func uiElementCountValidation() {
     let command = UpdateUIElementCommand(

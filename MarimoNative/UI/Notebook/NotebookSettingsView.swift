@@ -59,6 +59,41 @@ public struct NotebookSettingsView: View {
         .foregroundStyle(.secondary)
       }
 
+      Section("Packages") {
+        HStack {
+          Text("Installed in the selected Python environment")
+            .foregroundStyle(.secondary)
+          Spacer()
+          if store.packagesLoading {
+            ProgressView()
+              .controlSize(.small)
+          }
+          Button("Refresh") {
+            Task { await store.refreshInstalledPackages() }
+          }
+          .disabled(store.packagesLoading || status.details == nil)
+        }
+
+        if let error = store.packagesError {
+          Text(error)
+            .foregroundStyle(.red)
+            .textSelection(.enabled)
+        } else if store.installedPackages.isEmpty {
+          Text("No package list loaded.")
+            .foregroundStyle(.secondary)
+        } else {
+          ForEach(store.installedPackages) { package in
+            LabeledContent(package.name, value: package.version)
+          }
+        }
+
+        Label(
+          "Installing and removing packages is unavailable until the pinned marimo service provides a confirmation-safe command.",
+          systemImage: "lock.shield"
+        )
+        .foregroundStyle(.secondary)
+      }
+
       Section {
         Text("Requires Python 3.10–3.14, Apple silicon, and marimo 0.24.0.")
           .foregroundStyle(.secondary)

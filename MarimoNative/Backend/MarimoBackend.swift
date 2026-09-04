@@ -20,6 +20,18 @@ public struct ParsedNotebookCell: Sendable, Equatable {
   }
 }
 
+public struct NotebookPackage: Codable, Sendable, Equatable, Identifiable {
+  public let name: String
+  public let version: String
+
+  public var id: String { name }
+
+  public init(name: String, version: String) {
+    self.name = name
+    self.version = version
+  }
+}
+
 public struct ParsedNotebook: Sendable, Equatable {
   public let owned: OwnedNotebookDocumentV1
 
@@ -293,6 +305,7 @@ public protocol MarimoBackend: Sendable {
   func sendStdin(notebookURI: String, kernelSessionID: String, text: String) async throws
   func backendEvents() async -> AsyncStream<MarimoBackendEvent>
   func listSessions() async throws -> [MarimoSessionInfo]
+  func listPackages(notebookURI: String, executable: String) async throws -> [NotebookPackage]
   func readNotebookOutputs(notebookURI: String) async throws -> [MarimoCellReplay]
   func setDisplayTheme(_ theme: NotebookDisplayTheme) async throws
   func exportNotebook(
@@ -311,6 +324,11 @@ extension MarimoBackend {
   public func moveSession(notebookURI _: String, newNotebookURI _: String) async throws {}
   public func closeSession(notebookURI _: String) async throws {}
   public func shutdownAllSessions() async throws {}
+  public func listPackages(notebookURI _: String, executable _: String) async throws
+    -> [NotebookPackage]
+  {
+    throw MarimoBackendCapabilityError.unavailable
+  }
   public func didOpenNotebook(_: NotebookSyncSnapshot) async throws {}
   public func didChangeNotebook(
     uri _: String,

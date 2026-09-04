@@ -2,6 +2,26 @@ import Foundation
 import MarimoEnvironment
 
 extension NotebookStore {
+  public func refreshInstalledPackages() async {
+    guard case .ready(let details, _) = environmentState else {
+      installedPackages = []
+      packagesError = "Choose and validate a Python environment first."
+      return
+    }
+    packagesLoading = true
+    packagesError = nil
+    defer { packagesLoading = false }
+    do {
+      installedPackages = try await backend.listPackages(
+        notebookURI: document.notebookURI,
+        executable: details.executableURL.path
+      )
+    } catch {
+      installedPackages = []
+      packagesError = "Packages could not be read: \(error.localizedDescription)"
+    }
+  }
+
   public func discoverPythonEnvironments(for notebookURL: URL) async {
     runOnceAuthorized = false
     executionFolderTrusted = false

@@ -17,6 +17,8 @@
   "builder": {
     "uvVersion": "0.12.9",
     "url": "https://github.com/astral-sh/uv/releases/download/0.12.9/uv-aarch64-apple-darwin.tar.gz",
-    "sha256": "301f72afaf54060f92da7016cb0115bd077f43a9c8e39c1d8170a0bac80fd398"
+    "sha256": "301f72afaf54060f92da7016cb0115bd077f43a9c8e39c1d8170a0bac80fd398",
+    "licenseURL": "https://raw.githubusercontent.com/astral-sh/uv/0.12.9/LICENSE-MIT",
+    "licenseSHA256": "860e3d7a86b84e6a7012c7a635fc64df475cebc6cce34dfeb73a5982ec58176c"
   }
 }
