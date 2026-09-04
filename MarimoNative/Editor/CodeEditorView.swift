@@ -293,6 +293,8 @@ final class CommandTextView: NSTextView {
   override func keyDown(with event: NSEvent) {
     let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
     switch event.keyCode {
+    case 3 where modifiers == [.command]:
+      showFindBar()
     case 36 where modifiers.contains([.command, .shift]):
       commandHandler?(.runAll)
     case 36 where modifiers.contains(.command):
@@ -314,6 +316,12 @@ final class CommandTextView: NSTextView {
     default:
       super.keyDown(with: event)
     }
+  }
+
+  func showFindBar() {
+    let sender = NSMenuItem()
+    sender.tag = Int(NSFindPanelAction.showFindPanel.rawValue)
+    performFindPanelAction(sender)
   }
 
   override func insertText(_ insertString: Any, replacementRange: NSRange) {

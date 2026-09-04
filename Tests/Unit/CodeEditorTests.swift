@@ -181,4 +181,22 @@ struct CodeEditorTests {
     #expect(!applyPythonSyntaxHighlight(spans: [], source: textView.string, to: textView))
     textView.unmarkText()
   }
+
+  @Test("Command-F is handled by the native find bar")
+  func commandFBinding() throws {
+    let source = try String(
+      contentsOf: repositoryRoot().appending(path: "MarimoNative/Editor/CodeEditorView.swift"),
+      encoding: .utf8
+    )
+    #expect(source.contains("case 3 where modifiers == [.command]"))
+    #expect(source.contains("Int(NSFindPanelAction.showFindPanel.rawValue)"))
+    #expect(source.contains("performFindPanelAction(sender)"))
+  }
+
+  private func repositoryRoot() -> URL {
+    URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+  }
 }

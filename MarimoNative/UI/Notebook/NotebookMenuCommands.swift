@@ -55,6 +55,12 @@ public struct NotebookMenuCommands: Commands {
       }
       .keyboardShortcut(".", modifiers: [.command])
       .disabled(!store.sessionAllowsInterrupt)
+
+      Button("Find in Selected Cell") {
+        findInSelectedCell()
+      }
+      .keyboardShortcut("f", modifiers: [.command])
+      .disabled(store.document.selectedCellID == nil)
       Button(store.forceRestartAvailable ? "Force Restart Kernel" : "Restart Kernel") {
         Task { await store.requestRestartKernel() }
       }
@@ -147,5 +153,16 @@ public struct NotebookMenuCommands: Commands {
       let index = store.document.cells.firstIndex(where: { $0.runtimeID == selected })
     else { return }
     Task { await store.send(.moveCell(selected, to: index + offset)) }
+  }
+
+  private func findInSelectedCell() {
+    guard let selected = store.document.selectedCellID else { return }
+    store.focusEditor(selected)
+    Task { @MainActor in
+      await Task.yield()
+      let sender = NSMenuItem()
+      sender.tag = Int(NSFindPanelAction.showFindPanel.rawValue)
+      NSApp.sendAction(#selector(NSTextView.performFindPanelAction(_:)), to: nil, from: sender)
+    }
   }
 }

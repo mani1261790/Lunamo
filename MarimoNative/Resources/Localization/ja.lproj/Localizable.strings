@@ -109,3 +109,4 @@
 "Choose a working folder" = "作業フォルダを選んでください";
 "Python is valid. Select the folder used when this notebook runs." = "Pythonは利用できます。このノートブックを実行するフォルダを選択してください。";
 "Python cannot run this notebook" = "このPythonではノートブックを実行できません";
+"Find in Selected Cell" = "選択中のセル内を検索";

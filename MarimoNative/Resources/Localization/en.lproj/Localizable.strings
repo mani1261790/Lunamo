@@ -109,3 +109,4 @@
 "Choose a working folder" = "Choose a working folder";
 "Python is valid. Select the folder used when this notebook runs." = "Python is valid. Select the folder used when this notebook runs.";
 "Python cannot run this notebook" = "Python cannot run this notebook";
+"Find in Selected Cell" = "Find in Selected Cell";
