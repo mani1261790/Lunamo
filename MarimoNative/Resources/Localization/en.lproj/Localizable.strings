@@ -110,3 +110,12 @@
 "Python is valid. Select the folder used when this notebook runs." = "Python is valid. Select the folder used when this notebook runs.";
 "Python cannot run this notebook" = "Python cannot run this notebook";
 "Find in Selected Cell" = "Find in Selected Cell";
+"Code" = "Code";
+"Insert Code Cell" = "Insert Code Cell";
+"Cell insertion position %ld" = "Cell insertion position %ld";
+"Cell %ld" = "Cell %ld";
+"Drag Cell to Reorder" = "Drag Cell to Reorder";
+"Move Cell Up" = "Move Cell Up";
+"Move Cell Down" = "Move Cell Down";
+"Duplicate Cell" = "Duplicate Cell";
+"Delete Cell" = "Delete Cell";

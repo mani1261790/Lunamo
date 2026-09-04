@@ -100,6 +100,9 @@ struct NotebookPanelTests {
     let commands = try String(
       contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookMenuCommands.swift"),
       encoding: .utf8)
+    let insertionBar = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Cell/CellInsertionBar.swift"),
+      encoding: .utf8)
     #expect(rootView.contains("NavigationSplitView"))
     #expect(rootView.contains("ScrollViewReader"))
     #expect(sidebar.contains("OutlineGroup"))
@@ -119,6 +122,12 @@ struct NotebookPanelTests {
     #expect(settings.contains("Choose Working Directory…"))
     #expect(commands.contains("Find in Selected Cell"))
     #expect(commands.contains(".keyboardShortcut(\"f\", modifiers: [.command])"))
+    #expect(rootView.contains("insertionBar(at: 0)"))
+    #expect(insertionBar.contains("Insert Code Cell"))
+    #expect(insertionBar.contains(".dropDestination(for: String.self)"))
+    #expect(cell.contains(".draggable(cell.runtimeID.uuidString)"))
+    #expect(cell.contains("Duplicate Cell"))
+    #expect(cell.contains("Delete Cell"))
     for forbidden in ["Git", "Terminal", "Extension", "AI Assistant"] {
       #expect(!rootView.contains(forbidden))
       #expect(!sidebar.contains(forbidden))
@@ -146,6 +155,8 @@ struct NotebookPanelTests {
       "Python Execution", "Execution Safety", "Choose Python Executable…",
       "Choose Working Directory…", "Check Again", "Ready", "Settings…",
       "Find in Selected Cell",
+      "Insert Code Cell", "Drag Cell to Reorder", "Move Cell Up", "Move Cell Down",
+      "Duplicate Cell", "Delete Cell",
     ] {
       #expect(english.contains("\"\(key)\" ="))
       #expect(japanese.contains("\"\(key)\" ="))

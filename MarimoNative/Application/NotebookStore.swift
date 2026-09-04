@@ -162,6 +162,8 @@ public final class NotebookStore: ObservableObject {
       try await insertCell(after: document.cells.last?.runtimeID)
     case .insertCell(let after):
       try await insertCell(after: after)
+    case .insertCellAt(let position):
+      try await insertCell(at: position)
     case .deleteCell(let cellID):
       try await deleteCell(cellID)
     case .duplicateCell(let cellID):
@@ -262,6 +264,11 @@ public final class NotebookStore: ObservableObject {
     } else {
       insertionIndex = document.cells.count
     }
+    try await insertCell(at: insertionIndex)
+  }
+
+  private func insertCell(at position: Int) async throws {
+    let insertionIndex = min(max(position, 0), document.cells.count)
     let cell = NotebookCellState()
     document.cells.insert(cell, at: insertionIndex)
     document.selectedCellID = cell.runtimeID

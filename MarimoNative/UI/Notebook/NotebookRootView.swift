@@ -70,6 +70,7 @@ public struct NotebookRootView: View {
           saveMessageBanner
           openStateBanner
           executionSetupBanner
+          insertionBar(at: 0)
           ForEach(Array(store.document.cells.enumerated()), id: \.element.runtimeID) {
             index, cell in
             CellView(
@@ -78,6 +79,7 @@ public struct NotebookRootView: View {
               selected: store.document.selectedCellID == cell.runtimeID,
               focused: store.focusedCellID == cell.runtimeID,
               canRun: canRun,
+              canMoveDown: index < store.document.cells.count - 1,
               send: { intent in
                 Task { await store.send(intent) }
               },
@@ -104,6 +106,7 @@ public struct NotebookRootView: View {
               }
             )
             .id(cell.runtimeID)
+            insertionBar(at: index + 1)
           }
         }
         .frame(maxWidth: 1_100)
@@ -330,6 +333,22 @@ public struct NotebookRootView: View {
       return
     }
     Task { await store.send(.moveCell(cellID, to: index + offset)) }
+  }
+
+  private func insertionBar(at position: Int) -> some View {
+    CellInsertionBar(
+      position: position,
+      insertCode: {
+        Task { await store.send(.insertCellAt(position)) }
+      },
+      moveCell: { cellID, destination in
+        guard let source = store.document.cells.firstIndex(where: { $0.runtimeID == cellID }) else {
+          return
+        }
+        let adjustedDestination = source < destination ? destination - 1 : destination
+        Task { await store.send(.moveCell(cellID, to: adjustedDestination)) }
+      }
+    )
   }
 
   @ViewBuilder

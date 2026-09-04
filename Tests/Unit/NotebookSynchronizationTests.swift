@@ -184,6 +184,30 @@ struct NotebookSynchronizationTests {
     #expect(changes[1].1.version == 3)
   }
 
+  @Test("An insertion position creates and opens the cell at that exact index")
+  func insertionPosition() async {
+    let backend = SyncRecordingBackend()
+    let original = NotebookCellState(code: "original = true")
+    let store = NotebookStore(
+      backend: backend,
+      document: NotebookDocumentState(cells: [original])
+    )
+    await store.startBackend()
+    await store.send(.insertCellAt(0))
+
+    #expect(store.document.cells.count == 2)
+    #expect(store.document.cells[1].runtimeID == original.runtimeID)
+    #expect(store.document.selectedCellID == store.document.cells[0].runtimeID)
+    guard case .changed(_, _, .structure(let change)) = await backend.events().last else {
+      Issue.record("Expected a structure change for the inserted cell")
+      return
+    }
+    #expect(change.start == 0)
+    #expect(change.deleteCount == 0)
+    #expect(change.cells.count == 1)
+    #expect(change.didOpen == change.cells)
+  }
+
   @Test("Marked text is held until IME composition commits")
   func imeComposition() async {
     let backend = SyncRecordingBackend()

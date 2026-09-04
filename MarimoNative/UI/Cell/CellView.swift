@@ -11,6 +11,7 @@ public struct CellView: View {
   private let selected: Bool
   private let focused: Bool
   private let canRun: Bool
+  private let canMoveDown: Bool
   private let send: @MainActor @Sendable (NotebookIntent) -> Void
   private let focusEditor: @MainActor @Sendable () -> Void
   private let command: @MainActor @Sendable (CodeEditorCommand) -> Void
@@ -30,6 +31,7 @@ public struct CellView: View {
     selected: Bool,
     focused: Bool,
     canRun: Bool,
+    canMoveDown: Bool,
     send: @escaping @MainActor @Sendable (NotebookIntent) -> Void,
     focusEditor: @escaping @MainActor @Sendable () -> Void,
     command: @escaping @MainActor @Sendable (CodeEditorCommand) -> Void,
@@ -44,6 +46,7 @@ public struct CellView: View {
     self.selected = selected
     self.focused = focused
     self.canRun = canRun
+    self.canMoveDown = canMoveDown
     self.send = send
     self.focusEditor = focusEditor
     self.command = command
@@ -80,6 +83,8 @@ public struct CellView: View {
       .frame(width: 44)
 
       VStack(alignment: .leading, spacing: 10) {
+        cellActionBar
+
         CodeEditorView(
           text: cell.code,
           isFocused: focused,
@@ -173,6 +178,45 @@ public struct CellView: View {
     .accessibilityElement(children: .contain)
     .accessibilityLabel(localizedUI("Cell %ld, %@", index, cell.name))
     .accessibilityValue(statusLabel(cell.runtime.status))
+  }
+
+  private var cellActionBar: some View {
+    HStack(spacing: 4) {
+      Image(systemName: "line.3.horizontal")
+        .frame(width: 28, height: 22)
+        .contentShape(Rectangle())
+        .foregroundStyle(.secondary)
+        .draggable(cell.runtimeID.uuidString) {
+          Label(localizedUI("Cell %ld", index), systemImage: "rectangle.and.hand.point.up.left")
+            .padding(8)
+        }
+        .help("Drag Cell to Reorder")
+        .accessibilityLabel("Drag Cell to Reorder")
+
+      Spacer()
+
+      Group {
+        Button("Move Cell Up", systemImage: "arrow.up") {
+          send(.moveCell(cell.runtimeID, to: index - 2))
+        }
+        .disabled(index <= 1)
+        Button("Move Cell Down", systemImage: "arrow.down") {
+          send(.moveCell(cell.runtimeID, to: index))
+        }
+        .disabled(!canMoveDown)
+        Button("Duplicate Cell", systemImage: "square.on.square") {
+          send(.duplicateCell(cell.runtimeID))
+        }
+        Button("Delete Cell", systemImage: "trash") {
+          send(.deleteCell(cell.runtimeID))
+        }
+      }
+      .labelStyle(.iconOnly)
+      .buttonStyle(.borderless)
+      .controlSize(.small)
+    }
+    .frame(height: 24)
+    .opacity(selected ? 1 : 0.82)
   }
 
   @ViewBuilder

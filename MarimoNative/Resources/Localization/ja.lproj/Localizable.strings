@@ -110,3 +110,12 @@
 "Python is valid. Select the folder used when this notebook runs." = "Pythonは利用できます。このノートブックを実行するフォルダを選択してください。";
 "Python cannot run this notebook" = "このPythonではノートブックを実行できません";
 "Find in Selected Cell" = "選択中のセル内を検索";
+"Code" = "コード";
+"Insert Code Cell" = "コードセルを挿入";
+"Cell insertion position %ld" = "セル挿入位置%ld";
+"Cell %ld" = "セル%ld";
+"Drag Cell to Reorder" = "ドラッグしてセルを並べ替える";
+"Move Cell Up" = "セルを上へ移動";
+"Move Cell Down" = "セルを下へ移動";
+"Duplicate Cell" = "セルを複製";
+"Delete Cell" = "セルを削除";
