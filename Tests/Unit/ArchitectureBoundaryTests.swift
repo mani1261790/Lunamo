@@ -174,6 +174,7 @@ struct ArchitectureBoundaryTests {
       ".buttonBorderShape(.circle)",
       ".frame(width: 44)",
       "Color(nsColor: selected ? .controlAccentColor : .separatorColor)",
+      ".allowsHitTesting(false)",
       "Image(systemName: \"clock\")",
       "ProgressView()",
       "Image(systemName: \"clock.arrow.circlepath\")",

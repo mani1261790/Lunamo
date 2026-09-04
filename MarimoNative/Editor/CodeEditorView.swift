@@ -26,6 +26,21 @@ public enum CodeEditorMetrics {
   }
 }
 
+enum CodeEditorFocusPolicy {
+  static func shouldResignFirstResponder(wasFocused: Bool, isFocused: Bool) -> Bool {
+    wasFocused && !isFocused
+  }
+
+  static func shouldApplyExternalText(
+    stringsDiffer: Bool,
+    hasMarkedText: Bool,
+    isFocused: Bool,
+    isFirstResponder: Bool
+  ) -> Bool {
+    stringsDiffer && !hasMarkedText && !isFocused && !isFirstResponder
+  }
+}
+
 public struct CodeEditorView: NSViewRepresentable {
   public let text: String
   public let isFocused: Bool
@@ -69,7 +84,13 @@ public struct CodeEditorView: NSViewRepresentable {
 
   public func updateNSView(_ container: CodeEditorContainerView, context: Context) {
     context.coordinator.parent = self
-    if container.textView.string != text, !container.textView.hasMarkedText() {
+    let isFirstResponder = container.window?.firstResponder === container.textView
+    if CodeEditorFocusPolicy.shouldApplyExternalText(
+      stringsDiffer: container.textView.string != text,
+      hasMarkedText: container.textView.hasMarkedText(),
+      isFocused: isFocused,
+      isFirstResponder: isFirstResponder
+    ) {
       let selection = container.textView.selectedRange()
       context.coordinator.isApplyingExternalText = true
       container.textView.string = text
@@ -79,11 +100,16 @@ public struct CodeEditorView: NSViewRepresentable {
       )
       context.coordinator.scheduleHighlight(for: text)
     }
-    if isFocused, container.window?.firstResponder !== container.textView {
+    let wasFocused = context.coordinator.wasFocused
+    if isFocused, !isFirstResponder {
       container.window?.makeFirstResponder(container.textView)
-    } else if !isFocused, container.window?.firstResponder === container.textView {
+    } else if CodeEditorFocusPolicy.shouldResignFirstResponder(
+      wasFocused: wasFocused,
+      isFocused: isFocused
+    ), container.window?.firstResponder === container.textView {
       container.window?.makeFirstResponder(nil)
     }
+    context.coordinator.wasFocused = isFocused
     context.coordinator.measureHeight()
   }
 
@@ -94,6 +120,7 @@ public struct CodeEditorView: NSViewRepresentable {
     private let highlighter = PythonIncrementalHighlighter()
     private var highlightTask: Task<Void, Never>?
     fileprivate var isApplyingExternalText = false
+    fileprivate var wasFocused = false
     private var lastHeight: CGFloat?
     private var lastScrollable: Bool?
 

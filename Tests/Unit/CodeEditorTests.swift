@@ -63,6 +63,42 @@ struct CodeEditorTests {
     #expect(!container.textView.isRichText)
   }
 
+  @Test("A click may establish focus before SwiftUI state catches up")
+  func focusTransitionPolicy() {
+    #expect(!CodeEditorFocusPolicy.shouldResignFirstResponder(wasFocused: false, isFocused: false))
+    #expect(!CodeEditorFocusPolicy.shouldResignFirstResponder(wasFocused: false, isFocused: true))
+    #expect(!CodeEditorFocusPolicy.shouldResignFirstResponder(wasFocused: true, isFocused: true))
+    #expect(CodeEditorFocusPolicy.shouldResignFirstResponder(wasFocused: true, isFocused: false))
+  }
+
+  @Test("Focused local text is not replaced by a delayed SwiftUI value")
+  func focusedTextReconciliationPolicy() {
+    #expect(
+      !CodeEditorFocusPolicy.shouldApplyExternalText(
+        stringsDiffer: true,
+        hasMarkedText: false,
+        isFocused: true,
+        isFirstResponder: true
+      )
+    )
+    #expect(
+      !CodeEditorFocusPolicy.shouldApplyExternalText(
+        stringsDiffer: true,
+        hasMarkedText: false,
+        isFocused: false,
+        isFirstResponder: true
+      )
+    )
+    #expect(
+      CodeEditorFocusPolicy.shouldApplyExternalText(
+        stringsDiffer: true,
+        hasMarkedText: false,
+        isFocused: false,
+        isFirstResponder: false
+      )
+    )
+  }
+
   @Test("Native editor indents, pairs delimiters, and protects marked text")
   @MainActor
   func nativeEditingBehavior() throws {

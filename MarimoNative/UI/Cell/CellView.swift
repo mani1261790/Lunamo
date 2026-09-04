@@ -110,6 +110,7 @@ public struct CellView: View {
               Color(nsColor: selected ? .controlAccentColor : .separatorColor),
               lineWidth: selected ? 1.5 : 1
             )
+            .allowsHitTesting(false)
         }
         .overlay(alignment: .topTrailing) {
           if internallyScrollable {
