@@ -169,18 +169,23 @@ struct ArchitectureBoundaryTests {
     )
     for token in [
       "LazyVStack(spacing: 16)",
-      ".padding(.horizontal, 16)",
-      ".padding(.vertical, 12)",
-      "if selected || hovering",
-      "Label(\"Queued\", systemImage: \"clock\")",
-      "Text(\"Running\")",
-      "Label(\"Stale\", systemImage: \"clock.arrow.circlepath\")",
-      "Label(\"Error\", systemImage: \"exclamationmark.triangle.fill\")",
+      "HStack(alignment: .top, spacing: 10)",
+      "Image(systemName: \"play.fill\")",
+      ".buttonBorderShape(.circle)",
+      ".frame(width: 44)",
+      "Color(nsColor: selected ? .controlAccentColor : .separatorColor)",
+      "Image(systemName: \"clock\")",
+      "ProgressView()",
+      "Image(systemName: \"clock.arrow.circlepath\")",
+      "Image(systemName: \"exclamationmark.triangle.fill\")",
       ".accessibilityValue",
     ] {
       let combined = cell + notebookSource(root)
       #expect(combined.contains(token), "Missing native cell appearance token: \(token)")
     }
+    #expect(!cell.contains(".overlay(alignment: .leading)"))
+    #expect(!cell.contains("Rectangle().fill(Color.accentColor)"))
+    #expect(!cell.contains("hovering"))
     #expect(!cell.contains("glassEffect"))
   }
 

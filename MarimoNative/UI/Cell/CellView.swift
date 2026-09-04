@@ -22,7 +22,6 @@ public struct CellView: View {
 
   @State private var editorHeight: CGFloat = 72
   @State private var internallyScrollable = false
-  @State private var hovering = false
   @State private var stdinText = ""
 
   public init(
@@ -56,84 +55,91 @@ public struct CellView: View {
   }
 
   public var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack(spacing: 8) {
-        Text(cell.name)
-          .font(.caption.monospaced())
-          .foregroundStyle(.secondary)
+    HStack(alignment: .top, spacing: 10) {
+      VStack(spacing: 8) {
+        Button {
+          command(.runAndStay)
+        } label: {
+          Image(systemName: "play.fill")
+            .frame(width: 20, height: 20)
+        }
+        .labelStyle(.iconOnly)
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.circle)
+        .controlSize(.large)
+        .disabled(!canRun)
+        .help(canRun ? "Run Cell (⌘↩)" : "Select a valid Python environment to run")
+        .accessibilityLabel("Run Cell")
+
+        Text("[\(index)]")
+          .font(.caption2.monospacedDigit())
+          .foregroundStyle(.tertiary)
+
         cellStatus
-        Spacer()
-        if selected || hovering {
-          Button("Run Cell", systemImage: "play.fill") {
-            command(.runAndStay)
-          }
-          .buttonStyle(.borderless)
-          .disabled(!canRun)
-          .help(canRun ? "Run Cell (⌘↩)" : "Select a valid Python environment to run")
-        }
       }
+      .frame(width: 44)
 
-      CodeEditorView(
-        text: cell.code,
-        isFocused: focused,
-        onTextChange: { text, hasMarkedText in
-          send(
-            .updateComposedCode(
-              cellID: cell.runtimeID,
-              code: text,
-              hasMarkedText: hasMarkedText
+      VStack(alignment: .leading, spacing: 10) {
+        CodeEditorView(
+          text: cell.code,
+          isFocused: focused,
+          onTextChange: { text, hasMarkedText in
+            send(
+              .updateComposedCode(
+                cellID: cell.runtimeID,
+                code: text,
+                hasMarkedText: hasMarkedText
+              )
             )
-          )
-        },
-        onFocus: focusEditor,
-        onCommand: command,
-        onHeightChange: { height, scrollable in
-          editorHeight = height
-          internallyScrollable = scrollable
-        }
-      )
-      .frame(height: editorHeight)
-      .overlay(alignment: .topTrailing) {
-        if internallyScrollable {
-          Label("Scrollable editor", systemImage: "arrow.up.and.down")
-            .labelStyle(.iconOnly)
-            .foregroundStyle(.secondary)
-            .padding(6)
-            .accessibilityLabel("This cell has its own vertical scroll area")
-        }
-      }
-      .overlay {
-        if internallyScrollable {
-          VStack(spacing: 0) {
-            Divider()
-            Spacer()
-            Divider()
+          },
+          onFocus: focusEditor,
+          onCommand: command,
+          onHeightChange: { height, scrollable in
+            editorHeight = height
+            internallyScrollable = scrollable
           }
-          .allowsHitTesting(false)
-        }
-      }
-
-      if let prompt = cell.runtime.stdinPrompt {
-        stdinField(prompt)
-      }
-
-      if let output = cell.runtime.output {
-        OutputView(
-          output: output,
-          stale: cell.runtime.stale,
-          running: cell.runtime.status == .running,
-          widgetStore: widgetStore,
-          widgetCellID: cell.runtimeID.uuidString,
-          widgetsEnabled: widgetsEnabled,
-          kernelSessionID: kernelSessionID,
-          sendWidgetValue: submitWidgetValue
         )
-      }
+        .frame(height: editorHeight)
+        .background(
+          Color(nsColor: .controlBackgroundColor),
+          in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+        )
+        .overlay {
+          RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .stroke(
+              Color(nsColor: selected ? .controlAccentColor : .separatorColor),
+              lineWidth: selected ? 1.5 : 1
+            )
+        }
+        .overlay(alignment: .topTrailing) {
+          if internallyScrollable {
+            Label("Scrollable editor", systemImage: "arrow.up.and.down")
+              .labelStyle(.iconOnly)
+              .foregroundStyle(.secondary)
+              .padding(6)
+              .accessibilityLabel("This cell has its own vertical scroll area")
+          }
+        }
+        .overlay {
+          if internallyScrollable {
+            VStack(spacing: 0) {
+              Divider()
+              Spacer()
+              Divider()
+            }
+            .allowsHitTesting(false)
+          }
+        }
 
-      ForEach(Array(cell.runtime.console.enumerated()), id: \.offset) { _, item in
-        if item.channel != .stdin {
+        if let prompt = cell.runtime.stdinPrompt {
+          stdinField(prompt)
+        }
+
+        if let output = cell.runtime.output {
           OutputView(
-            output: item,
+            output: output,
+            stale: cell.runtime.stale,
+            running: cell.runtime.status == .running,
             widgetStore: widgetStore,
             widgetCellID: cell.runtimeID.uuidString,
             widgetsEnabled: widgetsEnabled,
@@ -141,25 +147,28 @@ public struct CellView: View {
             sendWidgetValue: submitWidgetValue
           )
         }
+
+        ForEach(Array(cell.runtime.console.enumerated()), id: \.offset) { _, item in
+          if item.channel != .stdin {
+            OutputView(
+              output: item,
+              widgetStore: widgetStore,
+              widgetCellID: cell.runtimeID.uuidString,
+              widgetsEnabled: widgetsEnabled,
+              kernelSessionID: kernelSessionID,
+              sendWidgetValue: submitWidgetValue
+            )
+          }
+        }
       }
     }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 12)
-    .overlay(alignment: .leading) {
-      if selected {
-        Rectangle()
-          .fill(Color.accentColor)
-          .frame(width: 3)
-          .accessibilityHidden(true)
-      }
-    }
+    .padding(.vertical, 8)
     .contentShape(Rectangle())
     .simultaneousGesture(
       TapGesture().onEnded {
         send(.selectCell(cell.runtimeID))
       }
     )
-    .onHover { hovering = $0 }
     .accessibilityElement(children: .contain)
     .accessibilityLabel(localizedUI("Cell %ld, %@", index, cell.name))
     .accessibilityValue(statusLabel(cell.runtime.status))
@@ -195,35 +204,36 @@ public struct CellView: View {
   @ViewBuilder
   private var cellStatus: some View {
     if cell.runtime.stale {
-      Label("Stale", systemImage: "clock.arrow.circlepath")
+      Image(systemName: "clock.arrow.circlepath")
         .font(.caption)
         .foregroundStyle(.secondary)
+        .accessibilityLabel("Stale")
         .accessibilityValue("Cell output is stale")
     } else {
       switch cell.runtime.status {
       case .idle:
         EmptyView()
       case .queued:
-        Label("Queued", systemImage: "clock")
+        Image(systemName: "clock")
           .font(.caption)
+          .accessibilityLabel("Queued")
           .accessibilityValue("Waiting to run")
       case .running:
-        HStack(spacing: 4) {
-          ProgressView().controlSize(.small)
-          Text("Running")
-        }
-        .font(.caption)
-        .accessibilityElement(children: .combine)
-        .accessibilityValue("Cell is running")
+        ProgressView()
+          .controlSize(.small)
+          .accessibilityLabel("Running")
+          .accessibilityValue("Cell is running")
       case .error:
-        Label("Error", systemImage: "exclamationmark.triangle.fill")
+        Image(systemName: "exclamationmark.triangle.fill")
           .font(.caption)
           .foregroundStyle(.red)
+          .accessibilityLabel("Error")
           .accessibilityValue("Cell execution failed")
       case .disabledTransitively:
-        Label("Disabled", systemImage: "nosign")
+        Image(systemName: "nosign")
           .font(.caption)
           .foregroundStyle(.secondary)
+          .accessibilityLabel("Disabled")
           .accessibilityValue("Cell is disabled by a dependency")
       }
     }

@@ -54,6 +54,9 @@ struct CodeEditorTests {
   func textKitTwoServices() {
     let container = CodeEditorContainerView()
     #expect(container.textView.textLayoutManager != nil)
+    #expect(container.textView.font?.pointSize == CodeEditorMetrics.fontSize)
+    #expect(container.textView.textContainerInset == NSSize(width: 12, height: 10))
+    #expect(container.textView.defaultParagraphStyle?.lineSpacing == 2)
     #expect(container.textView.allowsUndo)
     #expect(container.textView.usesFindBar)
     #expect(container.textView.isIncrementalSearchingEnabled)

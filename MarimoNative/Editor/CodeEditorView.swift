@@ -16,6 +16,7 @@ public enum CodeEditorCommand: Sendable, Equatable {
 public enum CodeEditorMetrics {
   public static let minimumHeight: CGFloat = 72
   public static let maximumHeight: CGFloat = 1_600
+  public static let fontSize: CGFloat = 14
 
   public static func presentation(for contentHeight: CGFloat) -> (height: CGFloat, scrolls: Bool) {
     (
@@ -220,8 +221,11 @@ public final class CodeEditorContainerView: NSView {
       width: CGFloat.greatestFiniteMagnitude,
       height: CGFloat.greatestFiniteMagnitude
     )
-    textView.textContainerInset = NSSize(width: 8, height: 8)
-    textView.font = .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+    textView.textContainerInset = NSSize(width: 12, height: 10)
+    textView.font = .monospacedSystemFont(ofSize: CodeEditorMetrics.fontSize, weight: .regular)
+    let paragraphStyle = NSMutableParagraphStyle()
+    paragraphStyle.lineSpacing = 2
+    textView.defaultParagraphStyle = paragraphStyle
     textView.backgroundColor = .clear
     textView.drawsBackground = false
     textView.setAccessibilityLabel("Python code editor")
