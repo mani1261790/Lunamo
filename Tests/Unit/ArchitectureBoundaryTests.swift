@@ -121,8 +121,43 @@ struct ArchitectureBoundaryTests {
     #expect(notebook.contains("min: 260, ideal: 300, max: 440"))
     #expect(notebook.contains("maxWidth: 1_100"))
     #expect(notebook.contains("minWidth: 960, idealWidth: 1_320, minHeight: 640"))
-    #expect(notebook.contains("toggleSidebar"))
     #expect(notebook.contains("inspectorPresented"))
+  }
+
+  @Test("Toolbar has one system sidebar control and a clear Run All action")
+  func colabStyleToolbar() throws {
+    let root = repositoryRoot()
+    let notebook = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookRootView.swift"),
+      encoding: .utf8
+    )
+    #expect(!notebook.contains("Button(\"Toggle Sidebar\""))
+    #expect(!notebook.contains("Text(documentTitle)"))
+    #expect(!notebook.contains("localizedSessionStatus"))
+    #expect(notebook.contains("Label(\"Run All\", systemImage: \"play.fill\")"))
+    #expect(notebook.contains(".labelStyle(.titleAndIcon)"))
+    #expect(notebook.contains(".buttonStyle(.borderedProminent)"))
+    #expect(notebook.contains("Image(systemName: \"terminal\")"))
+  }
+
+  @Test("Debug and release bundles include the application icon")
+  func applicationIconPackaging() throws {
+    let root = repositoryRoot()
+    let plist = try String(
+      contentsOf: root.appending(path: "MarimoNative/Resources/Info.plist"),
+      encoding: .utf8
+    )
+    let debugBuild = try String(
+      contentsOf: root.appending(path: "Tools/build-debug-app.sh"), encoding: .utf8
+    )
+    let releaseBuild = try String(
+      contentsOf: root.appending(path: "Tools/build-release-app.sh"), encoding: .utf8
+    )
+    #expect(plist.contains("<key>CFBundleIconFile</key>"))
+    #expect(plist.contains("<string>AppIcon</string>"))
+    #expect(debugBuild.contains("AppIcon.icns"))
+    #expect(releaseBuild.contains("AppIcon.icns"))
+    #expect(FileManager.default.fileExists(atPath: root.appending(path: "MarimoNative/Resources/AppIcon.icns").path))
   }
 
   @Test("Cells expose non-color execution states without glass surfaces")

@@ -42,6 +42,7 @@ fi
 mkdir -p "$contents/MacOS" "$contents/Resources"
 cp "$project_root/.build/release/MarimoNative" "$contents/MacOS/MarimoNative"
 cp "$project_root/MarimoNative/Resources/Info.plist" "$contents/Info.plist"
+cp "$project_root/MarimoNative/Resources/AppIcon.icns" "$contents/Resources/AppIcon.icns"
 for localization in "$project_root"/MarimoNative/Resources/Localization/*.lproj; do
   if [ -d "$localization" ]; then
     ditto "$localization" "$contents/Resources/$(basename "$localization")"

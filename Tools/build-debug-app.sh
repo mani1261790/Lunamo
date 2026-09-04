@@ -9,6 +9,7 @@ DEVELOPER_DIR="$developer_dir" swift build
 mkdir -p "$contents/MacOS" "$contents/Resources"
 cp .build/debug/MarimoNative "$contents/MacOS/MarimoNative"
 cp MarimoNative/Resources/Info.plist "$contents/Info.plist"
+cp MarimoNative/Resources/AppIcon.icns "$contents/Resources/AppIcon.icns"
 for localization in MarimoNative/Resources/Localization/*.lproj; do
   if [ -d "$localization" ]; then
     ditto "$localization" "$contents/Resources/$(basename "$localization")"

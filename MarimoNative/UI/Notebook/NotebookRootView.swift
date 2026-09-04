@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 import MarimoApplication
 import MarimoDomain
@@ -121,31 +120,18 @@ public struct NotebookRootView: View {
 
   @ToolbarContentBuilder
   private var notebookToolbar: some ToolbarContent {
-    ToolbarItem(placement: .navigation) {
-      Button("Toggle Sidebar", systemImage: "sidebar.left") {
-        toggleSidebar()
-      }
-      .help("Toggle Sidebar (⌃⌘S)")
-    }
-    ToolbarItem {
-      Text(documentTitle)
-        .lineLimit(1)
-        .accessibilityLabel(localizedUI("Document title: %@", documentTitle))
-    }
     ToolbarItem {
       environmentMenu
         .help("Python Environment")
     }
-    ToolbarItem {
-      Label(localizedSessionStatus, systemImage: sessionIcon)
-        .foregroundStyle(.secondary)
-        .accessibilityLabel("Kernel Status")
-        .accessibilityValue(localizedSessionStatus)
-    }
     ToolbarItemGroup {
-      Button("Run All", systemImage: "play.fill") {
+      Button {
         Task { await store.requestRunAll() }
+      } label: {
+        Label("Run All", systemImage: "play.fill")
+          .labelStyle(.titleAndIcon)
       }
+      .buttonStyle(.borderedProminent)
       .disabled(!canRun)
       .help("Run All (⇧⌘↩)")
       .accessibilityLabel("Run All")
@@ -218,33 +204,6 @@ public struct NotebookRootView: View {
       && store.sessionAllowsRun && store.documentAllowsExecution
   }
 
-  private var sessionIcon: String {
-    switch store.sessionState {
-    case .running: "play.circle.fill"
-    case .interrupting, .restarting, .starting: "progress.indicator"
-    case .failed: "exclamationmark.circle.fill"
-    case .idle: "checkmark.circle"
-    case .notStarted, .closed: "circle"
-    }
-  }
-
-  private var localizedSessionStatus: String {
-    switch store.sessionState {
-    case .notStarted: localizedUI("Not Started")
-    case .starting: localizedUI("Starting")
-    case .idle: localizedUI("Idle")
-    case .running: localizedUI("Running")
-    case .interrupting: localizedUI("Interrupting")
-    case .restarting: localizedUI("Restarting")
-    case .failed(let technicalDetail): "\(localizedUI("Failed")): \(technicalDetail)"
-    case .closed: localizedUI("Closed")
-    }
-  }
-
-  private func toggleSidebar() {
-    NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
-  }
-
   private func handle(_ command: CodeEditorCommand, cellID: UUID) {
     switch command {
     case .leaveEditor:
@@ -297,7 +256,7 @@ public struct NotebookRootView: View {
         NotebookEnvironmentActions.chooseWorkingDirectory(for: store)
       }
     } label: {
-      Label(environmentLabel, systemImage: "chevron.left.forwardslash.chevron.right")
+      Image(systemName: "terminal")
     }
     .accessibilityLabel("Python Environment")
     .accessibilityValue(environmentLabel)
