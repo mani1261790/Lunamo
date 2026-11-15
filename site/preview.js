@@ -16,6 +16,9 @@ const alt = {
   terminal: 'ノートの下に内蔵ターミナルを開いた編集画面。'
 };
 function draw(){
+  const value = document.querySelector('.appearance-value');
+  value.textContent = appearance.selectedOptions[0].textContent;
+  value.hidden = false;
   const theme = appearance.value === 'auto' ? (system.matches ? 'dark' : 'light') : appearance.value;
   if(appearance.value==='auto') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme=theme;
