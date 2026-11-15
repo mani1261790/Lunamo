@@ -54,9 +54,14 @@ function alignIntro() {
   const t = reduce.matches ? 1 : Math.min(1, Math.max(0, scrollY / distance));
   const landed = t * t * (3 - 2 * t);
   const remaining = 1 - landed;
-  const centerOffset = (document.documentElement.clientWidth - target.width) / 2 - target.left;
+  const viewport = document.documentElement.clientWidth;
+  const openingWidth = viewport >= 960
+    ? Math.min(viewport * .8, 1152)
+    : Math.min(viewport * .94, target.width * 1.15);
+  const openingScale = Math.max(1, openingWidth / Math.max(1, target.width));
+  const centerOffset = (viewport - target.width) / 2 - target.left;
   tour.style.setProperty('--intro-x', (centerOffset * remaining) + 'px');
-  tour.style.setProperty('--intro-scale', 1 + remaining * .15);
+  tour.style.setProperty('--intro-scale', 1 + remaining * (openingScale - 1));
   tour.style.setProperty('--shell-y', (remaining * 54) + 'px');
   tour.style.setProperty('--shell-opacity', landed);
   tour.style.setProperty('--copy-opacity', Math.max(0, (landed - .45) / .55));
