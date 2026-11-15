@@ -164,8 +164,9 @@ footer.copyright{border:0;align-items:center;justify-content:center;color:var(--
 .desktop{container-type:inline-size;--menu-ink:#14231c;--menu-surface:#e1ead8ca;--dock-surface:#d6e6d7ad}
 .desktop.night{--menu-ink:#f3f6f6;--menu-surface:#253645cf;--dock-surface:#425662bf}
 .mac-menu,.mac-dock{position:absolute;pointer-events:none;user-select:none;color:var(--menu-ink)}
-.mac-menu{inset:0 0 auto;height:4.1%;background:var(--menu-surface);display:flex;align-items:center;justify-content:space-between;padding-inline:1.15%;font:500 1.18cqw/1 -apple-system,BlinkMacSystemFont,sans-serif;white-space:nowrap}
-.mac-menu::before{content:"";position:absolute;top:0;left:50%;height:100%;aspect-ratio:5 / 1;transform:translateX(-50%);border-radius:0 0 .55cqw .55cqw;background:#151817}
+/* MacBook Air M2, Apple WWDC22 Continuity front view: 1380px display, 33px menu, 168 x 30px notch. */
+.mac-menu{inset:0 0 auto;aspect-ratio:1380 / 33;background:var(--menu-surface);display:flex;align-items:center;justify-content:space-between;padding-inline:1.15%;font:500 1.18cqw/1 -apple-system,BlinkMacSystemFont,sans-serif;white-space:nowrap}
+.mac-menu::before{content:"";position:absolute;top:0;left:50%;width:12.174%;height:90.909%;transform:translateX(-50%);border-radius:0 0 .55cqw .55cqw;background:#151817}
 .mac-menus,.mac-status{display:flex;align-items:center;gap:1cqw}.apple-mark{font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:1.65cqw}.mac-status svg{width:5.8cqw;height:auto}
 .mac-dock{bottom:.65%;left:50%;transform:translateX(-50%);display:flex;align-items:center;padding:.23cqw .43cqw .38cqw;gap:.18cqw;background:var(--dock-surface);border-radius:1cqw;box-shadow:inset 0 0 0 .10cqw #ffffff61,0 .14cqw .5cqw #0c201f55}
 .mac-dock .system-apps{display:block;width:22.4cqw;height:auto}.dock-lunamo{width:3.2cqw;height:3.2cqw;background:url(assets/lunamo.png) center/contain no-repeat;position:relative}.night .dock-lunamo{background-image:url(assets/lunamo-night.png)}.dock-lunamo:after{content:"";position:absolute;bottom:-.22cqw;left:46%;width:.29cqw;height:.29cqw;border-radius:50%;background:var(--menu-ink)}.mac-dock i{width:.1cqw;height:2.6cqw;background:var(--menu-ink);opacity:.3;margin-inline:.22cqw}.mac-dock svg{width:2.4cqw;height:2.4cqw}
