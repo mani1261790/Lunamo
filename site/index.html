@@ -17,7 +17,10 @@
     <p class="spec">Apple Silicon <span>·</span> macOS 26以降</p>
   </section>
   <figure class="showcase">
-    <div class="machine"><div class="lid"><div class="desktop"><a class="screen" href="assets/release-light-open.webp" aria-label="ノートの編集画面を原寸で見る"><img id="notebook" width="960" height="600" src="assets/release-light-open.webp" alt="月の観測ノート。左にファイル一覧、右にPythonのコードと実行結果。"></a></div></div><div class="base" aria-hidden="true"></div></div>
+    <div class="machine">
+      <div class="housing" aria-hidden="true"><div class="lid"><div class="desktop"><div class="screen-slot"></div></div></div><div class="base"></div></div>
+      <div class="face"><div class="face-inset"><a class="screen" href="assets/window-light-open.webp" aria-label="ノートの編集画面を原寸で見る"><img id="notebook" width="1100" height="680" src="assets/window-light-open.webp" alt="月の観測ノート。左にファイル一覧、右にPythonのコードと実行結果。"></a></div></div>
+    </div>
     <figcaption>
       <div class="controls" hidden>
         <button id="sidebar" type="button" aria-label="サイドバーを表示" aria-pressed="true" aria-controls="notebook"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="3" width="17" height="14" rx="3"/><path d="M7 3v14"/></svg>サイドバー</button>
@@ -28,7 +31,7 @@
   <section class="editor" aria-labelledby="editor-title">
     <div><h2 id="editor-title">エディタ設定</h2>
     <p><kbd>⌘</kbd> <kbd>Return</kbd> でセルを実行、<kbd>Shift</kbd> <kbd>Return</kbd> で次のセルに進みます。キーの割り当てと文字サイズは変更できます。</p></div>
-    <figure class="setting"><a href="assets/release-settings.webp"><img width="900" height="728" loading="lazy" src="assets/release-settings.webp" alt="Lunamoの設定画面。セルの実行や移動に使うキーを操作ごとに登録できる。"></a></figure>
+    <figure class="setting"><a href="assets/window-settings.webp"><img width="900" height="728" loading="lazy" src="assets/window-settings.webp" alt="Lunamoの設定画面。セルの実行や移動に使うキーを操作ごとに登録できる。"></a></figure>
   </section>
   <section class="native"><h2>Macのウィンドウと文字入力</h2><div><p>サイドバーにはデスクトップの色が透けます。閉じれば、その分だけノートが広がります。</p><p>入力欄にはAppKitを使っています。日本語の変換中にノートが更新されても、入力中の文字は残ります。</p></div></section>
 </main>
