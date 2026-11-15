@@ -133,3 +133,12 @@ header .source{white-space:nowrap;flex:none}
   .tour.following .scenes{padding-bottom:42svh}
   .tour.following .scenes article{display:flex;flex-direction:column;justify-content:center;min-height:36svh}
 }
+
+@media(prefers-reduced-motion:no-preference){
+  .tour .face{transform:translateX(var(--intro-x,0px)) scale(var(--intro-scale,1));transform-origin:50% 20%}
+  .tour .housing{opacity:var(--shell-opacity,1);transform:translateY(var(--shell-y,0px))}
+  .tour .machine::after{opacity:var(--shell-opacity,1);transform:translateY(var(--shell-y,0px))}
+}
+@media(min-width:960px) and (prefers-reduced-motion:no-preference){
+  .tour .scenes{opacity:var(--copy-opacity,1)}
+}

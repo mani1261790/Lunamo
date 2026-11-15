@@ -44,6 +44,23 @@ appearance.addEventListener('change',()=>{
 });
 system.addEventListener('change',draw);
 buttons.forEach(b=>b.addEventListener('click',()=>choose(b.dataset.view)));
+const slot = tour.querySelector('.screen-slot');
+function alignIntro() {
+  // Measure the untransformed destination, never the animated screenshot.
+  const target = slot.getBoundingClientRect();
+  const tourTop = tour.getBoundingClientRect().top;
+  const pinTop = parseFloat(getComputedStyle(figure).top) || 80;
+  const distance = Math.max(1, scrollY + tourTop - pinTop);
+  const t = reduce.matches ? 1 : Math.min(1, Math.max(0, scrollY / distance));
+  const landed = t * t * (3 - 2 * t);
+  const remaining = 1 - landed;
+  const centerOffset = (document.documentElement.clientWidth - target.width) / 2 - target.left;
+  tour.style.setProperty('--intro-x', (centerOffset * remaining) + 'px');
+  tour.style.setProperty('--intro-scale', 1 + remaining * .15);
+  tour.style.setProperty('--shell-y', (remaining * 54) + 'px');
+  tour.style.setProperty('--shell-opacity', landed);
+  tour.style.setProperty('--copy-opacity', Math.max(0, (landed - .45) / .55));
+}
 let frame=0;
 function update(){
   frame=0;
@@ -51,6 +68,7 @@ function update(){
   const follows=(wide.matches || stacked) && !reduce.matches;
   switcher.hidden=follows;
   tour.classList.toggle('following',follows);
+  alignIntro();
   if(follows){
     const y=stacked ? Math.max(innerHeight*.68, figure.getBoundingClientRect().bottom+90) : innerHeight*.53;
     const scene=scenes.reduce((best,el)=>{
