@@ -27,11 +27,11 @@ function draw(){
   document.querySelectorAll('.appicon,.brand img').forEach(img=>{if(img.getAttribute('src')!==icon)img.src=icon});
   const path='assets/atlas-'+theme+'-'+active+'.webp';
   if(path!==lastPath){
-    notebook.src=notebook.parentElement.href=path;
+    notebook.src=path;
     notebook.alt=alt[active]; lastPath=path;
   }
   const sett='assets/atlas-'+theme+'-settings.webp';
-  if(settings.getAttribute('src')!==sett)settings.src=settings.parentElement.href=sett;
+  if(settings.getAttribute('src')!==sett)settings.src=sett;
   buttons.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===active)));
   scenes.forEach(a=>a.classList.toggle('current',a.dataset.scene===active));
   document.querySelector('.desktop').classList.toggle('night',theme==='dark');
