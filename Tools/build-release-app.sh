@@ -38,6 +38,9 @@ DEVELOPER_DIR="$developer_dir" swift build --package-path "$project_root" -c rel
 
 mkdir -p "$artifact_directory"
 if [ -e "$app_root" ]; then
+  if [ -d "$app_root/Contents/Resources/Sidecar" ]; then
+    find "$app_root/Contents/Resources/Sidecar" -type d -exec chmod u+w {} +
+  fi
   rm -rf "$app_root"
 fi
 mkdir -p "$contents/MacOS" "$contents/Resources"
@@ -76,6 +79,13 @@ while IFS= read -r candidate; do
 done <<EOF
 $(find "$contents/Resources/Sidecar" -type f | LC_ALL=C sort)
 EOF
+
+# Python writes timestamp caches after Sparkle relocates an app. A signed bundle
+# must stay immutable: discard disposable bytecode, then prevent lazy imports
+# (including isolated Python processes) from writing inside the bundled runtime.
+sidecar="$contents/Resources/Sidecar"
+find "$sidecar" -type d -name __pycache__ -prune -exec rm -rf {} +
+find "$sidecar" -type d -exec chmod a-w {} +
 
 if [ "$identity" = "-" ]; then
   codesign --force --options runtime --entitlements "$entitlements" --sign - "$app_root"

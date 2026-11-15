@@ -1,30 +1,15 @@
-# Lunamo 0.1.0: 直接配布とSparkleの受入検証
+# Lunamo 0.1.0（build 2）直接配布の受入検証
 
-検証対象はarm64・macOS 26以降、0.1.0 (build 1)。成果物と生ログは
-`.build/notary-release-01/`。App Storeへの申請や一般公開は行わない。
+2026-11-16、Apple Siliconの開発用Macで確認。未使用の別のMacでの試験ではない。
 
-## 公証
+- 本体: Developer ID署名、Hardened Runtime、同梱Mach-O 20個を検証。Apple公証ID 9deca77b-845f-4b97-8be6-99e6d90f7050（Accepted）。
+- DMG: Apple公証ID 27eb3f49-1815-4459-9cb3-4b2daae9049a（Accepted）。本体とDMGにチケットを添付し、Gatekeeperの判定を確認。
+- DMG SHA-256: 6a8ccc17cdbb76ea23675c378988d26e3b288102bc2c55cff13a69a649865937。
 
-- アプリ: Developer ID署名、Hardened Runtime、同梱Mach-O 20個を検証。
-  Apple公証ID `3446d1f3-b7bb-442a-879c-060d2bb3cd60`、結果Accepted。
-  公証チケットをアプリに添付。提出前の署名済みアプリでオフラインの編集・保存・実行を検証した。
-- アプリとDMGは別々にAppleへ提出する。Sparkleの署名は最終DMGの公証チケット添付後に行う。
+## Sparkleによる更新
 
-## 更新試験の構成
+非公開の署名済み0.1.0（build 1）を専用フォルダにコピーして起動。Sparkle 2.10.1のsparkle-cliで、署名済みローカルフィードの検出と実際の更新を別々に実行した。公開用と試験用のDMGは同一バイト列。フィードは配信URLが異なるため個別にEd25519署名している。
 
-以前のreleaseビルドを専用ディレクトリにコピーし、テスト用バージョンを
-0.0.9 (build 0)として同じDeveloper IDで再署名。これは一般公開された旧版ではない。
-旧版と新版の実行ファイルは異なる。旧版だけにローカル配信URLを設定し、
-Sparkleの署名済みフィード必須・展開前署名検証は有効のまま。
+build 2のダウンロード、展開、置換、再起動を確認。インストール先の実行ファイルとInfo.plistは配布元と一致。更新後に公証チケットとGatekeeperを確認し、外部ネットワークを禁止してノートの編集・保存・Python実行（出力43）を検証した。実行後も厳格な署名検証は成功し、ユーザー側の検証用ノートのSHA-256は更新前と一致した。
 
-ローカル配信は127.0.0.1に限定し、配布対象と同一バイトのDMGに対応する
-テスト専用appcastを同じEd25519鍵で生成する。公開用appcastとはURLと署名が異なる。
-Sparkle 2.10.1の公式sparkle-cliと同バージョンのフレームワークを使用。
-`--probe` と `--check-immediately` は別に実行し、更新検出だけを成功条件としない。
-
-## 配布物の検証結果
-
-DMG公証ID: `2d3a841c-f9c3-473f-9c5c-8eef9982fd34`（Accepted）。
-stapler validate成功、GatekeeperはアプリとDMGともにNotarized Developer ID。
-最終DMGのSHA-256は
-`e84fd17900a7f4b823311111c4006ff4f0e7d8e9510cd8ac2bd40f017180960f`。
+build 1は再起動後にPythonのバイトコードキャッシュが署名対象を書き換えたため公開しなかった。build 2はキャッシュを配布物から除き、同梱ランタイムのディレクトリへの書き込みを無効にした。
