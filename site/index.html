@@ -1,15 +1,36 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Lunamo — SwiftUIでつくったMacのPythonノート</title>
-<meta name="description" content="marimoのPythonノートを、Macのウィンドウで。LunamoはSwiftUIとAppKitでつくったネイティブのノートブックエディタです。">
-<link rel="icon" href="assets/lunamo.png"><link rel="stylesheet" href="style.css"></head><body>
-<header><a class="brand" href="./"><img src="assets/lunamo.png" alt="" width="38" height="38">Lunamo</a><a href="https://github.com/mani1261790/Lunamo">GitHub ↗</a></header>
-<main><section class="hero"><div class="wrap"><div class="heroCopy"><p class="label"><i></i> SWIFTUI NOTEBOOK FOR MAC</p><h1>Pythonノートに、<br>Macの手ざわりを。</h1><p class="lead">marimoのノートを、Macのウィンドウで。<br>ファイルを開き、日本語でメモを書き、いつものキーで次のセルへ。Lunamoの編集画面はSwiftUIでつくりました。</p><a class="cta" href="https://github.com/mani1261790/Lunamo/releases/download/v0.1.0/Lunamo-0.1.0.dmg">Mac版をダウンロード <b aria-hidden="true">↓</b></a><p class="meta">v0.1.0　/　Apple Silicon · macOS 26以降</p></div>
-<figure class="exhibit"><div class="exhibitHead"><span>FIG. 01　/　編集ウィンドウ</span><fieldset><legend>表示を切り替える</legend><label><input type="radio" name="mode" value="light" checked>ライト</label><label><input type="radio" name="mode" value="dark">ダーク</label></fieldset></div><a class="screen" href="assets/notebook-light.png" aria-label="ライトの編集画面を原寸で見る"><img width="1060" height="650" src="assets/notebook-light.png" alt="月の満ち欠けを計算するノート。左にファイル一覧、右に4つのコードセルが並ぶ。"></a><figcaption>サンプルノートを表示したSwiftUIビュー <span>原寸で見る ↗</span></figcaption></figure></div></section>
-<section class="details"><p class="label">DESIGN NOTES　/　設計ノート</p><h2>書いているときに、<br>違いが出るところ。</h2>
-<article><div class="num">01</div><div><h3>日本語を、変換の途中まで大切に。</h3><p>セルの入力欄には、macOSのテキスト部品 <span lang="en">NSTextView</span> を使っています。「つき」を「月」に変換している間、ノートの再描画で入力中の文字を上書きしないようにしています。</p></div><div class="typeSample" aria-hidden="true"><small>入力の例</small><span>月の<u>みちかけ</u></span></div></article>
-<article><div class="num">02</div><div><h3>次のセルへ、指が覚えたキーで。</h3><p>同じセルで結果を見るなら⌘ Return。次のセルに進むならShift Return。実行もセルの移動も、設定画面で自分の押しやすいキーに変更できます。</p></div><a class="settings" href="assets/editor-settings.png"><img src="assets/editor-settings.png" width="560" height="580" loading="lazy" alt="実際の設定画面：各操作の右側にショートカットの登録欄がある"><span>設定画面を開く ↗</span></a></article>
-<article><div class="num">03</div><div><h3>デスクトップになじむ余白を。</h3><p>サイドバーにはウィンドウの背後が透けるMac標準の素材を使いました。ファイルを選んだらサイドバーを閉じて、ノートを広く使えます。</p></div><div class="material" aria-hidden="true"><i></i><span>Sidebar material</span></div></article></section>
-<section class="install"><div><p class="label">INSTALLATION</p><h2>Macで開く。</h2></div><div><p>ダウンロードしたDMGを開き、Lunamoを「アプリケーション」にドラッグしてください。Pythonとmarimoは同梱しています。</p><a href="https://github.com/mani1261790/Lunamo/releases">リリース履歴を見る ↗</a></div></section>
-</main><footer><a class="brand" href="./">Lunamo</a><a href="https://github.com/mani1261790/Lunamo/issues">不具合を報告 ↗</a></footer>
-<script>const screenLink=document.querySelector('.screen');document.querySelector('fieldset').addEventListener('change',e=>{const dark=e.target.value==='dark',src='assets/notebook-'+(dark?'dark':'light')+'.png';screenLink.href=src;screenLink.firstElementChild.src=src;screenLink.setAttribute('aria-label',(dark?'ダーク':'ライト')+'の編集画面を原寸で見る')})</script></body></html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Lunamo — Macで書く、Pythonノート。</title>
+  <meta name="description" content="LunamoはSwiftUIでつくったMac用のmarimoノートエディタです。Pythonもmarimoも同梱。Macでノートを開いて、そのまま書き始められます。">
+  <link rel="icon" href="assets/lunamo.png"><link rel="stylesheet" href="style.css"><script defer src="preview.js"></script>
+</head>
+<body>
+<header><nav aria-label="メイン"><a class="brand" href="./"><img src="assets/lunamo.png" width="32" height="32" alt="">Lunamo</a><a href="https://github.com/mani1261790/Lunamo">GitHub <span aria-hidden="true">↗</span></a></nav></header>
+<main>
+  <section class="hero" aria-labelledby="hero-title">
+    <img class="appicon" src="assets/lunamo.png" width="96" height="96" alt="">
+    <h1 id="hero-title">Macで書く、<wbr>Pythonノート。</h1>
+    <p class="intro">Lunamoは、SwiftUIでつくったmarimoのノートエディタです。<br>Pythonも同梱しているので、ノートを開いたらすぐに書き始められます。</p>
+    <a class="download" href="https://github.com/mani1261790/Lunamo/releases/download/v0.1.0/Lunamo-0.1.0.dmg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></svg>Mac版をダウンロード</a>
+    <p class="spec">0.1.0 <span>·</span> Apple Silicon <span>·</span> macOS 26以降</p>
+  </section>
+  <figure class="showcase">
+    <div class="desktop"><a class="screen" href="assets/moon-light-open.png" aria-label="ノートの編集画面を原寸で見る"><img id="notebook" width="1060" height="650" src="assets/moon-light-open.png" alt="月の観測ノート。左にファイル一覧、右にPythonのコードと実行結果。"></a></div>
+    <figcaption><p><strong>編集ウィンドウ</strong><span>月の観測ノート · moon.py</span></p>
+      <div class="controls" hidden>
+        <button id="sidebar" type="button" aria-label="サイドバーを表示" aria-pressed="true" aria-controls="notebook"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="3" width="17" height="14" rx="3"/><path d="M7 3v14"/></svg>サイドバー</button>
+        <fieldset><legend>プレビューの外観</legend><label><input type="radio" name="mode" value="light" checked>ライト</label><label><input type="radio" name="mode" value="dark">ダーク</label></fieldset>
+      </div>
+    </figcaption>
+  </figure>
+  <section class="editor" aria-labelledby="editor-title">
+    <div><h2 id="editor-title">いつものキーで、<br>次のセルへ。</h2>
+    <p><kbd>⌘</kbd> <kbd>Return</kbd> でその場で実行。<kbd>Shift</kbd> <kbd>Return</kbd> で実行して次のセルへ。キーの割り当ても文字の大きさも、Lunamoの設定で変えられます。</p></div>
+    <figure class="setting"><a href="assets/editor-settings.png"><img width="560" height="580" loading="lazy" src="assets/editor-settings.png" alt="Lunamoの設定画面。セルの実行や移動に使うキーを操作ごとに登録できる。"></a><figcaption>エディタ設定 <a href="assets/editor-settings.png">全体を見る ↗</a></figcaption></figure>
+  </section>
+  <section class="native"><h2>ウィンドウはSwiftUI。<br>文字入力はAppKit。</h2><div><p>サイドバーには、背後の色がうっすら透けるmacOS標準の素材を使いました。システム設定で「透明度を下げる」を選ぶと、不透明な背景に切り替わります。</p><p>コードを書く欄は、Mac標準のテキスト部品です。日本語を変換している途中でノートの表示が更新されても、確定するまでは入力中の文字をそのまま残します。</p></div></section>
+</main>
+<footer><div><strong>Lunamo</strong><p>DMGを開き、Lunamoを「アプリケーション」にドラッグしてインストール。</p></div><a href="https://github.com/mani1261790/Lunamo/releases">リリース履歴 ↗</a></footer>
+</body></html>
