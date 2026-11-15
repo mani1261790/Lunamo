@@ -8,7 +8,7 @@ let override = false;
 function render() {
   const dark = modes[1].checked;
   const open = sidebar.getAttribute('aria-pressed') === 'true';
-  const path = 'assets/moon-' + (dark ? 'dark' : 'light') + '-' + (open ? 'open' : 'closed') + '.png';
+  const path = 'assets/release-' + (dark ? 'dark' : 'light') + '-' + (open ? 'open' : 'closed') + '.webp';
   notebook.src = notebook.parentElement.href = path;
   notebook.alt = open ? '月の観測ノート。左にファイル一覧、右にPythonのコードと実行結果。' : 'サイドバーを閉じ、ウィンドウの幅いっぱいに月の観測ノートを表示。';
   document.querySelector('.desktop').classList.toggle('night', dark);

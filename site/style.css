@@ -37,7 +37,7 @@ h1{font-size:clamp(3.3rem,6.3vw,6rem);letter-spacing:-.065em;line-height:1.07}
 .desktop:before{width:12%;right:2%;top:3%;background:#eff5bf}
 .base{position:relative;width:100%;height:clamp(8px,1.35vw,17px);margin-top:-1px;border-radius:2px 2px 4% 4% / 2px 2px 80% 80%;background:linear-gradient(90deg,#8f9994,#e5e9e6 2%,#b6bcb9 8%,#e0e4e1 40%,#d4dad6 70%,#a2ada6 97%,#dbe0dc 99%,#88928b);box-shadow:inset 0 -3px 3px #52625b60}
 .base:after{content:"";display:block;margin:auto;width:14%;height:45%;background:linear-gradient(90deg,#909b94,#b3bab4 12% 88%,#87928a);border-radius:0 0 8px 8px}
-.screen{border-radius:8px;position:relative}.screen:before{content:"";position:absolute;top:3.5%;left:1.3%;width:4.3%;height:2%;background:radial-gradient(circle at 12% 50%,#ed786e 0 12%,transparent 14%),radial-gradient(circle at 50% 50%,#edc15f 0 12%,transparent 14%),radial-gradient(circle at 88% 50%,#79bf85 0 12%,transparent 14%);pointer-events:none}
+.screen{border-radius:8px;position:relative}
 .showcase>figcaption{justify-content:center;padding-top:12px}
 .controls{align-self:auto;color:#36463c}.controls button[aria-pressed=true]{background:#ebf1e6}.controls button,fieldset{background:#ffffffa8;border-color:#d3dbd4}label:has(:checked){background:#e2eacb;color:#27362a;box-shadow:0 1px 2px #35433226}
 .editor,.native{padding:clamp(40px,6vw,80px) 0}.editor h2,.native h2{font-size:clamp(1.45rem,2.45vw,2.35rem);letter-spacing:-.035em;display:flex;align-items:baseline;gap:.38em}
@@ -45,3 +45,9 @@ h1{font-size:clamp(3.3rem,6.3vw,6rem);letter-spacing:-.065em;line-height:1.07}
 .setting>a{background:#eee;border:1px solid #d9dfda;box-shadow:0 5px 18px #283a2e0c}.native{gap:7%;grid-template-columns:1fr 1fr}
 @media(max-width:700px){.native{grid-template-columns:1fr}.controls{align-self:center}.showcase>figcaption{align-items:center}.lid{width:90%}.desktop{padding:4% 2% 2%}.screen{border-radius:3px}.hero .intro{max-width:25em}.hero .intro br{display:block}}
 @media(prefers-reduced-transparency:reduce){header{background:#fff;backdrop-filter:none}}
+
+@font-face{font-family:LunamoManrope;src:url(assets/fonts/manrope-wordmark.woff) format("woff");font-style:normal;font-weight:200 800;font-display:swap}
+h1,.brand,footer strong{font-family:LunamoManrope,"Avenir Next",sans-serif;font-weight:640;letter-spacing:-.045em}
+body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif}
+.footer-links,.author{display:flex;flex-wrap:wrap;align-items:center;gap:16px}.footer-links{align-items:flex-end;flex-direction:column;gap:9px}.author{font-size:.85rem}.author span{color:var(--muted)}.author a{text-decoration:underline;text-decoration-color:#aab9aa}.setting img{aspect-ratio:2;object-position:top}
+@media(max-width:700px){footer{flex-direction:column;gap:14px}.footer-links{align-items:flex-start}.author{gap:14px}}
