@@ -6,14 +6,22 @@ import MarimoEnvironment
 import SwiftUI
 
 public struct NotebookRootView: View {
-  @ObservedObject private var store: NotebookStore
+  @ObservedObject var shortcutSettings = NotebookShortcutSettings.shared
+  @ObservedObject var store: NotebookStore
   private let startupURL: URL?
-  @State private var columnVisibility: NavigationSplitViewVisibility = .all
-  @State private var assistantPresented = false
+  @State var sidebarPresented = true
+  @StateObject var assistantConversation = NotebookAssistantConversation()
+  @StateObject var terminalSession = NotebookTerminalSession()
+  @State var terminalPresented = false
+  @State private var cellFrames: [UUID: CGRect] = [:]
+  @State private var collapsedHeadingCellIDs: Set<UUID> = []
+  @State private var draggedCellID: UUID?
+  @State private var reorderBoundary: Int?
+  @State private var packageInstallConfirmationPresented = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
   @Environment(\.colorScheme) private var colorScheme
-  @Environment(\.openSettings) private var openSettings
+  @Environment(\.openSettings) var openSettings
 
   public init(store: NotebookStore, startupURL: URL? = nil) {
     self.store = store
@@ -21,17 +29,37 @@ public struct NotebookRootView: View {
   }
 
   public var body: some View {
-    NavigationSplitView(columnVisibility: $columnVisibility) {
-      NotebookSidebarView(store: store)
-    } detail: {
-      notebookCanvas
-        .navigationTitle(documentTitle)
-        .toolbar { notebookToolbar }
+    NotebookWorkspaceLayout(
+      sidebarPresented: sidebarPresented,
+      assistantPresented: store.assistantPresented
+    ) {
+      VStack(spacing: 0) {
+        HStack {
+          Spacer()
+          sidebarToggle
+        }
+        .padding(.leading, 84)
+        .padding(.trailing, 12)
+        .frame(height: 52)
+        .background(NotebookWindowDragRegion())
+        NotebookSidebarView(store: store)
+      }
+      .background { sidebarBackground }
+    } editor: {
+      VStack(spacing: 0) {
+        notebookToolbar
+          .padding(.leading, sidebarPresented ? 12 : 88)
+          .padding(.trailing, 12)
+          .frame(height: 52)
+          .background(NotebookWindowDragRegion())
+        notebookDetail
+      }
+      .background { editorBackground }
+    } assistant: {
+      NotebookAssistantView(store: store, conversation: assistantConversation)
+        .background { sidebarBackground }
     }
-    .inspector(isPresented: $store.inspectorPresented) {
-      NotebookInspectorView(store: store)
-        .inspectorColumnWidth(min: 260, ideal: 300, max: 440)
-    }
+    .ignoresSafeArea(.container, edges: .top)
     .frame(minWidth: 960, idealWidth: 1_320, minHeight: 640, idealHeight: 800)
     .transaction { transaction in
       if reduceMotion { transaction.animation = nil }
@@ -39,51 +67,143 @@ public struct NotebookRootView: View {
     .task {
       await store.loadRecentDocuments()
       await store.startBackend()
+      if startupURL == nil {
+        await store.refreshPythonEnvironments()
+        await store.refreshSidebarFiles()
+      }
       await store.setDisplayTheme(isDark: colorScheme == .dark)
       if let startupURL {
-        await store.open(startupURL)
+        NotebookOpenActions.open(startupURL, store: store)
       }
     }
     .onOpenURL { url in
-      Task { await store.open(url) }
+      NotebookOpenActions.open(url, store: store)
     }
     .onChange(of: colorScheme) { _, _ in
       Task { await store.setDisplayTheme(isDark: colorScheme == .dark) }
+    }
+    .onChange(of: store.document.documentID) { _, _ in
+      assistantConversation.reset()
+      collapsedHeadingCellIDs.removeAll()
+      Task { await terminalSession.stop() }
+    }
+    .onChange(of: executionPresentation, initial: true) { _, state in
+      NSApplication.shared.dockTile.badgeLabel = state.dockBadge
+    }
+    .onDisappear {
+      NSApplication.shared.dockTile.badgeLabel = nil
+      Task { await terminalSession.stop() }
     }
     .sheet(isPresented: trustPromptBinding) {
       ExecutionTrustSheet(store: store)
     }
     .sheet(isPresented: $store.backendLogsPresented) {
-      backendLogSheet
+      NotebookLogReviewView(store: store)
     }
     .sheet(isPresented: $store.recoverySourcePresented) {
       RecoverySourceView(store: store)
     }
-    .sheet(isPresented: $assistantPresented) {
-      NotebookAssistantView(store: store)
+    .confirmationDialog(
+      localizedUI("Install packages in the selected environment?"),
+      isPresented: $packageInstallConfirmationPresented,
+      titleVisibility: .visible
+    ) {
+      Button(localizedUI("Install %@", store.missingPackages.joined(separator: ", "))) {
+        Task { await store.installPackages(store.missingPackages) }
+      }
+      Button(localizedUI("Cancel"), role: .cancel) {}
+    } message: {
+      Text(
+        localizedUI(
+          "Lunamo will create or reuse its shared environment unless this project is set to use a separate environment."
+        ))
+    }
+  }
+
+  @ViewBuilder
+  private var notebookDetail: some View {
+    if terminalPresented {
+      NotebookTerminalSplit {
+        notebookCanvas
+      } terminal: {
+        NotebookTerminalView(
+          session: terminalSession,
+          directoryURL: store.notebookDirectoryURL,
+          pythonEnvironment: store.terminalPythonEnvironment,
+          saveNotebook: { NotebookSaveActions.saveAs(store) },
+          close: {
+            terminalPresented = false
+            Task { await terminalSession.stop() }
+          }
+        )
+      }
+    } else {
+      notebookCanvas
     }
   }
 
   private var notebookCanvas: some View {
-    ScrollViewReader { proxy in
+    let sectionRows = NotebookSectionLayout.visibleRows(
+      cells: store.document.cells,
+      collapsedHeadingCellIDs: collapsedHeadingCellIDs
+    )
+
+    return ScrollViewReader { proxy in
       ScrollView {
-        LazyVStack(spacing: 16) {
+        LazyVStack(spacing: 0) {
           backendRecoveryBanner
           NotebookErrorBanner(store: store)
           ExternalFileBanner(store: store)
           saveMessageBanner
           openStateBanner
           executionSetupBanner
+          packageSetupBanner(
+            confirmInstall: { packageInstallConfirmationPresented = true })
           insertionBar(at: 0)
-          ForEach(Array(store.document.cells.enumerated()), id: \.element.runtimeID) {
-            index, cell in
+          ForEach(sectionRows) { row in
+            let index = row.index
+            let cell = row.cell
             CellView(
               cell: cell,
               index: index + 1,
               selected: store.document.selectedCellID == cell.runtimeID,
               focused: store.focusedCellID == cell.runtimeID,
               canRun: canRun,
-              canMoveDown: index < store.document.cells.count - 1,
+              canInterrupt: store.sessionAllowsInterrupt,
+              runDisabledHelp: runDisabledHelp,
+              reorderDragChanged: updateReorderDrag,
+              reorderDragEnded: finishReorderDrag,
+              reportFrame: { id, frame in cellFrames[id] = frame },
+              tracksReorderFrame: draggedCellID != nil,
+              sectionHeadingLevel: row.headingLevel,
+              sectionCollapsed: collapsedHeadingCellIDs.contains(cell.runtimeID),
+              toggleSection: {
+                toggleSection(cell.runtimeID)
+              },
+              attachToAssistant: {
+                presentAssistant(for: cell, index: index + 1)
+              },
+              explainErrorWithAssistant: {
+                presentAssistant(
+                  for: cell, index: index + 1,
+                  prompt: localizedUI("Explain this error and show me how to fix it"))
+              },
+              fixErrorWithAssistant: {
+                presentAssistant(
+                  for: cell, index: index + 1,
+                  prompt: localizedUI(
+                    "Fix this error. Return the complete corrected cell in one Python code block."))
+              },
+              askAssistant: { prompt, selection in
+                presentAssistant(
+                  for: cell, index: index + 1, prompt: prompt, selection: selection)
+              },
+              updateSelection: { selection in
+                store.updateCodeSelection(cellID: cell.runtimeID, selection: selection)
+              },
+              requestCompletions: { source, line, column in
+                await store.pythonCompletions(source: source, line: line, column: column)
+              },
               send: { intent in
                 Task { await store.send(intent) }
               },
@@ -110,118 +230,91 @@ public struct NotebookRootView: View {
               }
             )
             .id(cell.runtimeID)
+            .contextMenu {
+              Menu("Assistant", systemImage: "sparkles") {
+                Button("Explain Code", systemImage: "text.magnifyingglass") {
+                  presentAssistant(
+                    for: cell, index: index + 1,
+                    prompt: localizedUI("Explain this code clearly."),
+                    selection: store.codeSelections[cell.runtimeID])
+                }
+                Button("Fix or Improve Code", systemImage: "wrench.and.screwdriver") {
+                  presentAssistant(
+                    for: cell, index: index + 1,
+                    prompt: localizedUI(
+                      "Fix or improve this code. Return the complete replacement in one Python code block."
+                    ),
+                    selection: store.codeSelections[cell.runtimeID])
+                }
+                Button("Generate Tests", systemImage: "checkmark.seal") {
+                  presentAssistant(
+                    for: cell, index: index + 1,
+                    prompt: localizedUI(
+                      "Generate useful tests for this code and return them in one Python code block."
+                    ),
+                    selection: store.codeSelections[cell.runtimeID])
+                }
+              }
+              Divider()
+              Button("Duplicate Cell", systemImage: "square.on.square") {
+                Task { await store.send(.duplicateCell(cell.runtimeID)) }
+              }
+              Button("Delete Cell", systemImage: "trash", role: .destructive) {
+                Task { await store.send(.deleteCell(cell.runtimeID)) }
+              }
+            }
             insertionBar(at: index + 1)
           }
         }
         .frame(maxWidth: 1_100)
+        .animation(
+          reduceMotion ? nil : .snappy(duration: 0.2),
+          value: store.document.cells.map(\.runtimeID)
+        )
+        .animation(
+          reduceMotion ? nil : .snappy(duration: 0.22),
+          value: collapsedHeadingCellIDs
+        )
         .padding()
         .frame(maxWidth: .infinity)
       }
+      .coordinateSpace(name: "notebookCanvas")
       .onChange(of: store.document.selectedCellID) { _, selected in
         guard let selected else { return }
         proxy.scrollTo(selected, anchor: .center)
       }
     }
-    .background(Color(nsColor: reduceTransparency ? .windowBackgroundColor : .textBackgroundColor))
     .accessibilityLabel("Notebook canvas")
     .background(NotebookWindowLifecycleView(store: store))
   }
 
-  @ToolbarContentBuilder
-  private var notebookToolbar: some ToolbarContent {
-    ToolbarItem {
-      environmentMenu
-        .help("Python Environment")
-    }
-    ToolbarItemGroup {
-      Button {
-        Task { await store.requestRunAll() }
-      } label: {
-        Label("Run All", systemImage: "play.fill")
-          .labelStyle(.titleAndIcon)
-      }
-      .buttonStyle(.borderedProminent)
-      .disabled(!canRun)
-      .help("Run All (⇧⌘↩)")
-      .accessibilityLabel("Run All")
-      if store.backendStatus == .ready {
-        if store.forceRestartAvailable {
-          Button(
-            "Force Restart Kernel",
-            systemImage: "exclamationmark.arrow.triangle.2.circlepath"
-          ) {
-            Task { await store.requestRestartKernel() }
-          }
-          .disabled(!store.sessionAllowsRestart)
-        } else if store.sessionState == .running || store.sessionState == .interrupting {
-          Button("Interrupt", systemImage: "stop.fill") {
-            Task { await store.requestInterrupt() }
-          }
-          .disabled(!store.sessionAllowsInterrupt)
-          .help("Interrupt (⌘.)")
-          .accessibilityLabel("Interrupt")
-        } else {
-          Button("Restart Kernel", systemImage: "arrow.triangle.2.circlepath") {
-            Task { await store.requestRestartKernel() }
-          }
-          .disabled(!store.sessionAllowsRestart)
-          .help("Restart Kernel")
-          .accessibilityLabel("Restart Kernel")
-        }
-      } else {
-        Button("Restart Backend", systemImage: "arrow.clockwise") {
-          Task { await store.startBackend() }
-        }
-      }
-      Button("Toggle Inspector", systemImage: "sidebar.right") {
-        store.inspectorPresented.toggle()
-      }
-      .help("Toggle Inspector (⌥⌘I)")
-      .accessibilityLabel("Toggle Inspector")
-    }
-    ToolbarItem(placement: .primaryAction) {
-      Button("Notebook Assistant", systemImage: "sparkles") {
-        assistantPresented = true
-      }
-      .help("On-device Notebook Assistant")
-      .accessibilityLabel("Notebook Assistant")
+  @ViewBuilder
+  private var editorBackground: some View {
+    if reduceTransparency {
+      Color(nsColor: .windowBackgroundColor)
+    } else {
+      NotebookWindowMaterial(material: .contentBackground)
+        .overlay(Color(nsColor: .windowBackgroundColor).opacity(0.25))
+        .allowsHitTesting(false)
     }
   }
 
   @ViewBuilder
-  private var backendRecoveryBanner: some View {
-    if store.backendRecoveryStopped {
-      VStack(alignment: .leading, spacing: 8) {
-        Label("Backend restart limit reached", systemImage: "exclamationmark.triangle.fill")
-          .font(.headline)
-        Text("Automatic restart stopped after three attempts in 60 seconds.")
-          .foregroundStyle(.secondary)
-        HStack {
-          Button("Open Logs") { store.backendLogsPresented = true }
-          Button("Restart Backend") { Task { await store.startBackend() } }
-        }
-      }
-      .padding()
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+  private var sidebarBackground: some View {
+    if reduceTransparency {
+      Color(nsColor: .windowBackgroundColor)
+    } else {
+      NotebookWindowMaterial()
+        .allowsHitTesting(false)
     }
-  }
-
-  private var backendLogSheet: some View {
-    NotebookLogReviewView(store: store)
-  }
-
-  private var documentTitle: String {
-    store.document.sourceURL?.lastPathComponent ?? "Untitled"
-  }
-
-  private var canRun: Bool {
-    store.environmentAllowsExecutionRequest && store.backendStatus == .ready
-      && store.sessionAllowsRun && store.documentAllowsExecution
   }
 
   private func handle(_ command: CodeEditorCommand, cellID: UUID) {
     switch command {
+    case .openInlineAssistant:
+      break
+    case .askAssistant:
+      break
     case .leaveEditor:
       store.leaveEditor()
     case .moveUp:
@@ -255,95 +348,30 @@ public struct NotebookRootView: View {
     )
   }
 
-  private var environmentMenu: some View {
-    Menu {
-      ForEach(store.environmentCandidates) { candidate in
-        Button {
-          Task { await store.selectPythonEnvironment(candidate) }
-        } label: {
-          Label(candidate.executableURL.path, systemImage: "terminal")
-        }
-      }
-      if !store.environmentCandidates.isEmpty { Divider() }
-      Button("Choose Python Executable…") {
-        NotebookEnvironmentActions.chooseExecutable(for: store)
-      }
-      Button("Choose Working Directory…") {
-        NotebookEnvironmentActions.chooseWorkingDirectory(for: store)
-      }
-    } label: {
-      Image(systemName: "terminal")
-    }
-    .accessibilityLabel("Python Environment")
-    .accessibilityValue(environmentLabel)
-  }
-
-  private var environmentLabel: String {
-    switch store.environmentState {
-    case .notConfigured: localizedUI("No Python Environment")
-    case .selected: localizedUI("Python Environment · Not Inspected")
-    case .checking: localizedUI("Checking Python…")
-    case .invalid: localizedUI("Invalid Python Environment")
-    case .needsWorkingDirectory(let details):
-      localizedUI("Python %@ · Choose Folder", details.pythonVersion.description)
-    case .ready(let details, _): "Python \(details.pythonVersion) · marimo \(details.marimoVersion)"
-    }
-  }
-
-  @ViewBuilder
-  private var executionSetupBanner: some View {
-    switch store.environmentState {
-    case .ready:
-      EmptyView()
-    case .checking:
-      HStack(spacing: 10) {
-        ProgressView().controlSize(.small)
-        Text("Checking Python…")
-        Spacer()
-        Button("Settings…") { openSettings() }
-      }
-      .executionSetupBannerStyle()
-    case .notConfigured:
-      environmentGuidance(
-        title: "Choose a Python environment",
-        message: "Select the Python installation and folder that will run this notebook."
-      )
-    case .selected:
-      environmentGuidance(
-        title: "Python has not been checked",
-        message: "The first Run checks Python and marimo, then asks before executing code."
-      )
-    case .needsWorkingDirectory:
-      environmentGuidance(
-        title: "Choose a working folder",
-        message: "Python is valid. Select the folder used when this notebook runs."
-      )
-    case .invalid(_, let failure):
-      environmentGuidance(title: "Python cannot run this notebook", message: failure.userMessage)
-    }
-  }
-
-  private func environmentGuidance(title: String, message: String) -> some View {
-    HStack(alignment: .top, spacing: 12) {
-      Image(systemName: "terminal")
-        .font(.title3)
-        .foregroundStyle(.secondary)
-        .accessibilityHidden(true)
-      VStack(alignment: .leading, spacing: 3) {
-        Text(title).font(.headline)
-        Text(message).font(.callout).foregroundStyle(.secondary)
-      }
-      Spacer()
-      Button("Settings…") { openSettings() }
-    }
-    .executionSetupBannerStyle()
-  }
-
   private func move(_ cellID: UUID, offset: Int) {
     guard let index = store.document.cells.firstIndex(where: { $0.runtimeID == cellID }) else {
       return
     }
     Task { await store.send(.moveCell(cellID, to: index + offset)) }
+  }
+
+  private func toggleSection(_ cellID: UUID) {
+    let willCollapse = !collapsedHeadingCellIDs.contains(cellID)
+    if willCollapse {
+      collapsedHeadingCellIDs.insert(cellID)
+    } else {
+      collapsedHeadingCellIDs.remove(cellID)
+    }
+
+    guard willCollapse, let selectedCellID = store.document.selectedCellID else { return }
+    let visibleCellIDs = Set(
+      NotebookSectionLayout.visibleRows(
+        cells: store.document.cells,
+        collapsedHeadingCellIDs: collapsedHeadingCellIDs
+      ).map(\.id)
+    )
+    guard !visibleCellIDs.contains(selectedCellID) else { return }
+    Task { await store.send(.selectCell(cellID)) }
   }
 
   private func insertionBar(at position: Int) -> some View {
@@ -352,14 +380,45 @@ public struct NotebookRootView: View {
       insertCode: {
         Task { await store.send(.insertCellAt(position)) }
       },
-      moveCell: { cellID, destination in
-        guard let source = store.document.cells.firstIndex(where: { $0.runtimeID == cellID }) else {
-          return
-        }
-        let adjustedDestination = source < destination ? destination - 1 : destination
-        Task { await store.send(.moveCell(cellID, to: adjustedDestination)) }
-      }
+      insertText: {
+        Task { await store.send(.insertTextCellAt(position)) }
+      },
+      reorderTargeted: draggedCellID != nil && reorderBoundary == position
     )
+  }
+
+  private func updateReorderDrag(_ cellID: UUID, _ locationY: CGFloat) {
+    if draggedCellID == nil { cellFrames.removeAll(keepingCapacity: true) }
+    draggedCellID = cellID
+    reorderBoundary = insertionBoundary(at: locationY, excluding: cellID)
+  }
+
+  private func finishReorderDrag(_ cellID: UUID, _ locationY: CGFloat) {
+    let destination = insertionBoundary(at: locationY, excluding: cellID)
+    draggedCellID = nil
+    reorderBoundary = nil
+    cellFrames.removeAll(keepingCapacity: true)
+    reorderCell(cellID, destination)
+  }
+
+  private func insertionBoundary(at locationY: CGFloat, excluding cellID: UUID) -> Int {
+    for (index, cell) in store.document.cells.enumerated() where cell.runtimeID != cellID {
+      guard let frame = cellFrames[cell.runtimeID] else { continue }
+      if locationY < frame.midY { return index }
+    }
+    return store.document.cells.count
+  }
+
+  private func reorderCell(_ cellID: UUID, _ destination: Int) {
+    guard let source = store.document.cells.firstIndex(where: { $0.runtimeID == cellID }) else {
+      return
+    }
+    guard
+      let adjustedDestination = CellReorderPosition.destination(
+        source: source, insertionBoundary: destination, count: store.document.cells.count
+      )
+    else { return }
+    Task { await store.send(.moveCell(cellID, to: adjustedDestination)) }
   }
 
   @ViewBuilder
@@ -408,13 +467,5 @@ public struct NotebookRootView: View {
         description: Text(message)
       )
     }
-  }
-}
-
-extension View {
-  fileprivate func executionSetupBannerStyle() -> some View {
-    padding(12)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
   }
 }

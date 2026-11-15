@@ -142,6 +142,8 @@ extension NotebookStore {
     }
     for index in indices {
       document.cells[index].runtime.lastExecutedCode = document.cells[index].code
+      document.cells[index].runtime.status = .queued
+      document.cells[index].runtime.stale = false
     }
 
     if document.kernelSessionID == nil {
@@ -163,6 +165,10 @@ extension NotebookStore {
       sessionResolutionTask = nil
       runAwaitingCompletion = false
       sessionState = .failed(String(describing: error))
+      for index in document.cells.indices where cellIDs.contains(document.cells[index].runtimeID) {
+        document.cells[index].runtime.status = .idle
+        document.cells[index].runtime.stale = true
+      }
       throw error
     }
   }
@@ -192,7 +198,11 @@ extension NotebookStore {
     guard document.kernelSessionID == nil else { return }
     do {
       let sessions = try await backend.listSessions()
-      guard let match = sessions.first(where: { $0.notebookURI == document.notebookURI }) else {
+      guard
+        let match = sessions.first(where: {
+          $0.notebookURI == document.notebookURI && !retiredKernelSessionIDs.contains($0.sessionID)
+        })
+      else {
         if sessionState != .closed { sessionState = .notStarted }
         return
       }
@@ -212,11 +222,13 @@ extension NotebookStore {
   }
 
   func resetSessionState(to state: NotebookSessionState) {
+    clearRuntimePackageAlert()
     sessionResolutionTask?.cancel()
     sessionResolutionTask = nil
     completionRefreshTask?.cancel()
     completionRefreshTask = nil
     pendingRunRequest = nil
+    retiredKernelSessionIDs.removeAll()
     runAwaitingCompletion = false
     interruptTimeoutTask?.cancel()
     interruptTimeoutTask = nil
@@ -257,11 +269,14 @@ extension NotebookStore {
     sessionResolutionTask = Task { @MainActor [weak self] in
       try? await Task.sleep(for: timeout)
       guard !Task.isCancelled, let self, self.document.kernelSessionID == nil,
-        self.sessionState == .starting
+        self.sessionState == .starting || self.sessionState == .restarting
       else { return }
       do {
         let sessions = try await self.backend.listSessions()
-        if let match = sessions.first(where: { $0.notebookURI == self.document.notebookURI }) {
+        if let match = sessions.first(where: {
+          $0.notebookURI == self.document.notebookURI
+            && !self.retiredKernelSessionIDs.contains($0.sessionID)
+        }) {
           self.acceptSession(match.sessionID)
           self.sessionState =
             self.runAwaitingCompletion || match.status == "running" ? .running : .idle
@@ -290,7 +305,11 @@ extension NotebookStore {
       guard document.kernelSessionID == nil,
         sessionState == .starting || sessionState == .restarting
       else { return }
-      guard let match = sessions.first(where: { $0.notebookURI == document.notebookURI }) else {
+      guard
+        let match = sessions.first(where: {
+          $0.notebookURI == document.notebookURI && !retiredKernelSessionIDs.contains($0.sessionID)
+        })
+      else {
         return
       }
       let wasRestarting = sessionState == .restarting
@@ -299,7 +318,9 @@ extension NotebookStore {
         sessionState = match.status == "running" ? .running : .idle
       }
     case .kernel(let event):
-      guard event.notebookURI == document.notebookURI else { return }
+      guard event.notebookURI == document.notebookURI,
+        !retiredKernelSessionIDs.contains(event.sessionID)
+      else { return }
       if let current = document.kernelSessionID {
         guard current == event.sessionID else { return }
       } else {
@@ -345,6 +366,18 @@ extension NotebookStore {
         runAwaitingCompletion = false
         sessionState = .failed(message)
         presentKernelStartError(message, sessionID: event.sessionID)
+      case "missing-package-alert":
+        if (event.payload.string(for: "source") ?? "kernel") == "kernel",
+          case .array(let values)? = event.payload["packages"]
+        {
+          runtimePackageAlertSessionID = event.sessionID
+          missingPackages = values.compactMap { value in
+            guard case .string(let package) = value else { return nil }
+            return package
+          }
+        }
+      case "installing-package-alert":
+        break
       default:
         break
       }
@@ -371,120 +404,4 @@ extension NotebookStore {
     }
   }
 
-  func applyCellOperation(
-    _ payload: [String: JSONValue],
-    executedSource: String?,
-    replacingConsole: Bool = false
-  ) {
-    guard let cellID = payload.string(for: "cell_id"),
-      let index = document.cells.firstIndex(where: { $0.runtimeID.uuidString == cellID })
-    else {
-      MarimoLog.kernel.debug("Ignoring cell-op for an unknown cell")
-      return
-    }
-    var runtime = document.cells[index].runtime
-    if payload.keys.contains("output") {
-      if let value = payload["output"], value != .null {
-        runtime.output = decodeOutput(value, defaultChannel: .output)
-        runtime.stale = false
-      } else {
-        runtime.output = nil
-      }
-      let descriptors = sliderDescriptors(from: runtime.output)
-      widgetValueStore.synchronize(cellID: cellID, descriptors: descriptors)
-      runtime.widgetIDs = descriptors.map(\.objectID)
-    }
-    if let console = payload["console"] {
-      if let prompt = stdinPrompt(from: console) { runtime.stdinPrompt = prompt }
-      switch console {
-      case .array(let values):
-        if values.isEmpty || replacingConsole {
-          runtime.console.removeAll()
-        }
-        if !values.isEmpty {
-          appendConsole(values, to: &runtime)
-        }
-      case .null:
-        break
-      default:
-        appendConsole([console], to: &runtime)
-      }
-    }
-    if let status = payload.string(for: "status"), let accepted = ExecutionStatus(rawValue: status),
-      accepted != .error
-    {
-      runtime.status = accepted
-      if accepted == .queued || accepted == .running { sessionState = .running }
-    }
-    if let stale = payload.bool(for: "stale_inputs") { runtime.stale = stale }
-    if let executedSource { runtime.lastExecutedCode = executedSource }
-    document.cells[index].runtime = runtime
-  }
-
-  private func appendConsole(_ values: [JSONValue], to runtime: inout CellRuntimeState) {
-    let decoded = values.map { decodeOutput($0, defaultChannel: .stdout) }
-    var buffer = ConsoleOutputBuffer(outputs: runtime.console)
-    buffer.append(contentsOf: decoded)
-    runtime.console = buffer.outputs
-  }
-
-  private func decodeOutput(
-    _ value: JSONValue,
-    defaultChannel: OutputChannel
-  ) -> MarimoOutput {
-    if case .string = value {
-      return MarimoOutput(channel: defaultChannel, mimeType: "text/plain", data: value)
-    }
-    do {
-      return try MarimoOutput.decodeWireValue(value)
-    } catch MarimoOutputDecodingError.payloadTooLarge(let limit) {
-      MarimoLog.output.error("Rejected output larger than \(limit, privacy: .public) bytes")
-      return MarimoOutput(
-        channel: defaultChannel,
-        mimeType: "application/vnd.marimonative+renderer-error",
-        data: .object([
-          "message": .string("Output payload exceeds the \(limit)-byte limit."),
-          "size": .integer(Int64(value.estimatedUTF8ByteCount(upTo: Int.max))),
-        ])
-      )
-    } catch {
-      MarimoLog.output.error("Could not decode an output payload")
-      return MarimoOutput.displayFailure(error, rawValue: value, channel: defaultChannel)
-    }
-  }
-
-  private func stdinPrompt(from value: JSONValue) -> StdinPromptState? {
-    let values: [JSONValue]
-    if case .array(let array) = value { values = array } else { values = [value] }
-    for value in values.reversed() {
-      guard case .object(let object) = value,
-        object.string(for: "channel") == "stdin"
-      else { continue }
-      return StdinPromptState(
-        prompt: object.string(for: "data") ?? "",
-        password: object.string(for: "mimetype") == "text/password"
-      )
-    }
-    return nil
-  }
-}
-
-extension Dictionary where Key == String, Value == JSONValue {
-  func string(for key: String) -> String? {
-    guard case .string(let value)? = self[key] else { return nil }
-    return value
-  }
-
-  func bool(for key: String) -> Bool? {
-    guard case .bool(let value)? = self[key] else { return nil }
-    return value
-  }
-
-  func number(for key: String) -> Double? {
-    switch self[key] {
-    case .integer(let value): Double(value)
-    case .number(let value): value
-    default: nil
-    }
-  }
 }

@@ -19,19 +19,33 @@ public struct PythonVersion: Codable, Sendable, Equatable, Comparable, CustomStr
 }
 
 public enum PythonEnvironmentKind: String, Codable, Sendable, Equatable {
+  case bundled
+  case applicationSharedEnvironment
+  case projectManagedEnvironment
   case notebookVirtualEnvironment
   case workspaceVirtualEnvironment
   case savedWorkspaceSelection
   case userSelected
+  case detected
 
   public var displayName: String {
     switch self {
+    case .bundled: "Built-in Python"
+    case .applicationSharedEnvironment: "Shared Environment"
+    case .projectManagedEnvironment: "Project Environment"
     case .notebookVirtualEnvironment: "Notebook .venv"
     case .workspaceVirtualEnvironment: "Workspace .venv"
     case .savedWorkspaceSelection: "Saved workspace selection"
     case .userSelected: "User selected"
+    case .detected: "Detected Python"
     }
   }
+}
+
+public enum PythonEnvironmentAvailability: Sendable, Equatable {
+  case checking
+  case ready(PythonEnvironmentDetails)
+  case unavailable(PythonPreflightFailure)
 }
 
 public struct ExecutableIdentity: Codable, Sendable, Equatable {
@@ -120,6 +134,7 @@ public enum PythonPreflightFailure: Error, Sendable, Equatable {
   case stderrLimitExceeded
   case nonzeroExit(Int32)
   case invalidJSON
+  case marimoNotInstalled
   case executableMismatch(expected: URL, reported: URL)
   case unsupportedPython(PythonVersion)
   case unsupportedArchitecture(String)
@@ -135,6 +150,7 @@ public enum PythonPreflightFailure: Error, Sendable, Equatable {
     case .stderrLimitExceeded: "Python preflight stderr exceeded 64 KiB."
     case .nonzeroExit(let status): "Python preflight exited with status \(status)."
     case .invalidJSON: "Python preflight returned invalid JSON."
+    case .marimoNotInstalled: "marimo 0.24.0 is not installed in this Python environment."
     case .executableMismatch(let expected, let reported):
       "Python reported a different executable (expected \(expected.path), got \(reported.path))."
     case .unsupportedPython(let version):

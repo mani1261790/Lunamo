@@ -1,24 +1,78 @@
-# MarimoNative
+<p align="center">
+  <img src="MarimoNative/Resources/AppIcon-1024.png" alt="Lunamo のアプリアイコン" width="128" height="128">
+</p>
 
-MarimoNative is a native macOS client for opening, editing, and running marimo notebooks. The implementation follows `MarimoNative_Strict_Specification_v1.0.md`.
+<h1 align="center">Lunamo</h1>
 
-## Local development
+<p align="center">
+  <strong>ひらめきを、Python とひとつのノートに。</strong><br>
+  Mac のための marimo ノートブックアプリ。
+</p>
 
-The project requires macOS 26 or later, Apple Silicon, and Swift 6.2 or later.
+<p align="center">
+  macOS 26+ · Apple Silicon · 日本語 / English
+</p>
+
+**Lunamo（ルナモ）** は、Python のコードと実行結果、Markdown の文章を一緒に扱える macOS ネイティブの marimo クライアントです。手元のノートブックを開き、編集・実行しながら、分析の過程や気づきを残せます。
+
+### marimo とは
+
+[marimo](https://marimo.io/) は、**Jupyter Notebook のように、コードをセルごとに実行しながら結果や説明文をまとめられる**、オープンソースの Python ノートブックです。保存されるファイルは **通常の Python ファイル（`.py`）** なので、Git で変更を追ったり、Python スクリプトとして実行したりできます。
+
+セル同士の依存関係を把握し、あるセルを実行すると、その結果に依存するセルも自動で再計算できるのも特長です。Lunamo は、この marimo のノートブックを Mac のネイティブ UI で使うためのアプリです。
+
+## 主な機能
+
+
+
+- **ノートブックの編集・実行** — Python のコード補完、Markdown の編集、セルごとの実行結果の表示。
+- **既存ファイルの取り込み** — marimo の `.py` に対応。Jupyter の `.ipynb` や通常の Python スクリプトも、元のファイルを残して marimo 形式に変換できます。
+- **Python 環境の管理** — 実行環境を同梱し、設定画面からパッケージの追加やプロジェクトごとの環境管理ができます。
+- **内蔵ターミナルとファイル一覧** — ノートブックと同じウィンドウで、作業フォルダやコマンドを扱えます。
+- **オンデバイスのアシスタント** — コードの説明や修正案を相談し、提案を確認してから適用できます。Apple Intelligence が利用可能な環境で使えます。
+
+## 対応環境
+
+| 項目 | 要件 |
+| --- | --- |
+| OS | macOS 26 以降 |
+| Mac | Apple Silicon 搭載モデル |
+| UI の言語 | 日本語・英語 |
+| アシスタント | Apple Intelligence が有効で、システムモデルが利用可能なこと |
+
+Python や marimo をあらかじめ個別にインストールする必要はありません。分析に使う追加パッケージは、アプリの設定画面からインストールできます。アシスタントを利用できない環境でも、ノートブックの編集・実行は使えます。
+
+## インストール
+
+[Lunamo 0.1.0（DMG）](https://github.com/mani1261790/Lunamo/releases/download/v0.1.0/Lunamo-0.1.0.dmg) を開き、LunamoをApplicationsフォルダにドラッグしてください。更新はLunamoメニューの「アップデートを確認」から確認できます。
+
+### ソースからビルドする
+
+公開ソースのビルドには、**Swift 6.2 以降を含む Xcode** とインターネット接続が必要です。Xcode の初回セットアップを済ませてから、ターミナルで実行します。
 
 ```sh
-DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer swift build
-DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer swift test
-DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer xcrun swift-format lint --recursive --strict MarimoNative Tests Package.swift
-./Tools/verify-source-policy.sh
+git clone https://github.com/mani1261790/Lunamo.git
+cd Lunamo
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 ./Tools/build-sidecar.sh
-./Tools/verify-sidecar.sh
-./Tools/smoke-sidecar.py .build/Sidecar --deny-network --runtime-acceptance
 ./Tools/build-debug-app.sh
-./Tools/verify-gate-a.sh
-./Tools/verify-current-gates.sh
+open .build/Lunamo.app
 ```
 
-`verify-gate-a.sh` preserves the frozen Gate A check. `verify-current-gates.sh` verifies every implemented gate manifest and is the command used by CI.
+Xcode を別の場所に置いている場合は、`DEVELOPER_DIR` を変更してください。初回に Python などの必要なファイルを取得し、アプリに同梱します。`build-sidecar.sh` は初回のみ実行します。
 
-The current Swift Package executable is the build and test foundation. Gate F adds the signed application bundle and distribution pipeline.
+
+
+## 最初のノートを動かす
+
+
+
+1. 新しいノートブックを作るか、手元の marimo `.py` ファイルを開きます。`.ipynb` や通常の Python スクリプトを開いた場合は、変換後の `.py` の保存先を選びます。
+2. コードセルに `print("Hello, Lunamo!")` と入力し、セルの実行ボタンを押します。
+3. 結果が表示されたら、ノートに名前を付けて保存します。保存形式は marimo の `.py` です。
+
+必要なパッケージが見つからないときは、設定画面でノートブックの環境を確認し、追加してください。取り込んだ Jupyter ノートブックのパッケージも、自動ではインストールされません。
+
+## フィードバック
+
+不具合や機能のリクエストは [Issues](https://github.com/mani1261790/Lunamo/issues) へ。不具合の場合は、macOS のバージョンと再現手順を添えてください。

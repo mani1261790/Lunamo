@@ -103,9 +103,16 @@ public func executableIdentity(at url: URL) throws -> ExecutableIdentity {
 
 public actor PythonEnvironmentDiscovery {
   private let store: WorkspaceEnvironmentStore
+  private let searchSystem: Bool
+  private let bundledPythonURL: URL?
 
-  public init(store: WorkspaceEnvironmentStore = WorkspaceEnvironmentStore()) {
+  public init(
+    store: WorkspaceEnvironmentStore = WorkspaceEnvironmentStore(), searchSystem: Bool = true,
+    bundledPythonURL: URL? = nil
+  ) {
     self.store = store
+    self.searchSystem = searchSystem
+    self.bundledPythonURL = bundledPythonURL
   }
 
   public func candidates(for notebookURL: URL) async -> [PythonEnvironmentCandidate] {
@@ -135,9 +142,46 @@ public actor PythonEnvironmentDiscovery {
         )
       )
     }
+    if let bundledPythonURL {
+      appendIfExecutable(bundledPythonURL, kind: .bundled, to: &candidates)
+    }
+    if searchSystem {
+      let home = FileManager.default.homeDirectoryForCurrentUser
+      var directories = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"]
+      directories += (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(
+        String.init
+      ).filter { $0.hasPrefix("/") }
+      for root in [
+        home.appending(path: ".pyenv/versions"), home.appending(path: ".local/share/uv/python"),
+        home.appending(path: "miniconda3/envs"), home.appending(path: "anaconda3/envs"),
+        URL(fileURLWithPath: "/Library/Frameworks/Python.framework/Versions"),
+      ] {
+        let children =
+          (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil))
+          ?? []
+        directories += children.sorted { $0.path < $1.path }.prefix(64).map {
+          $0.appending(path: "bin").path
+        }
+      }
+      directories += ["miniconda3/bin", "anaconda3/bin", "miniforge3/bin"].map {
+        home.appending(path: $0).path
+      }
+      for directory in Set(directories).sorted() {
+        for name in [
+          "python", "python3", "python3.14", "python3.13", "python3.12", "python3.11", "python3.10",
+        ] {
+          appendIfExecutable(
+            URL(fileURLWithPath: directory).appending(path: name), kind: .detected, to: &candidates)
+        }
+      }
+    }
     var seen: Set<String> = []
     return candidates.filter {
-      seen.insert(normalizedExecutableURL($0.executableURL).path).inserted
+      let identity =
+        $0.kind == .detected
+        ? "detected:\(canonicalURL($0.executableURL).path)"
+        : "\($0.kind.rawValue):\(normalizedExecutableURL($0.executableURL).path)"
+      return seen.insert(identity).inserted
     }
   }
 

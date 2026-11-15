@@ -7,7 +7,7 @@ enum NotebookEnvironmentActions {
     let panel = NSOpenPanel()
     panel.title = "Choose Python Executable"
     panel.message =
-      "Select a Python executable. MarimoNative will inspect it without installing packages."
+      "Select a Python executable. Lunamo will inspect it without installing packages."
     panel.prompt = "Choose Python"
     panel.canChooseDirectories = false
     panel.canChooseFiles = true

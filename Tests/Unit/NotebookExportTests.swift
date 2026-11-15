@@ -1,8 +1,9 @@
 import Foundation
-import MarimoApplication
 import MarimoBackend
 import MarimoDomain
 import Testing
+
+@testable import MarimoApplication
 
 private enum ExportEvent: Sendable, Equatable {
   case theme(NotebookDisplayTheme)
@@ -88,6 +89,31 @@ struct NotebookExportTests {
     #expect(store.backendLogsPresented)
     #expect(store.reviewableLogText.contains("~/secret/project.py"))
     #expect(!store.reviewableLogText.contains(FileManager.default.homeDirectoryForCurrentUser.path))
+  }
+
+  @Test("Default diagnostics exclude private data and save exactly the reviewed text")
+  func diagnosticSummaryAllowlist() async throws {
+    let directory = temporaryDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let secret = "PRIVATE_SENTINEL_927"
+    var cell = NotebookCellState(code: secret)
+    cell.runtime.output = MarimoOutput(
+      channel: .stdout, mimeType: "text/plain", data: .string(secret))
+    let store = NotebookStore(
+      backend: ExportBackend(),
+      document: NotebookDocumentState(
+        sourceURL: directory.appending(path: secret + ".py"), cells: [cell], kernelSessionID: secret
+      ))
+    store.sessionState = .failed(secret)
+    store.backendLogs = [secret]
+    let summary = store.diagnosticSummary
+    #expect(summary.contains("Session state: failed"))
+    #expect(!summary.contains(secret))
+    #expect(!summary.contains(directory.path))
+    let reviewed = summary + "\nUser reviewed note."
+    let destination = directory.appending(path: "diagnostic.log")
+    try store.saveReviewedDiagnostics(reviewed, to: destination)
+    #expect(try String(contentsOf: destination, encoding: .utf8) == reviewed)
   }
 
   private func temporaryDirectory() -> URL {

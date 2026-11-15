@@ -29,15 +29,15 @@ enum NotebookExportActions {
 
 @MainActor
 enum NotebookLogExportActions {
-  static func saveReviewedLog(_ store: NotebookStore) {
+  static func saveReviewedLog(_ store: NotebookStore, text: String) {
     let panel = NSSavePanel()
     panel.canCreateDirectories = true
     if let type = UTType(filenameExtension: "log") { panel.allowedContentTypes = [type] }
-    panel.nameFieldStringValue = "MarimoNative-diagnostic.log"
+    panel.nameFieldStringValue = "Lunamo-diagnostic.log"
     panel.begin { response in
       guard response == .OK, let destination = panel.url else { return }
       do {
-        try Data(store.reviewableLogText.utf8).write(to: destination, options: .atomic)
+        try store.saveReviewedDiagnostics(text, to: destination)
       } catch {
         store.reportExportFailure(error, destination: destination)
       }

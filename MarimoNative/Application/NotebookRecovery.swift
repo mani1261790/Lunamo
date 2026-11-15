@@ -28,6 +28,9 @@ extension NotebookStore {
   public var sessionAllowsRestart: Bool {
     guard backendStatus == .ready else { return false }
     guard case .ready = environmentState else { return false }
+    // A failed start/restart may have already cleared its session identifier.
+    // Keep explicit recovery available without enabling automatic execution.
+    if case .failed = sessionState { return true }
     guard document.kernelSessionID != nil else { return false }
     return sessionState != .starting && sessionState != .restarting && sessionState != .closed
   }
@@ -69,10 +72,16 @@ extension NotebookStore {
     guard sessionAllowsRestart else { return }
     guard case .ready(let details, let workingDirectory) = environmentState else { return }
 
+    let needsSessionCreation = document.kernelSessionID == nil
+    clearRuntimePackageAlert()
+
     interruptTimeoutTask?.cancel()
     interruptTimeoutTask = nil
     forceRestartAvailable = false
     runAwaitingCompletion = false
+    completionRefreshTask?.cancel()
+    completionRefreshTask = nil
+    if let previous = document.kernelSessionID { retiredKernelSessionIDs.insert(previous) }
     document.kernelSessionID = nil
     widgetValueStore.clear()
     variables = []
@@ -87,7 +96,7 @@ extension NotebookStore {
         notebookURI: document.notebookURI,
         executable: details.executableURL.path,
         workingDirectory: workingDirectory.path,
-        createIfMissing: createIfMissing
+        createIfMissing: createIfMissing || needsSessionCreation
       )
     } catch {
       sessionResolutionTask?.cancel()
@@ -116,7 +125,10 @@ extension NotebookStore {
   }
 
   func handleBackendDisconnected() {
+    clearRuntimePackageAlert()
     backendStatus = .unavailable
+    completionRefreshTask?.cancel()
+    completionRefreshTask = nil
     interruptTimeoutTask?.cancel()
     interruptTimeoutTask = nil
     sessionResolutionTask?.cancel()
@@ -135,6 +147,7 @@ extension NotebookStore {
     )
     for index in document.cells.indices {
       document.cells[index].runtime.status = .idle
+      document.cells[index].runtime.stale = true
       document.cells[index].runtime.widgetIDs = []
       document.cells[index].runtime.stdinPrompt = nil
     }

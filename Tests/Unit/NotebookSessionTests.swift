@@ -18,11 +18,15 @@ private actor SessionBackend: MarimoBackend {
     let values: [JSONValue]
   }
 
+  private var failRestart = false
+  private var failExecution = false
   private var ready = false
   private var executions: [Execution] = []
   private var listCount = 0
   private var sessions: [MarimoSessionInfo] = []
   private var replays: [MarimoCellReplay] = []
+  private var replayDelay: Duration = .zero
+  private var replayReadStarted = false
   private var interruptCalls: [(String, String)] = []
   private var restartCalls: [(String, String, String, Bool)] = []
   private var stdinCalls: [(String, String, String)] = []
@@ -48,7 +52,8 @@ private actor SessionBackend: MarimoBackend {
     executable _: String,
     workingDirectory _: String,
     cells: [NotebookExecutionCell]
-  ) {
+  ) throws {
+    if failExecution { throw NSError(domain: "ExecutionTransportTest", code: 1) }
     executions.append(Execution(notebookURI: notebookURI, cells: cells))
   }
   func updateUIElement(
@@ -70,7 +75,18 @@ private actor SessionBackend: MarimoBackend {
     listCount += 1
     return sessions
   }
-  func readNotebookOutputs(notebookURI _: String) -> [MarimoCellReplay] { replays }
+  func readNotebookOutputs(notebookURI _: String) async -> [MarimoCellReplay] {
+    replayReadStarted = true
+    let snapshot = replays
+    try? await Task.sleep(for: replayDelay)
+    return snapshot
+  }
+  func delayReplayReads() {
+    replayDelay = .seconds(1)
+    replayReadStarted = false
+  }
+  func hasStartedReplayRead() -> Bool { replayReadStarted }
+
   func didOpenNotebook(_: NotebookSyncSnapshot) { openCount += 1 }
   func interrupt(notebookURI: String, kernelSessionID: String) {
     interruptCalls.append((notebookURI, kernelSessionID))
@@ -80,8 +96,9 @@ private actor SessionBackend: MarimoBackend {
     executable: String,
     workingDirectory: String,
     createIfMissing: Bool
-  ) {
+  ) throws {
     restartCalls.append((notebookURI, executable, workingDirectory, createIfMissing))
+    if failRestart { throw NSError(domain: "RestartTransportTest", code: 1) }
   }
   func sendStdin(notebookURI: String, kernelSessionID: String, text: String) {
     stdinCalls.append((notebookURI, kernelSessionID, text))
@@ -89,6 +106,8 @@ private actor SessionBackend: MarimoBackend {
   func shutdown() { ready = false }
 
   func emit(_ event: MarimoBackendEvent) { continuation.yield(event) }
+  func setRestartFailure(_ value: Bool) { failRestart = value }
+  func setExecutionFailure(_ value: Bool) { failExecution = value }
   func recordedExecutions() -> [Execution] { executions }
   func recordedListCount() -> Int { listCount }
   func setSessions(_ value: [MarimoSessionInfo]) { sessions = value }
@@ -240,6 +259,14 @@ struct NotebookSessionTests {
     await backend.emit(
       .kernel(
         MarimoKernelEvent(
+          notebookURI: store.document.notebookURI, sessionID: "session-1", operation: "cell-op",
+          payload: ["cell_id": .string(first.uuidString), "status": .string("idle")]
+        )))
+    await eventually { store.document.cells[0].runtime.status == .idle }
+    #expect(store.sessionState == .running)
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
           notebookURI: store.document.notebookURI,
           sessionID: "session-1",
           operation: "completed-run",
@@ -386,6 +413,117 @@ struct NotebookSessionTests {
     )
     await Task.yield()
     #expect(store.document.cells[0].runtime == unchanged)
+  }
+
+  @Test("cell-op preserves an execution error for the cell controls")
+  func cellOperationPreservesExecutionError() async {
+    let (store, backend, _, _) = await configuredStore()
+    let cellID = store.document.cells[0].runtimeID
+
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "session-1",
+          operation: "cell-op",
+          payload: [
+            "cell_id": .string(cellID.uuidString),
+            "status": .string("error"),
+          ]
+        )
+      )
+    )
+
+    await eventually { store.document.cells[0].runtime.status == .error }
+  }
+
+  @Test("An error output followed by idle is not successful; a successful rerun clears it")
+  func idleAfterErrorOutput() async {
+    let (store, backend, _, _) = await configuredStore()
+    let cell = store.document.cells[0]
+    await store.send(
+      .updateRuntime(
+        cellID: cell.runtimeID,
+        runtime: CellRuntimeState(status: .running, lastExecutedCode: cell.code)
+      ))
+    func emit(_ fields: [String: JSONValue]) async {
+      var payload = fields
+      payload["cell_id"] = .string(cell.runtimeID.uuidString)
+      await backend.emit(
+        .kernel(
+          MarimoKernelEvent(
+            notebookURI: store.document.notebookURI, sessionID: "session-1",
+            operation: "cell-op", payload: payload
+          )))
+    }
+    await emit([
+      "output": .object([
+        "channel": .string("marimo-error"),
+        "mimetype": .string("application/vnd.marimo+error"),
+        "data": .array([
+          .object([
+            "type": .string("exception"),
+            "msg": .string("No module named 'tensorflow'"),
+          ])
+        ]),
+      ])
+    ])
+    await eventually { store.document.cells[0].runtime.hasExecutionError }
+    await emit(["status": .string("idle")])
+    await eventually { store.document.cells[0].runtime.status == .idle }
+    #expect(store.document.cells[0].runtime.hasExecutionError)
+    #expect(!store.document.cells[0].runtime.successfullyExecuted(cell.code))
+
+    await emit(["status": .string("running"), "output": .null])
+    await eventually { store.document.cells[0].runtime.status == .running }
+    #expect(!store.document.cells[0].runtime.successfullyExecuted(cell.code))
+    await emit(["status": .string("idle")])
+    await eventually { store.document.cells[0].runtime.status == .idle }
+    #expect(!store.document.cells[0].runtime.hasExecutionError)
+    #expect(store.document.cells[0].runtime.successfullyExecuted(cell.code))
+    #expect(!store.document.cells[0].runtime.successfullyExecuted(cell.code + "\n# edited"))
+  }
+
+  @Test("Run All leaves unrelated scheduling to the kernel after a cell error")
+  func runAllDelegatesFailureScheduling() async {
+    let (store, backend, executable, workingDirectory) = await configuredStore()
+    await store.send(.addCell)
+    await store.send(.addCell)
+    let cellIDs = store.document.cells.map(\.runtimeID)
+    store.authorizeRunOnce()
+    await store.send(.runAll(executable: executable, workingDirectory: workingDirectory))
+    #expect(store.document.cells.map(\.runtime.status) == [.queued, .queued, .queued])
+
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "run-all-session",
+          operation: "kernel-ready",
+          payload: [:]
+        )
+      )
+    )
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "run-all-session",
+          operation: "cell-op",
+          payload: [
+            "cell_id": .string(cellIDs[0].uuidString),
+            "status": .string("error"),
+          ]
+        )
+      )
+    )
+
+    await eventually { store.document.cells[0].runtime.status == .error }
+    #expect(await backend.recordedInterrupts().isEmpty)
+    #expect(
+      store.document.cells.map(\.runtime.status) == [
+        .error, .idle, .idle,
+      ])
   }
 
   @Test("completed-run refreshes after the queued cell-op tail")
@@ -542,6 +680,137 @@ struct NotebookSessionTests {
     #expect(store.document.cells[0].runtime.stdinPrompt?.submitted == false)
   }
 
+  @Test("A rejected execution request leaves no queued cell or successful result")
+  func rejectedExecutionPreservesEdits() async {
+    let (store, backend, executable, directory) = await configuredStore()
+    let cellID = store.document.cells[0].runtimeID
+    await store.send(.updateCode(cellID: cellID, code: "unsaved = 123"))
+    await backend.setExecutionFailure(true)
+    store.authorizeRunOnce()
+    await store.send(.runCell(cellID: cellID, executable: executable, workingDirectory: directory))
+    #expect(store.document.cells[0].runtime.status != .queued)
+    #expect(store.document.cells[0].runtime.stale)
+    #expect(!store.document.cells[0].runtime.successfullyExecuted("unsaved = 123"))
+    #expect(store.document.cells[0].code == "unsaved = 123")
+    #expect(store.document.dirty)
+    #expect(!store.sessionAllowsRun)
+  }
+
+  @Test("An unacknowledged restart times out without losing edits")
+  func restartTimeoutPreservesEdits() async {
+    let (store, backend, executable, directory) = await configuredStore(timeout: .milliseconds(10))
+    await beginRunning(
+      store: store, backend: backend, executable: executable, workingDirectory: directory)
+    let before = store.document.cells.map(\.code)
+    await store.requestRestartKernel()
+    await eventually { if case .failed = store.sessionState { true } else { false } }
+    #expect(store.document.cells.map(\.code) == before)
+    #expect(store.document.dirty)
+    #expect(store.sessionState != .restarting)
+  }
+
+  @Test("Failed restart remains retryable without executing edited code", arguments: [false, true])
+  func failedRestartCanRetry(rejected: Bool) async {
+    let (store, backend, executable, directory) = await configuredStore(timeout: .milliseconds(50))
+    await beginRunning(
+      store: store, backend: backend, executable: executable, workingDirectory: directory)
+    await backend.setRestartFailure(rejected)
+    await store.requestRestartKernel()
+    await eventually { if case .failed = store.sessionState { true } else { false } }
+    #expect(store.document.kernelSessionID == nil)
+    #expect(store.sessionAllowsRestart)
+    let executions = await backend.recordedExecutions()
+    await backend.setRestartFailure(false)
+    await store.requestRestartKernel()
+    #expect(await backend.recordedRestarts().count == 2)
+    #expect(await backend.recordedRestarts().last?.3 == true)
+    await backend.emit(
+      .sessionsChanged([
+        MarimoSessionInfo(
+          sessionID: "retry-replacement", notebookURI: store.document.notebookURI,
+          executable: executable, workingDirectory: directory, status: "idle")
+      ]))
+    await eventually { store.sessionState == .idle }
+    #expect(store.sessionAllowsRun)
+    #expect(store.document.cells[0].code == "value = 1")
+    #expect(store.document.dirty)
+    #expect(store.document.cells[0].runtime.lastExecutedCode == nil)
+    #expect(await backend.recordedExecutions() == executions)
+    await store.shutdownBackend()
+  }
+
+  @Test("A disconnected in-flight execution cannot become a successful checkmark")
+  func disconnectedRunIsStale() async {
+    let (store, backend, executable, directory) = await configuredStore()
+    await beginRunning(
+      store: store, backend: backend, executable: executable, workingDirectory: directory)
+    let cell = store.document.cells[0]
+    await backend.emit(.disconnected)
+    await eventually { store.backendStatus == .unavailable }
+    #expect(!store.document.cells[0].runtime.successfullyExecuted(cell.code))
+    #expect(store.document.cells[0].runtime.stale)
+    #expect(store.document.cells[0].code == cell.code)
+    #expect(store.document.dirty)
+  }
+
+  @Test("Startup completion cannot disable interrupt for a still-running cell")
+  func startupCompletionKeepsRunningControls() async {
+    let (store, backend, executable, directory) = await configuredStore()
+    await beginRunning(
+      store: store, backend: backend, executable: executable, workingDirectory: directory)
+    let cell = store.document.cells[0]
+    await backend.setReplays([
+      MarimoCellReplay(
+        payload: [
+          "cell_id": .string(cell.runtimeID.uuidString), "status": .string("running"),
+          "output": .string("running snapshot"),
+        ], executedSource: cell.code)
+    ])
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "session-running", operation: "completed-run", payload: [:])))
+    await eventually { store.document.cells[0].runtime.output?.data == .string("running snapshot") }
+    #expect(store.sessionState == .running)
+    #expect(!store.sessionAllowsRun)
+    #expect(store.sessionAllowsInterrupt)
+    await store.requestInterrupt()
+    #expect(await backend.recordedInterrupts().count == 1)
+    #expect(store.sessionState == .interrupting)
+    await store.shutdownBackend()
+  }
+
+  @Test("A completion snapshot arriving during restart cannot restore old runtime state")
+  func lateCompletionSnapshotAfterRestart() async {
+    let (store, backend, executable, directory) = await configuredStore()
+    await beginRunning(
+      store: store, backend: backend, executable: executable, workingDirectory: directory)
+    let cell = store.document.cells[0]
+    await backend.setReplays([
+      MarimoCellReplay(
+        payload: [
+          "cell_id": .string(cell.runtimeID.uuidString), "status": .string("idle"),
+          "output": .string("obsolete"),
+        ], executedSource: cell.code)
+    ])
+    await backend.delayReplayReads()
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "session-running", operation: "completed-run", payload: [:])))
+    for _ in 0..<100 {
+      if await backend.hasStartedReplayRead() { break }
+      try? await Task.sleep(for: .milliseconds(5))
+    }
+    #expect(await backend.hasStartedReplayRead())
+    await store.requestRestartKernel()
+    try? await Task.sleep(for: .milliseconds(30))
+    #expect(store.document.cells[0].runtime == CellRuntimeState())
+    #expect(store.sessionState == .restarting)
+  }
+
   @Test("Restart invalidates the old session and clears only transient kernel state")
   func restartClearsKernelState() async {
     let (store, backend, executable, workingDirectory) = await configuredStore()
@@ -577,6 +846,25 @@ struct NotebookSessionTests {
     #expect(restart?.1 == executable)
     #expect(restart?.2 == workingDirectory)
     #expect(restart?.3 == false)
+    // Late notifications from the replaced kernel must not reattach it.
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI, sessionID: "session-running",
+          operation: "cell-op",
+          payload: ["cell_id": .string(cellID.uuidString), "status": .string("error")]
+        )))
+    await backend.emit(
+      .sessionsChanged([
+        MarimoSessionInfo(
+          sessionID: "session-running", notebookURI: store.document.notebookURI,
+          executable: executable, workingDirectory: workingDirectory, status: "idle"
+        )
+      ]))
+    try? await Task.sleep(for: .milliseconds(20))
+    #expect(store.document.kernelSessionID == nil)
+    #expect(store.sessionState == .restarting)
+    #expect(store.document.cells[0].runtime == CellRuntimeState())
 
     await backend.emit(
       .sessionsChanged([
@@ -686,6 +974,84 @@ struct NotebookSessionTests {
     #expect(store.sessionState == .idle)
     #expect(store.document.cells[0].runtime.output == textOutput("restored"))
     #expect(store.document.cells[0].runtime.lastExecutedCode == "value = 1")
+  }
+
+  @Test("Missing kernel packages become an explicit installation prompt")
+  func missingPackagesPrompt() async {
+    let (store, backend, _, _) = await configuredStore()
+
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI,
+          sessionID: "package-session",
+          operation: "missing-package-alert",
+          payload: [
+            "packages": .array([.string("keras"), .string("numpy")]),
+            "isolated": .bool(true),
+          ]
+        )
+      )
+    )
+
+    await eventually { store.missingPackages == ["keras", "numpy"] }
+  }
+
+  @Test(
+    "Runtime package alerts clear after successful completion but survive remaining errors",
+    arguments: [false, true])
+  func packageAlertCompletion(remainingError: Bool) async {
+    let (store, backend, _, _) = await configuredStore()
+    let cell = store.document.cells[0]
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI, sessionID: "package-recovery",
+          operation: "missing-package-alert", payload: ["packages": .array([.string("numpy")])]
+        )))
+    await eventually { store.missingPackages == ["numpy"] }
+    let output: JSONValue =
+      remainingError
+      ? .object([
+        "channel": .string("marimo-error"), "mimetype": .string("application/vnd.marimo+error"),
+        "data": .array([
+          .object(["type": .string("exception"), "msg": .string("missing dependency")])
+        ]),
+      ])
+      : .object([
+        "channel": .string("output"), "mimetype": .string("text/plain"), "data": .string("42"),
+      ])
+    await backend.setReplays([
+      MarimoCellReplay(
+        payload: [
+          "cell_id": .string(cell.runtimeID.uuidString), "status": .string("idle"),
+          "output": output,
+        ], executedSource: cell.code)
+    ])
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI, sessionID: "package-recovery",
+          operation: "completed-run", payload: [:]
+        )))
+    await eventually { store.sessionState == .idle }
+    #expect(store.missingPackages == (remainingError ? ["numpy"] : []))
+    await store.shutdownBackend()
+  }
+
+  @Test("Restart removes obsolete runtime package alerts")
+  func restartClearsPackageAlert() async {
+    let (store, backend, _, _) = await configuredStore()
+    await backend.emit(
+      .kernel(
+        MarimoKernelEvent(
+          notebookURI: store.document.notebookURI, sessionID: "package-old",
+          operation: "missing-package-alert", payload: ["packages": .array([.string("numpy")])]
+        )))
+    await eventually { store.missingPackages == ["numpy"] }
+    await store.requestRestartKernel()
+    #expect(store.missingPackages.isEmpty)
+    await store.shutdownBackend()
   }
 
   @Test("Widget updates are authorized and bound to the exact current session")

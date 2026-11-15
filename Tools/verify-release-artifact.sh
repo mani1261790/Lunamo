@@ -2,7 +2,7 @@
 set -eu
 
 project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-app_root=${1:-"$project_root/.build/release-artifacts/MarimoNative.app"}
+app_root=${1:-"$project_root/.build/release-artifacts/Lunamo.app"}
 verification=${2:-development}
 temporary_directory=$(mktemp -d)
 trap 'rm -rf "$temporary_directory"' EXIT
@@ -16,7 +16,7 @@ test -d "$app_root"
 test "$(plutil -extract CFBundleIdentifier raw -o - "$app_root/Contents/Info.plist")" = \
   "dev.marimonative.app"
 test "$(plutil -extract LSMinimumSystemVersion raw -o - "$app_root/Contents/Info.plist")" = "26.0"
-lipo -archs "$app_root/Contents/MacOS/MarimoNative" | tr ' ' '\n' | grep -qx arm64
+lipo -archs "$app_root/Contents/MacOS/lunamo" | tr ' ' '\n' | grep -qx arm64
 codesign --verify --deep --strict --verbose=2 "$app_root"
 codesign -d --verbose=4 "$app_root" > "$temporary_directory/signature.txt" 2>&1
 grep -Eq 'flags=.*runtime' "$temporary_directory/signature.txt"

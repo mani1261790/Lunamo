@@ -78,10 +78,11 @@ struct PrivacyAndTemporaryOutputTests {
       contentsOf: root.appending(path: "MarimoNative/App/MarimoAppDelegate.swift"),
       encoding: .utf8
     )
-    let session = try String(
-      contentsOf: root.appending(path: "MarimoNative/Application/NotebookSession.swift"),
-      encoding: .utf8
-    )
+    let session = try [
+      "MarimoNative/Application/NotebookSession.swift",
+      "MarimoNative/Application/NotebookRuntimeOutput.swift",
+    ].map { try String(contentsOf: root.appending(path: $0), encoding: .utf8) }.joined(
+      separator: "\n")
     #expect(appDelegate.contains("TemporaryOutputStore.shared.endSession()"))
     #expect(!session.contains("TemporaryOutputStore.shared.endSession()"))
   }

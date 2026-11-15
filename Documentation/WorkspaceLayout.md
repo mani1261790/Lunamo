@@ -1,0 +1,15 @@
+# Workspace sizing
+
+The notebook window owns its minimum size (960 × 640). `NotebookWorkspaceLayout` receives its current bounds and allocates sidebar/editor/assistant widths in one direction. Editor content and text wrapping never determine the window bounds. The scene uses `contentMinSize`, allowing the window to grow without deriving an upper bound from panel content.
+
+The former NavigationSplitView + inspector arrangement caused NSGenericException in AppKit's constraint-update cycle while dragging the Files boundary with Assistant and Terminal visible. Replacing only the nested terminal VSplitView fixed simultaneous opening but did not fix horizontal resizing; the September 8 second recording established that remaining path.
+
+Width rules: Files 180–360, Assistant 280–520, editor at least 360 at supported window sizes. Requested panel widths are retained across window resizing; closing a panel releases its entire width. Zero/undersized measurement proposals produce nonnegative widths without publishing state during measurement. Dividers update requested sizes only from gestures or accessibility adjustments and use global drag coordinates so moving the divider does not change the gesture origin.
+
+Terminal height is allocated inside the editor's supplied bounds by NotebookTerminalSplit. There are no nested AppKit split controllers in the notebook workspace.
+
+Verification: six geometry regression tests covering visibility combinations, extreme measurement proposals, panel bounds, editor space and restored sizing; actual packaged-app 72 accessibility divider adjustments through upper/lower limits plus nine panel visibility changes completed without losing the window. Previous reproduction was confirmed from the user's Xcode exception and recordings. This is scoped evidence, not a claim that every unrelated app crash is eliminated.
+
+Resize interaction: every divider now occupies a real 9-point AppKit hit region with a centered 1-point line. NSView cursor rects supply left/right or up/down resize cursors. Mouse down captures the value and screen position; mouse dragged uses that fixed origin even as the view moves; mouse up clears it. This replaces the prior transparent SwiftUI overlay, whose hit testing was not verified by the earlier accessibility-only checks. Native mouse-event regression tests cover moving-divider anchoring and the reversed Assistant direction. The latest live cursor check was blocked by ScreenCaptureKit -3811, so no visual cursor verification is claimed.
+
+Panel chrome revision: the notebook toolbar is inside the central editor column. Side panels extend to the top of the hidden-titlebar window and own their controls; the left header reserves space for the native traffic lights. Blank header space supports native window dragging. Resize handles no longer draw a line or consume layout width/height: their real 9-point NSViews overlay the shared panel edges in the workspace-sized ZStack. A hosted AppKit hierarchy test verifies edge positions and mouse hit testing across the full invisible width.

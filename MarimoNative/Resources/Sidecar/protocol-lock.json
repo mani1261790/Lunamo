@@ -6,6 +6,13 @@
   "marimoSourceCommit": "8869b186a8c1c5bc9f5e123e7df7b6677ec06b8d",
   "ownedDocumentVersion": "1",
   "commandMethod": "marimo/command",
+  "nativeTextCellMethod": "marimonative/textCell",
+  "nativeTextCellVersion": 1,
+  "nativeImportMethod": "marimonative/convertNotebook",
+  "nativeImportVersion": 1,
+  "nativeCompletionMethod": "marimonative/completePython",
+  "nativeCompletionVersion": 1,
+  "nativeLauncherSHA256": "079fc84a8adfe56f6fdb59290abb019d733ca8648d3f642deb063d0241f78b8d",
   "notificationMethod": "marimo/kernelNotification",
   "schemaHash": "e58dbe06acbe252a5e37fecf4b65c71a24543f87f5923bc547da608ca97f7005",
   "generatedAt": "2026-09-02T20:15:00+09:00"

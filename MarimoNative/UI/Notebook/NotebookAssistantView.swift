@@ -1,206 +1,146 @@
 import Foundation
 import FoundationModels
+import ImageIO
 import MarimoApplication
 import MarimoDomain
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct NotebookAssistantView: View {
-  enum Action: String, CaseIterable, Identifiable {
-    case explain = "Explain"
-    case suggestFix = "Suggest Fix"
-
-    var id: Self { self }
-  }
-
   @ObservedObject var store: NotebookStore
-  @Environment(\.dismiss) private var dismiss
-  @State private var action: Action = .explain
-  @State private var response = ""
-  @State private var errorMessage: String?
-  @State private var generating = false
-
-  private let model = SystemLanguageModel.default
+  @ObservedObject var conversation: NotebookAssistantConversation
+  @FocusState var promptFocused: Bool
+  @State var fileImporterPresented = false
+  @State var historyPresented = false
+  @State var expandedSuggestionIDs: Set<UUID> = []
+  @Environment(\.accessibilityReduceTransparency) var reduceTransparency
+  @Environment(\.colorSchemeContrast) var contrast
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      HStack {
-        Label("Notebook Assistant", systemImage: "apple.intelligence")
-          .font(.title2.weight(.semibold))
+    GeometryReader { geometry in
+      assistantContent(compact: geometry.size.width < 360)
+    }
+    .accessibilityIdentifier("notebook.assistant.sidebar")
+    .fileImporter(
+      isPresented: $fileImporterPresented,
+      allowedContentTypes: [.item],
+      allowsMultipleSelection: true
+    ) { result in
+      switch result {
+      case .success(let urls):
+        conversation.attachFiles(urls)
+        promptFocused = true
+      case .failure(let error):
+        conversation.reportAttachmentFailure(error)
+      }
+    }
+  }
+
+  private func assistantContent(compact: Bool) -> some View {
+    VStack(spacing: 0) {
+      HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
+          Text(historyPresented ? localizedUI("Conversation History") : "Assistant")
+            .font(.system(size: 15, weight: .semibold))
+          Text(historyPresented ? localizedUI("This Notebook Session") : "Apple Intelligence")
+            .font(.caption).foregroundStyle(.secondary)
+        }
+        .lineLimit(1)
+        .frame(minWidth: 0, alignment: .leading)
         Spacer()
-        Button("Done") { dismiss() }
-      }
-
-      availabilityBanner
-
-      Picker("Action", selection: $action) {
-        ForEach(Action.allCases) { item in
-          Text(LocalizedStringKey(item.rawValue)).tag(item)
-        }
-      }
-      .pickerStyle(.segmented)
-
-      GroupBox("Selected Cell") {
-        ScrollView {
-          Text(selectedCell?.code ?? "Select a cell first.")
-            .font(.body.monospaced())
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(8)
-        }
-        .frame(minHeight: 110, maxHeight: 180)
-      }
-
-      HStack {
-        Button {
-          Task { await generate() }
-        } label: {
-          if generating {
-            ProgressView()
-              .controlSize(.small)
-          } else {
-            Label("Generate Preview", systemImage: "sparkles")
+        HStack(spacing: 4) {
+          Button {
+            conversation.startNewConversation()
+            historyPresented = false
+            promptFocused = true
+          } label: {
+            Image(systemName: "square.and.pencil")
           }
+          .accessibilityLabel("New Conversation")
+          .help("New Conversation")
+          Button {
+            historyPresented.toggle()
+          } label: {
+            Image(systemName: "clock.arrow.circlepath")
+              .symbolVariant(historyPresented ? .fill : .none)
+          }
+          .accessibilityLabel("Conversation History")
+          .help("Conversation History")
         }
-        .buttonStyle(.borderedProminent)
-        .disabled(!canGenerate)
-
-        Text("Runs on device. Nothing is sent to an external service.")
-          .font(.callout)
-          .foregroundStyle(.secondary)
-      }
-
-      if let errorMessage {
-        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-          .foregroundStyle(.red)
-          .textSelection(.enabled)
-      }
-
-      GroupBox("Preview") {
-        ScrollView {
-          Text(response.isEmpty ? "The generated result will appear here." : response)
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(8)
+        .fixedSize()
+        Button {
+          store.leaveEditor()
+          store.assistantPresented = false
+        } label: {
+          Image(systemName: "sparkles")
+            .font(.system(size: 16))
+            .frame(width: 16, height: 16)
         }
-        .frame(minHeight: 150)
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
+        .controlSize(.extraLarge)
+        .accessibilityLabel("Notebook Assistant")
+        .help("On-device Notebook Assistant")
       }
-
-      HStack {
-        Spacer()
-        Button("Replace Selected Cell") { applyPreview() }
-          .disabled(action != .suggestFix || response.isEmpty || selectedCell == nil)
-          .help("Only changes the editor. It does not save or run the notebook.")
-      }
-    }
-    .padding(20)
-    .frame(width: 680, height: 620)
-  }
-
-  @ViewBuilder
-  private var availabilityBanner: some View {
-    switch model.availability {
-    case .available:
-      if model.supportsLocale(Locale(identifier: "ja")) {
-        Label(
-          "Apple Intelligence is available, including Japanese.",
-          systemImage: "checkmark.circle.fill"
-        )
-        .foregroundStyle(.green)
+      .buttonStyle(AssistantControlStyle())
+      .padding(.horizontal, 12)
+      .frame(height: 52)
+      .background(NotebookWindowDragRegion())
+      if historyPresented {
+        conversationHistory(compact: compact)
       } else {
-        Label(
-          "Apple Intelligence is available, but Japanese is not supported by this model.",
-          systemImage: "exclamationmark.triangle.fill"
-        )
-        .foregroundStyle(.orange)
+        conversationThread(compact: compact)
+        composer(compact: compact)
       }
-    case .unavailable(let reason):
-      Label(unavailableMessage(reason), systemImage: "xmark.circle.fill")
-        .foregroundStyle(.secondary)
+    }
+    .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
+    .clipped()
+  }
+
+  private func conversationThread(compact: Bool) -> some View {
+    ScrollViewReader { proxy in
+      ScrollView {
+        LazyVStack(alignment: .leading, spacing: 24) {
+          if conversation.messages.isEmpty {
+            welcome(compact: compact)
+          }
+          ForEach(conversation.messages) { message in
+            VStack(alignment: .leading, spacing: 10) {
+              Text(message.isUser ? localizedUI("You") : "Assistant")
+                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+              ForEach(message.attachments) { attachment in
+                DisclosureGroup(localizedUI("Cell %ld", attachment.index)) {
+                  Text(attachment.code).font(.callout.monospaced())
+                    .textSelection(.enabled)
+                }
+              }
+              ForEach(message.files) { file in
+                Label(file.name, systemImage: file.kind.systemImage)
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+              }
+              Text(message.text).font(.system(size: 14)).lineSpacing(5).textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+              if let suggestion = message.suggestedEdit {
+                suggestedEdit(suggestion, messageID: message.id)
+              }
+            }
+            .padding(14)
+            .background(
+              message.isUser ? Color.accentColor.opacity(0.08) : Color.clear,
+              in: RoundedRectangle(cornerRadius: 14))
+          }
+          if conversation.generating {
+            ProgressView("Thinking…").controlSize(.small)
+          }
+          Color.clear.frame(height: 1).id("bottom")
+        }
+        .padding(compact ? 14 : 18)
+      }
+      .onChange(of: conversation.messages.count) { _, _ in
+        proxy.scrollTo("bottom", anchor: .bottom)
+      }
     }
   }
 
-  private var selectedCell: NotebookCellState? {
-    guard let id = store.document.selectedCellID else { return nil }
-    return store.document.cells.first { $0.runtimeID == id }
-  }
-
-  private var canGenerate: Bool {
-    !generating && selectedCell != nil && model.availability == .available
-      && model.supportsLocale(Locale(identifier: "ja"))
-  }
-
-  @MainActor
-  private func generate() async {
-    guard let source = selectedCell?.code else { return }
-    guard source.utf8.count <= 24_000 else {
-      errorMessage = "The selected cell is too large. Shorten it and try again."
-      return
-    }
-    generating = true
-    response = ""
-    errorMessage = nil
-    defer { generating = false }
-
-    let instruction: String
-    switch action {
-    case .explain:
-      instruction = "Explain this Python cell in clear Japanese. Do not propose execution."
-    case .suggestFix:
-      instruction = "Return only a corrected Python cell, without Markdown fences or commentary."
-    }
-    let session = LanguageModelSession(
-      model: model,
-      instructions: "You are an on-device notebook assistant. Never claim code was executed."
-    )
-    do {
-      let result = try await session.respond(to: "\(instruction)\n\nPython cell:\n\(source)")
-      response = result.content
-    } catch let error as LanguageModelSession.GenerationError {
-      errorMessage = generationMessage(error)
-    } catch {
-      errorMessage = error.localizedDescription
-    }
-  }
-
-  private func applyPreview() {
-    guard action == .suggestFix, !response.isEmpty, let cell = selectedCell else { return }
-    store.focusEditor(cell.runtimeID)
-    Task { await store.send(.updateCode(cellID: cell.runtimeID, code: response)) }
-  }
-
-  private func unavailableMessage(
-    _ reason: SystemLanguageModel.Availability.UnavailableReason
-  ) -> LocalizedStringKey {
-    switch reason {
-    case .deviceNotEligible: "This Mac does not support Apple Intelligence."
-    case .appleIntelligenceNotEnabled:
-      "Turn on Apple Intelligence in System Settings to use the assistant."
-    case .modelNotReady: "The on-device model is still being prepared. Try again later."
-    @unknown default: "Apple Intelligence is currently unavailable."
-    }
-  }
-
-  private func generationMessage(_ error: LanguageModelSession.GenerationError) -> String {
-    switch error {
-    case .exceededContextWindowSize:
-      String(localized: "The cell is too large for the on-device model. Shorten it and try again.")
-    case .guardrailViolation:
-      String(
-        localized:
-          "The request was stopped by Apple Intelligence safety checks. Edit the cell or request and try again."
-      )
-    case .unsupportedLanguageOrLocale:
-      String(localized: "The current language is not supported by the on-device model.")
-    case .assetsUnavailable:
-      String(localized: "The on-device model is not ready. Try again after its download finishes.")
-    case .rateLimited, .concurrentRequests:
-      String(localized: "The model is busy. Wait a moment and try again.")
-    case .refusal:
-      String(localized: "Apple Intelligence declined this request. Revise it and try again.")
-    case .unsupportedGuide, .decodingFailure:
-      String(localized: "The model could not create a usable response. Try again.")
-    @unknown default:
-      error.localizedDescription
-    }
-  }
 }

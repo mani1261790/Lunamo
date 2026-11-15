@@ -10,3 +10,6 @@ MarimoNative/Resources/Sidecar/bin/
 MarimoNative/Resources/Sidecar/include/
 MarimoNative/Resources/Sidecar/lib/
 MarimoNative/Resources/Sidecar/share/
+.local-work/
+xcuserdata/
+*.xcuserstate

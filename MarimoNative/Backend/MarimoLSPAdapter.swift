@@ -8,7 +8,6 @@ public actor MarimoLSPAdapter: MarimoBackend {
   public enum SynchronizationError: Error, Sendable, Equatable {
     case versionOverflow(UInt64)
   }
-
   let connection: JSONRPCConnection
   private let launchRequest: ProcessLaunchRequest
   private let eventStream: AsyncStream<MarimoBackendEvent>
@@ -30,7 +29,6 @@ public actor MarimoLSPAdapter: MarimoBackend {
     launchRequest = try SidecarLaunchRequest.make(sidecarDirectory: sidecarDirectory)
     (eventStream, eventContinuation) = AsyncStream.makeStream()
   }
-
   public func status() async -> BackendStatus {
     guard await connection.currentState() == .ready else { return .unavailable }
     return backendStatus
@@ -63,6 +61,36 @@ public actor MarimoLSPAdapter: MarimoBackend {
     case .convertible:
       return .convertible
     }
+  }
+
+  public func convertNotebook(source: String, format: NotebookImportSourceFormat) async throws
+    -> String
+  {
+    guard backendStatus == .ready else { throw JSONRPCConnectionError.notInitialized }
+    let result = try await connection.request(
+      method: "marimonative/convertNotebook",
+      params: .object([
+        "source": .string(source),
+        "format": .string(format.rawValue),
+      ])
+    )
+    return try decode(ConvertNotebookResult.self, from: result).source
+  }
+
+  public func completePython(source: String, line: Int, column: Int) async throws
+    -> [PythonCompletionItem]
+  {
+    guard backendStatus == .ready else { return [] }
+    let result = try await connection.request(
+      method: "marimonative/completePython",
+      params: .object([
+        "source": .string(source),
+        "line": .integer(Int64(line)),
+        "column": .integer(Int64(column)),
+      ]),
+      timeout: .seconds(3)
+    )
+    return try decode(PythonCompletionResponse.self, from: result).items
   }
 
   public func printNotebook(_ document: OwnedNotebookDocumentV1) async throws -> String {
@@ -468,44 +496,5 @@ public actor MarimoLSPAdapter: MarimoBackend {
 
   private func decode<T: Decodable>(_ type: T.Type, from value: JSONValue) throws -> T {
     try JSONDecoder().decode(type, from: JSONEncoder().encode(value))
-  }
-}
-
-private struct SessionListResponse: Codable {
-  let sessions: [MarimoSessionInfo]
-}
-
-private struct ListPackagesResponse: Codable {
-  let packages: [NotebookPackage]
-}
-
-private struct CellReplayResponse: Codable {
-  let cells: [CellReplayRecord]
-}
-
-private struct CellReplayRecord: Codable {
-  let kind: String
-  let notification: CellReplayNotification
-  let executedSource: String?
-
-  enum CodingKeys: String, CodingKey {
-    case kind, notification
-    case executedSource = "executedSource"
-  }
-}
-
-private struct CellReplayNotification: Codable {
-  let payload: [String: JSONValue]
-
-  init(from decoder: Decoder) throws {
-    var object = try [String: JSONValue](from: decoder)
-    object.removeValue(forKey: "op")
-    payload = object
-  }
-
-  func encode(to encoder: Encoder) throws {
-    var object = payload
-    object["op"] = .string("cell-op")
-    try object.encode(to: encoder)
   }
 }

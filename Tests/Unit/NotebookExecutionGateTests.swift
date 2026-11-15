@@ -79,35 +79,48 @@ struct NotebookExecutionGateTests {
     #expect(await backend.executionCount() == 1)
   }
 
-  @Test("Untitled documents require an existing absolute working directory")
-  func untitledWorkingDirectory() async {
+  @Test("Untitled documents start in the app folder and accept an explicit override")
+  func untitledWorkingDirectory() async throws {
     let executable = URL(fileURLWithPath: "/bin/sh")
     let (preflight, _) = successfulPreflight(executableURL: executable)
-    let store = NotebookStore(backend: ExecutionGateBackend(), environmentPreflight: preflight)
+    let appFolder = FileManager.default.temporaryDirectory.appending(
+      path: "marimonative-app-folder-\(UUID().uuidString)", directoryHint: .isDirectory)
+    defer { try? FileManager.default.removeItem(at: appFolder) }
+    try FileManager.default.createDirectory(at: appFolder, withIntermediateDirectories: true)
+    let store = NotebookStore(
+      backend: ExecutionGateBackend(),
+      environmentPreflight: preflight,
+      applicationWorkspaceDirectory: appFolder
+    )
     await store.choosePythonExecutable(executable)
-    guard case .needsWorkingDirectory = store.environmentState else {
-      Issue.record("Untitled document did not request a working directory")
+    guard case .ready(_, let initialDirectory) = store.environmentState else {
+      Issue.record("Untitled document did not adopt the app folder")
       return
     }
+    #expect(initialDirectory == canonicalURL(appFolder))
+    #expect(store.executionFolderTrusted)
     guard let relativeDirectory = URL(string: "relative") else {
       Issue.record("Could not construct relative URL fixture")
       return
     }
     store.chooseWorkingDirectory(relativeDirectory)
-    guard case .needsWorkingDirectory = store.environmentState else {
-      Issue.record("Relative working directory was accepted")
+    guard case .ready(_, let directoryAfterRelative) = store.environmentState else {
+      Issue.record("Invalid override changed environment readiness")
       return
     }
+    #expect(directoryAfterRelative == canonicalURL(appFolder))
     store.chooseWorkingDirectory(URL(fileURLWithPath: "/path/that/does/not/exist"))
-    guard case .needsWorkingDirectory = store.environmentState else {
-      Issue.record("Missing working directory was accepted")
+    guard case .ready(_, let directoryAfterMissing) = store.environmentState else {
+      Issue.record("Missing override changed environment readiness")
       return
     }
+    #expect(directoryAfterMissing == canonicalURL(appFolder))
     store.chooseWorkingDirectory(URL(fileURLWithPath: "/tmp"))
-    guard case .ready = store.environmentState else {
+    guard case .ready(_, let overrideDirectory) = store.environmentState else {
       Issue.record("Existing absolute working directory was rejected")
       return
     }
+    #expect(overrideDirectory == canonicalURL(URL(fileURLWithPath: "/tmp")))
   }
 
   @Test("Opening a notebook configures preflight without prompting for execution trust")

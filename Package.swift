@@ -7,15 +7,23 @@ let strictConcurrency: [SwiftSetting] = [
 ]
 
 let package = Package(
-  name: "MarimoNative",
+  name: "Lunamo",
   platforms: [
     .macOS(.v26)
   ],
   products: [
-    .executable(name: "MarimoNative", targets: ["MarimoNativeApp"])
+    .executable(name: "lunamo", targets: ["MarimoNativeApp"]),
+    .library(
+      name: "LunamoModules",
+      targets: [
+        "MarimoApplication", "MarimoBackend", "MarimoDomain", "MarimoEnvironment", "MarimoUI",
+      ]
+    ),
   ],
   dependencies: [
-    .package(url: "https://github.com/scinfu/SwiftSoup.git", exact: "2.13.5")
+    .package(url: "https://github.com/scinfu/SwiftSoup.git", exact: "2.13.5"),
+    .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
+    .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", exact: "3.1.0"),
   ],
   targets: [
     .target(
@@ -50,8 +58,11 @@ let package = Package(
     ),
     .target(
       name: "MarimoEditor",
-      dependencies: ["MarimoDomain"],
+      dependencies: [
+        "MarimoDomain", .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
+      ],
       path: "MarimoNative/Editor",
+      resources: [.copy("LICENSE-KeyboardShortcuts")],
       swiftSettings: strictConcurrency
     ),
     .target(
@@ -92,7 +103,8 @@ let package = Package(
     .target(
       name: "MarimoApplication",
       dependencies: [
-        "MarimoBackend", "MarimoDocument", "MarimoDomain", "MarimoEnvironment", "MarimoWidgets",
+        "MarimoBackend", "MarimoDocument", "MarimoDomain", "MarimoEnvironment", "MarimoProcess",
+        "MarimoWidgets",
       ],
       path: "MarimoNative/Application",
       swiftSettings: strictConcurrency
@@ -102,6 +114,8 @@ let package = Package(
       dependencies: [
         "MarimoApplication", "MarimoDomain", "MarimoEditor", "MarimoEnvironment", "MarimoOutput",
         "MarimoWebFallback", "MarimoWidgets",
+        .product(name: "Sparkle", package: "Sparkle"),
+        .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
       ],
       path: "MarimoNative/UI",
       swiftSettings: strictConcurrency
@@ -110,7 +124,10 @@ let package = Package(
       name: "MarimoNativeApp",
       dependencies: ["MarimoApplication", "MarimoBackend", "MarimoDomain", "MarimoUI"],
       path: "MarimoNative/App",
-      swiftSettings: strictConcurrency
+      swiftSettings: strictConcurrency,
+      linkerSettings: [
+        .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])
+      ]
     ),
     .testTarget(
       name: "MarimoNativeTests",
@@ -118,6 +135,7 @@ let package = Package(
         "MarimoApplication", "MarimoBackend", "MarimoDomain", "MarimoEditor", "MarimoProcess",
         "MarimoProtocol", "MarimoEnvironment", "MarimoOutput", "MarimoWebFallback",
         "MarimoWidgets",
+        "MarimoUI",
       ],
       path: "Tests/Unit",
       swiftSettings: strictConcurrency
@@ -126,6 +144,10 @@ let package = Package(
       name: "MarimoContractTests",
       dependencies: ["MarimoDomain", "MarimoProtocol"],
       path: "Tests/Contract",
+      exclude: [
+        "test_notebook_import.py", "test_python_completion.py", "test_text_cells.py",
+        "test_requirement_coverage.py",
+      ],
       swiftSettings: strictConcurrency
     ),
     .testTarget(

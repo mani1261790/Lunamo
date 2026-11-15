@@ -73,22 +73,24 @@ struct ArchitectureBoundaryTests {
   @Test("Notebook uses one outer scroll and a native TextKit 2 editor")
   func nativeEditorArchitecture() throws {
     let root = repositoryRoot()
-    let notebook = try String(
-      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookRootView.swift"),
-      encoding: .utf8
-    )
-    let cell = try String(
-      contentsOf: root.appending(path: "MarimoNative/UI/Cell/CellView.swift"),
-      encoding: .utf8
-    )
+    let notebook = try [
+      "MarimoNative/UI/Notebook/NotebookRootView.swift",
+      "MarimoNative/UI/Notebook/NotebookRootToolbar.swift",
+    ].map { try String(contentsOf: root.appending(path: $0), encoding: .utf8) }.joined(
+      separator: "\n")
+    let cell = try [
+      "MarimoNative/UI/Cell/CellView.swift", "MarimoNative/UI/Cell/CellExecutionControls.swift",
+    ].map { try String(contentsOf: root.appending(path: $0), encoding: .utf8) }.joined(
+      separator: "\n")
     let editor = try String(
       contentsOf: root.appending(path: "MarimoNative/Editor/CodeEditorView.swift"),
       encoding: .utf8
     )
     #expect(notebook.components(separatedBy: "ScrollView {").count - 1 == 1)
-    #expect(notebook.contains("LazyVStack(spacing: 16)"))
+    #expect(notebook.contains("LazyVStack(spacing: 0)"))
     #expect(cell.contains("CodeEditorView("))
-    #expect(!cell.contains("TextEditor("))
+    #expect(cell.contains("if editingMarkdown"))
+    #expect(cell.contains("TextEditor("))
     #expect(!editor.contains("WKWebView"))
     #expect(editor.contains("NSTextContentStorage"))
     #expect(editor.contains("NSTextLayoutManager"))
@@ -101,10 +103,11 @@ struct ArchitectureBoundaryTests {
       contentsOf: root.appending(path: "MarimoNative/App/MarimoNativeApp.swift"),
       encoding: .utf8
     )
-    let notebook = try String(
-      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookRootView.swift"),
-      encoding: .utf8
-    )
+    let notebook = try [
+      "MarimoNative/UI/Notebook/NotebookRootView.swift",
+      "MarimoNative/UI/Notebook/NotebookRootToolbar.swift",
+    ].map { try String(contentsOf: root.appending(path: $0), encoding: .utf8) }.joined(
+      separator: "\n")
     let commands = try String(
       contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookMenuCommands.swift"),
       encoding: .utf8
@@ -113,31 +116,41 @@ struct ArchitectureBoundaryTests {
       contentsOf: root.appending(path: "MarimoNative/UI/Sidebar/NotebookSidebarView.swift"),
       encoding: .utf8
     )
-    #expect(app.contains("Window(\"MarimoNative\", id: \"notebook\")"))
+    #expect(app.contains("Window(\"Lunamo\", id: \"notebook\")"))
     #expect(!app.contains("WindowGroup"))
     #expect(commands.contains("CommandGroup(replacing: .newItem)"))
-    #expect(notebook.contains("NavigationSplitView"))
-    #expect(sidebar.contains("min: 180, ideal: 240, max: 360"))
-    #expect(notebook.contains("min: 260, ideal: 300, max: 440"))
+    #expect(notebook.contains("NotebookWorkspaceLayout"))
+    #expect(sidebar.contains(".scrollContentBackground(.hidden)"))
+    // Width constraints and resize hit testing are exercised by NotebookWorkspaceLayoutTests.
     #expect(notebook.contains("maxWidth: 1_100"))
     #expect(notebook.contains("minWidth: 960, idealWidth: 1_320, minHeight: 640"))
-    #expect(notebook.contains("inspectorPresented"))
+    #expect(notebook.contains("assistantPresented"))
+    #expect(!notebook.contains("Toggle Inspector"))
   }
 
-  @Test("Toolbar has one system sidebar control and a clear Run All action")
+  @Test("Toolbar separates document, terminal, and execution actions")
   func colabStyleToolbar() throws {
     let root = repositoryRoot()
-    let notebook = try String(
-      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookRootView.swift"),
-      encoding: .utf8
-    )
+    let notebook = try [
+      "MarimoNative/UI/Notebook/NotebookRootView.swift",
+      "MarimoNative/UI/Notebook/NotebookRootToolbar.swift",
+    ].map { try String(contentsOf: root.appending(path: $0), encoding: .utf8) }.joined(
+      separator: "\n")
     #expect(!notebook.contains("Button(\"Toggle Sidebar\""))
-    #expect(!notebook.contains("Text(documentTitle)"))
+    #expect(notebook.contains("Text(documentTitle)"))
+    #expect(notebook.contains("Notebook toolbar"))
+    #expect(!notebook.contains(".toolbarTitleMenu"))
+    #expect(!notebook.contains("NotebookDocumentTitleControl"))
+    #expect(notebook.contains(".buttonStyle(.plain)"))
+    #expect(notebook.contains(".accessibilityLabel(localizedUI(\"Name and Save Notebook\"))"))
+    #expect(notebook.contains("NotebookSaveActions.saveAs(store)"))
     #expect(!notebook.contains("localizedSessionStatus"))
     #expect(notebook.contains("Label(\"Run All\", systemImage: \"play.fill\")"))
     #expect(notebook.contains(".labelStyle(.titleAndIcon)"))
-    #expect(notebook.contains(".buttonStyle(.borderedProminent)"))
-    #expect(notebook.contains("Image(systemName: \"terminal\")"))
+    #expect(notebook.contains(".buttonStyle(.glassProminent)"))
+    #expect(notebook.contains("toolbarIconButton(\"Toggle Terminal\""))
+    #expect(!notebook.contains("environmentMenu"))
+    #expect(notebook.contains("NotebookTerminalSplit"))
   }
 
   @Test("Debug and release bundles include the application icon")
@@ -153,10 +166,18 @@ struct ArchitectureBoundaryTests {
     let releaseBuild = try String(
       contentsOf: root.appending(path: "Tools/build-release-app.sh"), encoding: .utf8
     )
+    let xcodeProject = try String(
+      contentsOf: root.appending(path: "Lunamo.xcodeproj/project.pbxproj"),
+      encoding: .utf8
+    )
     #expect(plist.contains("<key>CFBundleIconFile</key>"))
     #expect(plist.contains("<string>AppIcon</string>"))
     #expect(debugBuild.contains("AppIcon.icns"))
     #expect(releaseBuild.contains("AppIcon.icns"))
+    #expect(xcodeProject.contains("com.apple.product-type.application"))
+    #expect(xcodeProject.contains("PRODUCT_BUNDLE_IDENTIFIER = dev.marimonative.app"))
+    #expect(xcodeProject.contains("AppIcon.icns in Resources"))
+    #expect(xcodeProject.contains("Embed Sidecar"))
     #expect(
       FileManager.default.fileExists(
         atPath: root.appending(path: "MarimoNative/Resources/AppIcon.icns").path
@@ -164,17 +185,45 @@ struct ArchitectureBoundaryTests {
     )
   }
 
-  @Test("Cells expose non-color execution states without glass surfaces")
-  func nativeCellAppearance() throws {
+  @Test("Jupyter and Python imports use a separate native save flow")
+  func nativeNotebookImport() throws {
     let root = repositoryRoot()
-    let cell = try String(
-      contentsOf: root.appending(path: "MarimoNative/UI/Cell/CellView.swift"),
+    let actions = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookOpenActions.swift"),
       encoding: .utf8
     )
+    let importService = try String(
+      contentsOf: root.appending(path: "MarimoNative/Application/NotebookImport.swift"),
+      encoding: .utf8
+    )
+    let plist = try String(
+      contentsOf: root.appending(path: "MarimoNative/Resources/Info.plist"),
+      encoding: .utf8
+    )
+    #expect(actions.contains("NSSavePanel()"))
+    #expect(actions.contains("NotebookImportDraft"))
+    #expect(actions.contains("sourceAndDestinationMatch"))
+    #expect(importService.contains("backend.convertNotebook"))
+    #expect(importService.contains("backend.parseNotebook"))
+    #expect(plist.contains("org.jupyter.ipynb"))
+  }
+
+  @Test("Cells expose accessible non-color execution states")
+  func nativeCellAppearance() throws {
+    let root = repositoryRoot()
+    let cell = try [
+      "MarimoNative/UI/Cell/CellView.swift", "MarimoNative/UI/Cell/CellExecutionControls.swift",
+    ].map { try String(contentsOf: root.appending(path: $0), encoding: .utf8) }.joined(
+      separator: "\n")
+    let cellStatus = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Cell/CellStatusView.swift"),
+      encoding: .utf8
+    )
+    let combined = cell + cellStatus + notebookSource(root)
     for token in [
-      "LazyVStack(spacing: 16)",
+      "LazyVStack(spacing: 0)",
       "HStack(alignment: .top, spacing: 10)",
-      "Image(systemName: \"play.fill\")",
+      "Image(systemName: executionControlSymbol)",
       ".buttonBorderShape(.circle)",
       ".frame(width: 44)",
       "Color(nsColor: selected ? .controlAccentColor : .separatorColor)",
@@ -185,12 +234,11 @@ struct ArchitectureBoundaryTests {
       "Image(systemName: \"exclamationmark.triangle.fill\")",
       ".accessibilityValue",
     ] {
-      let combined = cell + notebookSource(root)
       #expect(combined.contains(token), "Missing native cell appearance token: \(token)")
     }
     #expect(!cell.contains(".overlay(alignment: .leading)"))
     #expect(!cell.contains("Rectangle().fill(Color.accentColor)"))
-    #expect(!cell.contains("hovering"))
+    #expect(cell.contains("executionControlAccessibilityLabel"))
     #expect(!cell.contains("glassEffect"))
   }
 
@@ -295,10 +343,11 @@ struct ArchitectureBoundaryTests {
       encoding: .utf8
     )
     let session =
-      try String(
-        contentsOf: root.appending(path: "MarimoNative/Application/NotebookSession.swift"),
-        encoding: .utf8
-      )
+      try [
+        "MarimoNative/Application/NotebookSession.swift",
+        "MarimoNative/Application/NotebookRuntimeOutput.swift",
+      ].map { try String(contentsOf: root.appending(path: $0), encoding: .utf8) }.joined(
+        separator: "\n")
       + String(
         contentsOf: root.appending(path: "MarimoNative/Application/NotebookWidgets.swift"),
         encoding: .utf8
@@ -363,7 +412,7 @@ struct ArchitectureBoundaryTests {
     #expect(logReview.contains("Export Reviewed Logs…"))
     #expect(logReview.contains(".textSelection(.enabled)"))
     #expect(actions.contains("NSSavePanel"))
-    #expect(actions.contains("store.reviewableLogText"))
+    #expect(actions.contains("store.saveReviewedDiagnostics(text, to: destination)"))
   }
 
   @Test("Native save and close controls expose the required recovery choices")
@@ -429,12 +478,6 @@ struct ArchitectureBoundaryTests {
       contentsOf: root.appending(path: "MarimoNative/UI/Notebook/ExecutionTrustSheet.swift"),
       encoding: .utf8
     )
-    let rootView =
-      notebookSource(root)
-      + ((try? String(
-        contentsOf: root.appending(path: "MarimoNative/UI/Inspector/NotebookInspectorView.swift"),
-        encoding: .utf8
-      )) ?? "")
     let store = try String(
       contentsOf: root.appending(path: "MarimoNative/Application/NotebookEnvironment.swift"),
       encoding: .utf8
@@ -445,8 +488,12 @@ struct ArchitectureBoundaryTests {
     for token in ["Run Once", "Trust This Folder", "Cancel", "arbitrary Python code"] {
       #expect(trustSheet.contains(token), "Missing trust warning token: \(token)")
     }
+    let settings = try String(
+      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookSettingsView.swift"),
+      encoding: .utf8
+    )
     for token in ["Executable", "Python", "Architecture", "marimo", "Environment"] {
-      #expect(rootView.contains(token), "Missing environment UI field: \(token)")
+      #expect(settings.contains(token), "Missing environment UI field: \(token)")
     }
     #expect(store.contains("public var interactiveWidgetsAllowed"))
     #expect(store.contains("runOnceAuthorized || executionFolderTrusted"))
@@ -456,10 +503,10 @@ struct ArchitectureBoundaryTests {
   @Test("Secure stdin uses native ephemeral input")
   func secureStdinIsNativeAndEphemeral() throws {
     let root = repositoryRoot()
-    let cell = try String(
-      contentsOf: root.appending(path: "MarimoNative/UI/Cell/CellView.swift"),
-      encoding: .utf8
-    )
+    let cell = try [
+      "MarimoNative/UI/Cell/CellView.swift", "MarimoNative/UI/Cell/CellExecutionControls.swift",
+    ].map { try String(contentsOf: root.appending(path: $0), encoding: .utf8) }.joined(
+      separator: "\n")
     let recovery = try String(
       contentsOf: root.appending(path: "MarimoNative/Application/NotebookRecovery.swift"),
       encoding: .utf8
@@ -489,10 +536,19 @@ struct ArchitectureBoundaryTests {
   }
 
   private func notebookSource(_ root: URL) -> String {
-    (try? String(
-      contentsOf: root.appending(path: "MarimoNative/UI/Notebook/NotebookRootView.swift"),
-      encoding: .utf8
-    )) ?? ""
+    let rootView =
+      (try? [
+        "MarimoNative/UI/Notebook/NotebookRootView.swift",
+        "MarimoNative/UI/Notebook/NotebookRootToolbar.swift",
+      ].map { try String(contentsOf: root.appending(path: $0), encoding: .utf8) }.joined(
+        separator: "\n")) ?? ""
+    let setupViews =
+      (try? String(
+        contentsOf: root.appending(
+          path: "MarimoNative/UI/Notebook/NotebookExecutionSetupViews.swift"),
+        encoding: .utf8
+      )) ?? ""
+    return rootView + setupViews
   }
 
   private func swiftFiles(below root: URL) throws -> [URL] {

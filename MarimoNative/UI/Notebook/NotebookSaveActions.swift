@@ -40,6 +40,9 @@ public enum NotebookSaveActions {
     panel.canCreateDirectories = true
     panel.isExtensionHidden = false
     panel.nameFieldStringValue = store.document.sourceURL?.lastPathComponent ?? "Untitled.py"
+    panel.directoryURL =
+      store.document.sourceURL?.deletingLastPathComponent()
+      ?? store.applicationWorkspaceDirectory
     if let pythonType = UTType(filenameExtension: "py") {
       panel.allowedContentTypes = [pythonType]
     }

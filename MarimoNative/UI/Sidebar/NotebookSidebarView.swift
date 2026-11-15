@@ -21,9 +21,8 @@ struct NotebookSidebarView: View {
       }
     }
     .listStyle(.sidebar)
-    .navigationTitle("Files")
+    .scrollContentBackground(.hidden)
     .accessibilityLabel("Files")
-    .navigationSplitViewColumnWidth(min: 180, ideal: 240, max: 360)
   }
 
   private func icon(for kind: NotebookSidebarFile.Kind) -> String {

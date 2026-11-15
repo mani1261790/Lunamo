@@ -93,17 +93,26 @@ public struct OutputView: View {
     case .errors(let errors):
       VStack(alignment: .leading, spacing: 8) {
         ForEach(errors) { error in
-          Label {
+          HStack(alignment: .top, spacing: 8) {
+            Image(
+              systemName: error.kind == "interruption"
+                ? "stop.circle" : "exclamationmark.triangle.fill"
+            )
+            .foregroundStyle(error.kind == "interruption" ? Color.secondary : Color.red)
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
               Text(error.kind).font(.caption.monospaced()).foregroundStyle(.secondary)
-              Text(error.message).textSelection(.enabled)
+              Text(
+                error.kind == "interruption"
+                  ? localizedUI("Execution was stopped. You can run this cell again.")
+                  : error.message
+              ).textSelection(.enabled)
               if let line = error.line { Text("Line \(line)").font(.caption) }
             }
-          } icon: {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
           }
         }
       }
+      .accessibilityElement(children: .contain)
       .accessibilityLabel("Execution errors")
     case .traceback(let lines):
       DisclosureGroup("Details") {
@@ -127,6 +136,7 @@ public struct OutputView: View {
           }
         }
       }
+      .accessibilityElement(children: .contain)
       .accessibilityLabel("Python traceback")
     case .image(let decoded):
       Image(decorative: decoded.image, scale: 1, orientation: .up)
@@ -150,6 +160,7 @@ public struct OutputView: View {
         .font(.body.monospaced())
         .textSelection(.enabled)
         .accessibilityLabel("Native HTML output")
+        .accessibilityValue(text)
     case .slider(let descriptor):
       if let widgetStore, let widgetCellID {
         NativeSliderView(

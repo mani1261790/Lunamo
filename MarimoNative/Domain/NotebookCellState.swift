@@ -13,6 +13,7 @@ public struct CellConfiguration: Codable, Sendable, Equatable {
 }
 
 public struct CellEditorState: Sendable, Equatable {
+  public var markdown: String? = nil
   public var textDocumentVersion: UInt64
   public var lastSynchronizedCode: String
   public var hasMarkedText: Bool
@@ -36,6 +37,29 @@ public struct CellRuntimeState: Sendable, Equatable {
   public var lastExecutedCode: String?
   public var widgetIDs: [String]
   public var stdinPrompt: StdinPromptState?
+
+  // marimo returns to idle after failures too; the output carries the outcome.
+  public var hasExecutionError: Bool {
+    status == .error
+      || output?.channel == .marimoError
+      || output?.mimeType == "application/vnd.marimo+error"
+  }
+
+  public var wasInterrupted: Bool {
+    guard hasExecutionError, case .array(let errors)? = output?.data, !errors.isEmpty else {
+      return false
+    }
+    return errors.allSatisfy { error in
+      guard case .object(let details) = error else { return false }
+      return details["type"] == .string("interruption")
+        || details["error_type"] == .string("interruption")
+    }
+  }
+
+  public func successfullyExecuted(_ source: String) -> Bool {
+    status == .idle && !hasExecutionError && !stale
+      && lastExecutedCode != nil && lastExecutedCode == source
+  }
 
   public init(
     status: ExecutionStatus = .idle,

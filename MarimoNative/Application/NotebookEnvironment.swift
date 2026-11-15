@@ -2,9 +2,103 @@ import Foundation
 import MarimoEnvironment
 
 extension NotebookStore {
+  public var selectedPythonEnvironment: PythonEnvironmentDetails? {
+    switch environmentState {
+    case .ready(let details, _), .needsWorkingDirectory(let details): details
+    case .notConfigured, .selected, .checking, .invalid: nil
+    }
+  }
+
+  public var notebookWorkingDirectory: URL? {
+    switch environmentState {
+    case .ready(_, let directory): directory
+    case .selected(_, let directory): directory
+    case .notConfigured, .checking, .invalid, .needsWorkingDirectory: nil
+    }
+  }
+
+  public var terminalPythonEnvironment: [String: String] {
+    guard let details = selectedPythonEnvironment else { return [:] }
+    let environmentRoot =
+      details.executableURL.deletingLastPathComponent().deletingLastPathComponent()
+    guard
+      FileManager.default.fileExists(
+        atPath: environmentRoot.appending(path: "pyvenv.cfg").path)
+    else { return [:] }
+    let bin = details.executableURL.deletingLastPathComponent().path
+    let inheritedPath = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"
+    return [
+      "PATH": "\(bin):\(inheritedPath)",
+      "VIRTUAL_ENV": environmentRoot.path,
+    ]
+  }
+
+  public func refreshPythonEnvironments() async {
+    guard !environmentsSearching else { return }
+    environmentsSearching = true
+    defer { environmentsSearching = false }
+    let location =
+      document.sourceURL
+      ?? applicationWorkspaceDirectory.appending(path: "Untitled.py")
+    let workspace = managedEnvironmentWorkspaceURL(for: location)
+    packageEnvironmentScope = await managedEnvironmentStore.scope(for: workspace)
+    environmentCandidates = await environmentDiscovery.candidates(for: location)
+    if let managed = await managedEnvironmentCandidate(
+      scope: packageEnvironmentScope, workspaceURL: workspace)
+    {
+      environmentCandidates.removeAll { $0.executableURL == managed.executableURL }
+      environmentCandidates.insert(managed, at: 0)
+    } else {
+      prioritizeBundledEnvironmentCandidate()
+    }
+    if case .notConfigured = environmentState, let first = environmentCandidates.first {
+      environmentState = .selected(
+        first,
+        workingDirectory: document.sourceURL?.deletingLastPathComponent()
+          ?? applicationWorkspaceDirectory)
+    }
+    environmentAvailability = Dictionary(
+      uniqueKeysWithValues: environmentCandidates.map { ($0.id, .checking) }
+    )
+    await withTaskGroup(of: (PythonEnvironmentCandidate, PythonEnvironmentAvailability).self) {
+      group in
+      for candidate in environmentCandidates {
+        group.addTask { [environmentPreflight] in
+          do {
+            return (candidate, .ready(try await environmentPreflight.inspect(candidate)))
+          } catch let failure as PythonPreflightFailure {
+            return (candidate, .unavailable(failure))
+          } catch {
+            return (candidate, .unavailable(.launchFailed(error.localizedDescription)))
+          }
+        }
+      }
+      for await (candidate, availability) in group {
+        environmentAvailability[candidate.id] = availability
+        guard case .selected(let selected, _) = environmentState, selected.id == candidate.id else {
+          continue
+        }
+        switch availability {
+        case .ready(let details):
+          await activatePythonEnvironment(details)
+        case .unavailable(let failure):
+          environmentState = .invalid(candidate, failure)
+        case .checking:
+          break
+        }
+      }
+    }
+    await refreshManagedEnvironmentStorage()
+  }
+
   public func refreshInstalledPackages() async {
-    guard case .ready(let details, _) = environmentState else {
+    let details: PythonEnvironmentDetails
+    switch environmentState {
+    case .ready(let inspected, _), .needsWorkingDirectory(let inspected):
+      details = inspected
+    case .notConfigured, .selected, .checking, .invalid:
       installedPackages = []
+      packagesLoaded = false
       packagesError = "Choose and validate a Python environment first."
       return
     }
@@ -16,9 +110,79 @@ extension NotebookStore {
         notebookURI: document.notebookURI,
         executable: details.executableURL.path
       )
+      packagesLoaded = true
     } catch {
       installedPackages = []
+      packagesLoaded = false
       packagesError = "Packages could not be read: \(error.localizedDescription)"
+    }
+  }
+
+  public func installPackages(_ requirements: [String]) async {
+    guard !packageOperationState.isRunning else { return }
+    guard let packageManager else {
+      packageOperationState = .failed(NotebookPackageManagerError.unavailable.localizedDescription)
+      return
+    }
+    guard case .ready(let initialDetails, let workingDirectory) = environmentState else {
+      packageOperationState = .failed("A ready notebook environment is required.")
+      return
+    }
+
+    do {
+      let normalized = try requirements.map(UVNotebookPackageManager.validateRequirement)
+      guard !normalized.isEmpty else { return }
+      var targetDetails = initialDetails
+      let workspace = managedEnvironmentWorkspaceURL()
+      let environmentURL = await managedEnvironmentStore.environmentURL(
+        for: packageEnvironmentScope, workspaceURL: workspace)
+      let managedPythonURL = environmentURL.appending(path: "bin/python")
+      if normalizedExecutableURL(initialDetails.executableURL)
+        != normalizedExecutableURL(managedPythonURL)
+      {
+        packageOperationState = .preparingEnvironment
+        if document.kernelSessionID != nil {
+          try? await backend.closeSession(notebookURI: document.notebookURI)
+          resetSessionState(to: .notStarted)
+        }
+        let pythonURL = try await packageManager.createEnvironment(
+          at: environmentURL,
+          basePythonURL: initialDetails.executableURL,
+          workingDirectoryURL: workingDirectory
+        )
+        let candidate = PythonEnvironmentCandidate(
+          executableURL: pythonURL,
+          kind: packageEnvironmentScope == .shared
+            ? .applicationSharedEnvironment : .projectManagedEnvironment)
+        if !environmentCandidates.contains(where: { $0.id == candidate.id }) {
+          environmentCandidates.insert(candidate, at: 0)
+        }
+        await selectPythonEnvironment(candidate)
+        guard case .ready(let createdDetails, _) = environmentState else {
+          throw NotebookPackageManagerError.processFailed(
+            status: -1, message: "The new notebook environment could not be selected.")
+        }
+        targetDetails = createdDetails
+      }
+
+      packageOperationState = .installing(normalized)
+      try await packageManager.install(
+        requirements: normalized,
+        pythonURL: targetDetails.executableURL,
+        workspaceURL: workingDirectory
+      )
+      try? await managedEnvironmentStore.markUsed(
+        scope: packageEnvironmentScope, workspaceURL: managedEnvironmentWorkspaceURL())
+      packageOperationState = .succeeded(normalized)
+      missingPackages.removeAll { missing in
+        normalized.contains { requirement in
+          requirement.localizedCaseInsensitiveCompare(missing) == .orderedSame
+        }
+      }
+      await refreshInstalledPackages()
+      await refreshManagedEnvironmentStorage()
+    } catch {
+      packageOperationState = .failed(error.localizedDescription)
     }
   }
 
@@ -26,7 +190,21 @@ extension NotebookStore {
     runOnceAuthorized = false
     executionFolderTrusted = false
     executionTrustPromptPresented = false
+    installedPackages = []
+    packagesLoaded = false
+    packagesError = nil
+    let workspace = managedEnvironmentWorkspaceURL(for: notebookURL)
+    packageEnvironmentScope = await managedEnvironmentStore.scope(for: workspace)
     environmentCandidates = await environmentDiscovery.candidates(for: notebookURL)
+    if let managed = await managedEnvironmentCandidate(
+      scope: packageEnvironmentScope, workspaceURL: workspace)
+    {
+      environmentCandidates.removeAll { $0.executableURL == managed.executableURL }
+      environmentCandidates.insert(managed, at: 0)
+    } else {
+      prioritizeBundledEnvironmentCandidate()
+    }
+    environmentAvailability = [:]
     guard let first = environmentCandidates.first else {
       environmentState = .notConfigured
       return
@@ -35,6 +213,9 @@ extension NotebookStore {
       first,
       workingDirectory: canonicalURL(notebookURL).deletingLastPathComponent()
     )
+    // Disk usage is refreshed by Settings, not on the document-open critical path.
+    managedEnvironmentSummaries = []
+    managedPackageCacheSize = 0
   }
 
   public func choosePythonExecutable(_ executableURL: URL) async {
@@ -50,30 +231,57 @@ extension NotebookStore {
   }
 
   public func selectPythonEnvironment(_ candidate: PythonEnvironmentCandidate) async {
+    installedPackages = []
+    packagesLoaded = false
+    packagesError = nil
+    if case .ready(let details) = environmentAvailability[candidate.id] {
+      await activatePythonEnvironment(details)
+      return
+    }
     environmentState = .checking(candidate)
+    environmentAvailability[candidate.id] = .checking
     do {
       let details = try await environmentPreflight.inspect(candidate)
-      if let sourceURL = document.sourceURL {
-        let workspaceRoot = WorkspaceResolver.workspaceRoot(for: sourceURL)
-        try await environmentDiscovery.remember(details, for: workspaceRoot)
-        environmentState = .ready(
-          details,
-          workingDirectory: canonicalURL(sourceURL).deletingLastPathComponent()
-        )
-        executionFolderTrusted = await folderTrustStore.isTrusted(
-          folder: WorkspaceResolver.workspaceRoot(for: sourceURL),
-          notebookURL: sourceURL
-        )
-      } else {
-        environmentState = .needsWorkingDirectory(details)
-        executionFolderTrusted = false
-      }
-      runOnceAuthorized = false
+      environmentAvailability[candidate.id] = .ready(details)
+      await activatePythonEnvironment(details)
     } catch let failure as PythonPreflightFailure {
+      environmentAvailability[candidate.id] = .unavailable(failure)
       environmentState = .invalid(candidate, failure)
     } catch {
-      environmentState = .invalid(candidate, .launchFailed(error.localizedDescription))
+      let failure = PythonPreflightFailure.launchFailed(error.localizedDescription)
+      environmentAvailability[candidate.id] = .unavailable(failure)
+      environmentState = .invalid(candidate, failure)
     }
+  }
+
+  private func activatePythonEnvironment(_ details: PythonEnvironmentDetails) async {
+    if let sourceURL = document.sourceURL {
+      let workspaceRoot = WorkspaceResolver.workspaceRoot(for: sourceURL)
+      try? await environmentDiscovery.remember(details, for: workspaceRoot)
+      environmentState = .ready(
+        details,
+        workingDirectory: canonicalURL(sourceURL).deletingLastPathComponent()
+      )
+      executionFolderTrusted = await folderTrustStore.isTrusted(
+        folder: workspaceRoot,
+        notebookURL: sourceURL
+      )
+    } else {
+      try? FileManager.default.createDirectory(
+        at: applicationWorkspaceDirectory, withIntermediateDirectories: true)
+      environmentState = .ready(details, workingDirectory: applicationWorkspaceDirectory)
+      executionFolderTrusted = true
+    }
+    if details.kind == .applicationSharedEnvironment
+      || details.kind == .projectManagedEnvironment
+    {
+      try? await managedEnvironmentStore.markUsed(
+        scope: details.kind == .applicationSharedEnvironment ? .shared : .project,
+        workspaceURL: managedEnvironmentWorkspaceURL()
+      )
+      await refreshManagedEnvironmentStorage()
+    }
+    runOnceAuthorized = false
   }
 
   public func chooseWorkingDirectory(_ directory: URL) {
@@ -126,6 +334,10 @@ extension NotebookStore {
       return false
     }
     let folder = executionTrustFolder(workingDirectory: workingDirectory)
+    if isApplicationManagedWorkingDirectory(workingDirectory) {
+      executionFolderTrusted = true
+      return true
+    }
     executionFolderTrusted = await folderTrustStore.isTrusted(
       folder: folder, notebookURL: document.sourceURL
     )
@@ -170,6 +382,10 @@ extension NotebookStore {
       return true
     }
     guard case .ready(_, let workingDirectory) = environmentState else { return false }
+    if isApplicationManagedWorkingDirectory(workingDirectory) {
+      executionFolderTrusted = true
+      return true
+    }
     executionFolderTrusted = await folderTrustStore.isTrusted(
       folder: executionTrustFolder(workingDirectory: workingDirectory),
       notebookURL: document.sourceURL
@@ -208,5 +424,10 @@ extension NotebookStore {
       return WorkspaceResolver.workspaceRoot(for: sourceURL)
     }
     return canonicalURL(workingDirectory)
+  }
+
+  private func isApplicationManagedWorkingDirectory(_ directory: URL) -> Bool {
+    document.sourceURL == nil
+      && canonicalURL(directory) == canonicalURL(applicationWorkspaceDirectory)
   }
 }

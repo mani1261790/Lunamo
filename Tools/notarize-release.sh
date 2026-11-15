@@ -3,15 +3,17 @@ set -eu
 
 project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 artifact_directory=${MARIMONATIVE_ARTIFACT_DIR:-"$project_root/.build/release-artifacts"}
-app_root=${1:-"$artifact_directory/MarimoNative.app"}
-submission="$artifact_directory/MarimoNative-0.1.0-submission.zip"
-artifact="$artifact_directory/MarimoNative-0.1.0.zip"
-notary_result="$artifact_directory/notarization.json"
-
+app_root=${1:-"$artifact_directory/Lunamo.app"}
 case "$app_root" in
   /*) ;;
   *) app_root="$project_root/$app_root" ;;
 esac
+
+version=$(plutil -extract CFBundleShortVersionString raw -o - "$app_root/Contents/Info.plist")
+submission="$artifact_directory/Lunamo-$version-submission.zip"
+artifact="$artifact_directory/Lunamo-$version.zip"
+notary_result="$artifact_directory/notarization.json"
+
 
 "$project_root/Tools/verify-protocol-lock.sh"
 "$project_root/Tools/verify-release-artifact.sh" "$app_root" distribution

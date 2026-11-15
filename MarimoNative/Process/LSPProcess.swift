@@ -45,6 +45,7 @@ public actor LSPProcess: ProcessTransport {
     process.executableURL = request.executableURL
     process.arguments = request.arguments
     process.environment = request.environment
+    process.currentDirectoryURL = request.currentDirectoryURL
     process.standardInput = input
     process.standardOutput = output
     process.standardError = errorPipe

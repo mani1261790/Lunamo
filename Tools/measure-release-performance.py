@@ -91,7 +91,7 @@ def main() -> None:
     parser.add_argument("app", type=Path)
     parser.add_argument("--launch-samples", type=int, default=20)
     arguments = parser.parse_args()
-    executable = arguments.app / "Contents/MacOS/MarimoNative"
+    executable = arguments.app / "Contents/MacOS/lunamo"
     if not executable.is_file():
         raise SystemExit(f"Missing app executable: {executable}")
     if platform.machine() != "arm64":
@@ -191,6 +191,7 @@ def main() -> None:
             match = re.search(r"maxMainThreadDelayMilliseconds=([0-9.]+)", result)
             if match is None:
                 raise RuntimeError(f"Scroll probe failed: {result}")
+            print(f"Scroll probe details: {result.strip()}")
             maximum_delay = float(match.group(1))
             print(
                 f"MN-PERF-004 main-thread-max-delay={maximum_delay:.3f}ms "

@@ -5,8 +5,8 @@ private struct PreflightPayload: Decodable {
   let executable: String
   let python: [Int]
   let architecture: String
-  let marimoVersion: String
-  let marimoFile: String
+  let marimoVersion: String?
+  let marimoFile: String?
 
   enum CodingKeys: String, CodingKey {
     case executable
@@ -29,13 +29,18 @@ public actor PythonPreflightService {
   public static let requiredMarimoVersion = "0.24.0"
   public static let fixedScript = """
     import json, os, platform, sys
-    import marimo
+    try:
+        import marimo
+    except ModuleNotFoundError as error:
+        if error.name != "marimo":
+            raise
+        marimo = None
     print(json.dumps({
         "executable": os.path.realpath(sys.executable),
         "python": [sys.version_info.major, sys.version_info.minor, sys.version_info.micro],
         "architecture": platform.machine(),
-        "marimo_version": marimo.__version__,
-        "marimo_file": os.path.realpath(marimo.__file__),
+        "marimo_version": marimo.__version__ if marimo is not None else None,
+        "marimo_file": os.path.realpath(marimo.__file__) if marimo is not None else None,
     }, separators=(",", ":")))
     """
 
@@ -100,8 +105,11 @@ public actor PythonPreflightService {
     guard payload.architecture == "arm64" else {
       throw PythonPreflightFailure.unsupportedArchitecture(payload.architecture)
     }
-    guard payload.marimoVersion == Self.requiredMarimoVersion else {
-      throw PythonPreflightFailure.unsupportedMarimo(payload.marimoVersion)
+    guard let marimoVersion = payload.marimoVersion, let marimoFile = payload.marimoFile else {
+      throw PythonPreflightFailure.marimoNotInstalled
+    }
+    guard marimoVersion == Self.requiredMarimoVersion else {
+      throw PythonPreflightFailure.unsupportedMarimo(marimoVersion)
     }
     let finalIdentity = try executableIdentity(at: launchURL)
     guard finalIdentity == identity else {
@@ -112,8 +120,8 @@ public actor PythonPreflightService {
       realExecutableURL: reportedURL,
       pythonVersion: version,
       architecture: payload.architecture,
-      marimoVersion: payload.marimoVersion,
-      marimoModuleURL: canonicalURL(URL(fileURLWithPath: payload.marimoFile)),
+      marimoVersion: marimoVersion,
+      marimoModuleURL: canonicalURL(URL(fileURLWithPath: marimoFile)),
       kind: candidate.kind,
       identity: identity
     )

@@ -76,7 +76,7 @@ def main() -> None:
     parser.add_argument("--fixture", required=True, type=Path)
     arguments = parser.parse_args()
     app = arguments.app.resolve()
-    executable = app / "Contents/MacOS/MarimoNative"
+    executable = app / "Contents/MacOS/lunamo"
     python = app / "Contents/Resources/Sidecar/bin/python3"
     if not executable.is_file() or not python.is_file():
         raise SystemExit(f"Incomplete release app: {app}")

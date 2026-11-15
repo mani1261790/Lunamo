@@ -55,7 +55,7 @@ def parse_arguments() -> argparse.Namespace:
 
 def specification_requirements(root: Path) -> set[str]:
     specification = root / "MarimoNative_Strict_Specification_v1.0.md"
-    pattern = re.compile(r"^(MN-[A-Z]+-\d{3}) MUST(?: NOT)?\s*$")
+    pattern = re.compile(r"^(MN-[A-Z]+-\d{3}[A-Z]?) MUST(?: NOT)?\s*$")
     return {
         match.group(1)
         for line in specification.read_text().splitlines()

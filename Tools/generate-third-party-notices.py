@@ -36,7 +36,7 @@ def main() -> None:
     lines = [
         "# Third-Party Notices",
         "",
-        "This file is generated from the exact distributions bundled with MarimoNative.",
+        "This file is generated from the exact distributions bundled with Lunamo.",
         "",
         "## CPython",
         "",

@@ -5,6 +5,8 @@ public enum NotebookIntent: Sendable, Equatable {
   case addCell
   case insertCell(after: UUID?)
   case insertCellAt(Int)
+  case insertTextCellAt(Int)
+  case updateMarkdown(cellID: UUID, markdown: String)
   case deleteCell(UUID)
   case duplicateCell(UUID)
   case moveCell(UUID, to: Int)

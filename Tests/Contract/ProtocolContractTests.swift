@@ -118,6 +118,10 @@ struct ProtocolContractTests {
     #expect(lock.kernelMarimoVersion == "0.24.0")
     #expect(lock.ownedDocumentVersion == "1")
     #expect(lock.commandMethod == "marimo/command")
+    #expect(lock.nativeImportMethod == "marimonative/convertNotebook")
+    #expect(lock.nativeImportVersion == 1)
+    #expect(lock.nativeCompletionMethod == "marimonative/completePython")
+    #expect(lock.nativeCompletionVersion == 1)
     #expect(lock.notificationMethod == "marimo/kernelNotification")
     #expect(lock.schemaHash == "e58dbe06acbe252a5e37fecf4b65c71a24543f87f5923bc547da608ca97f7005")
   }

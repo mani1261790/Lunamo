@@ -21,7 +21,7 @@ if ! DEVELOPER_DIR="$developer_dir" xcrun --find xcodebuild >/dev/null 2>&1; the
 fi
 identity=${MARIMONATIVE_CODESIGN_IDENTITY:-}
 artifact_directory=${MARIMONATIVE_ARTIFACT_DIR:-"$project_root/.build/release-artifacts"}
-app_root="$artifact_directory/MarimoNative.app"
+app_root="$artifact_directory/Lunamo.app"
 contents="$app_root/Contents"
 entitlements="$project_root/MarimoNative/Resources/MarimoNative.entitlements"
 
@@ -31,16 +31,17 @@ if [ -z "$identity" ]; then
 fi
 
 "$project_root/Tools/verify-sidecar.sh" "$project_root/.build/Sidecar"
-# Apple Swift 6.2.3 currently aborts in the optimizer while compiling SwiftSoup 2.13.5.
-# Keep the Release compilation condition (not DEBUG) while disabling that failing optimizer pass.
-DEVELOPER_DIR="$developer_dir" swift build --package-path "$project_root" -c release -Xswiftc -Onone
+# SwiftSoup 2.13.5 triggers a compiler crash in SIL CopyPropagation.
+# Disable only that pass; retain Release optimization for the app and dependencies.
+DEVELOPER_DIR="$developer_dir" swift build --package-path "$project_root" -c release \
+  -Xswiftc -Xllvm -Xswiftc -sil-disable-pass=CopyPropagation
 
 mkdir -p "$artifact_directory"
 if [ -e "$app_root" ]; then
   rm -rf "$app_root"
 fi
 mkdir -p "$contents/MacOS" "$contents/Resources"
-cp "$project_root/.build/release/MarimoNative" "$contents/MacOS/MarimoNative"
+cp "$project_root/.build/release/lunamo" "$contents/MacOS/lunamo"
 cp "$project_root/MarimoNative/Resources/Info.plist" "$contents/Info.plist"
 cp "$project_root/MarimoNative/Resources/AppIcon.icns" "$contents/Resources/AppIcon.icns"
 for localization in "$project_root"/MarimoNative/Resources/Localization/*.lproj; do
@@ -63,6 +64,8 @@ sign_item() {
     codesign --force --timestamp --options runtime --sign "$identity" "$item"
   fi
 }
+
+"$project_root/Tools/embed-sparkle.sh" "$app_root" "$identity"
 
 nested_count=0
 while IFS= read -r candidate; do

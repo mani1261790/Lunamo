@@ -62,6 +62,7 @@ extension NotebookStore {
     expecting expectation: AtomicWriteExpectation,
     moving: Bool = false
   ) async throws -> SaveOutcome {
+    try await flushCommittedTextChanges()
     let source = try await backend.printNotebook(document.persistentDocumentForSaving())
     let identity: FileIdentity
     do {

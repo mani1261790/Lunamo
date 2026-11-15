@@ -44,6 +44,7 @@ public enum JSONRPCTimeouts {
       ]
       if longRunning.contains(kind) { return .seconds(120) }
     }
+    if method == "marimonative/convertNotebook" { return .seconds(120) }
     return .seconds(10)
   }
 }
@@ -111,7 +112,7 @@ public actor JSONRPCConnection {
       let pid = await transport.processIdentifier().map(Int64.init) ?? 0
       let params: JSONValue = .object([
         "processId": .integer(pid),
-        "clientInfo": .object(["name": .string("MarimoNative"), "version": .string("1.0")]),
+        "clientInfo": .object(["name": .string("Lunamo"), "version": .string("1.0")]),
         "rootUri": rootURI.map(JSONValue.string) ?? .null,
         "workspaceFolders": workspaceFolders,
         "capabilities": .object([

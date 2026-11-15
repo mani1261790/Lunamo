@@ -12,10 +12,14 @@ public final class NotebookStore: ObservableObject {
   @Published public internal(set) var openState: OpenState = .idle
   @Published public internal(set) var synchronizationError: String?
   @Published public internal(set) var focusedCellID: UUID?
-  @Published public var inspectorPresented = false
+  @Published public var assistantPresented = false
+  @Published public internal(set) var codeSelections: [UUID: String] = [:]
   @Published public internal(set) var saveConflictURL: URL?
   @Published public internal(set) var saveMessage: String?
   @Published public internal(set) var environmentCandidates: [PythonEnvironmentCandidate] = []
+  @Published public internal(set) var environmentAvailability:
+    [String: PythonEnvironmentAvailability] = [:]
+  @Published public internal(set) var environmentsSearching = false
   @Published public internal(set) var environmentState: NotebookEnvironmentState = .notConfigured
   @Published public internal(set) var executionTrustPromptPresented = false
   @Published public internal(set) var executionFolderTrusted = false
@@ -33,7 +37,17 @@ public final class NotebookStore: ObservableObject {
   @Published public var recoverySourcePresented = false
   @Published public internal(set) var installedPackages: [NotebookPackage] = []
   @Published public internal(set) var packagesLoading = false
+  @Published public internal(set) var packagesLoaded = false
   @Published public internal(set) var packagesError: String?
+  @Published public internal(set) var missingPackages: [String] = []
+  var runtimePackageAlertSessionID: String?
+  @Published public internal(set) var packageOperationState: NotebookPackageOperationState = .idle
+  @Published public internal(set) var packageEnvironmentScope: ManagedPythonEnvironmentScope =
+    .shared
+  @Published public internal(set) var managedEnvironmentSummaries:
+    [ManagedPythonEnvironmentSummary] = []
+  @Published public internal(set) var managedPackageCacheSize: Int64 = 0
+  @Published public internal(set) var environmentStorageMessage: String?
 
   public let widgetValueStore: WidgetValueStore
 
@@ -43,7 +57,10 @@ public final class NotebookStore: ObservableObject {
   let recentDocumentStore: RecentDocumentStore
   let environmentDiscovery: PythonEnvironmentDiscovery
   let environmentPreflight: PythonPreflightService
+  let packageManager: (any NotebookPackageManaging)?
+  let managedEnvironmentStore: ManagedPythonEnvironmentStore
   let folderTrustStore: FolderTrustStore
+  public let applicationWorkspaceDirectory: URL
   var synchronizedURI: String?
   var synchronizedCellURIs: [String] = []
   var filePresenter: NotebookFilePresenter?
@@ -54,6 +71,8 @@ public final class NotebookStore: ObservableObject {
   var sessionResolutionTask: Task<Void, Never>?
   var completionRefreshTask: Task<Void, Never>?
   var pendingTextSynchronizations: [UUID: Task<Void, Error>] = [:]
+  var markdownRevisions: [UUID: UUID] = [:]
+  var retiredKernelSessionIDs: Set<String> = []
   var runAwaitingCompletion = false
   let sessionResolutionTimeout: Duration
   var interruptTimeoutTask: Task<Void, Never>?
@@ -66,9 +85,12 @@ public final class NotebookStore: ObservableObject {
     fileWriter: AtomicFileWriter = AtomicFileWriter(),
     environmentDiscovery: PythonEnvironmentDiscovery = PythonEnvironmentDiscovery(),
     environmentPreflight: PythonPreflightService = PythonPreflightService(),
+    packageManager: (any NotebookPackageManaging)? = nil,
+    managedEnvironmentStore: ManagedPythonEnvironmentStore = ManagedPythonEnvironmentStore(),
     folderTrustStore: FolderTrustStore = FolderTrustStore(),
     recentDocumentStore: RecentDocumentStore = RecentDocumentStore(),
     widgetValueStore: WidgetValueStore = WidgetValueStore(),
+    applicationWorkspaceDirectory: URL = ApplicationWorkspaceDirectory.resolve(),
     sessionResolutionTimeout: Duration = .seconds(15),
     interruptTimeout: Duration = .seconds(10)
   ) {
@@ -78,9 +100,12 @@ public final class NotebookStore: ObservableObject {
     self.fileWriter = fileWriter
     self.environmentDiscovery = environmentDiscovery
     self.environmentPreflight = environmentPreflight
+    self.packageManager = packageManager
+    self.managedEnvironmentStore = managedEnvironmentStore
     self.folderTrustStore = folderTrustStore
     self.recentDocumentStore = recentDocumentStore
     self.widgetValueStore = widgetValueStore
+    self.applicationWorkspaceDirectory = applicationWorkspaceDirectory.standardizedFileURL
     self.sessionResolutionTimeout = sessionResolutionTimeout
     self.interruptTimeout = interruptTimeout
   }
@@ -94,71 +119,6 @@ public final class NotebookStore: ObservableObject {
     }
   }
 
-  public func open(_ url: URL) async {
-    MarimoLog.document.info(
-      "Opening notebook at \(MarimoLogPrivacy.redactHomePrefix(in: url.path), privacy: .public)"
-    )
-    openState = .loading(url)
-    do {
-      let snapshot = try await documentService.readSnapshot(at: url)
-      if backendStatus != .ready {
-        try await backend.start()
-        backendStatus = await backend.status()
-      }
-      switch try await backend.parseNotebook(source: snapshot.source) {
-      case .success(let parsed):
-        stopFileMonitoring()
-        try await closeDocumentSynchronization()
-        resetSessionState(to: .notStarted)
-        document = NotebookDocumentState(
-          sourceURL: url,
-          owned: parsed.owned,
-          dirty: false,
-          lastSavedFileIdentity: snapshot.identity
-        )
-        focusedCellID = nil
-        saveConflictURL = nil
-        externalFileState = .none
-        conflictBannerDismissed = false
-        ignoreExternalChangesUntilNextSave = false
-        userFacingError = nil
-        saveMessage = nil
-        try await synchronizeOpenDocument()
-        openState = .loaded(url)
-        await refreshSidebarFiles()
-        await discoverPythonEnvironments(for: url)
-        await reattachSessionIfAvailable()
-        await recordRecentDocument(url)
-        restartFileMonitoring(at: url)
-      case .invalidSyntax(let line, let column):
-        openState = .invalidSyntax(url, line: line, column: column)
-        presentError(
-          code: .documentSyntax,
-          cause:
-            "Python syntax error at line \(line.map(String.init) ?? "unknown"), column \(column.map(String.init) ?? "unknown").",
-          target: url.path,
-          recoveryActions: ["Edit the source in another application", "Open Another Notebook"]
-        )
-      case .convertible:
-        openState = .convertible(url)
-        presentError(
-          code: .documentConvert,
-          cause: "The source is Python, but it is not a marimo notebook.",
-          target: url.path,
-          recoveryActions: ["Open Another Notebook"]
-        )
-      }
-    } catch {
-      openState = .failed(url, String(describing: error))
-      presentError(
-        code: errorCode(for: error),
-        cause: error.localizedDescription,
-        target: url.path,
-        recoveryActions: ["Retry", "Open Another Notebook"]
-      )
-    }
-  }
-
   private func perform(_ intent: NotebookIntent) async throws {
     switch intent {
     case .addCell:
@@ -167,6 +127,15 @@ public final class NotebookStore: ObservableObject {
       try await insertCell(after: after)
     case .insertCellAt(let position):
       try await insertCell(at: position)
+    case .insertTextCellAt(let position):
+      let documentID = document.documentID
+      let projection = try await backend.textCell(source: "", markdown: "")
+      guard document.documentID == documentID else { return }
+      var cell = NotebookCellState(code: projection.source)
+      cell.editor.markdown = projection.markdown
+      try await insertCell(at: position, cell: cell)
+    case .updateMarkdown(let cellID, let markdown):
+      try await updateMarkdown(cellID: cellID, markdown: markdown)
     case .deleteCell(let cellID):
       try await deleteCell(cellID)
     case .duplicateCell(let cellID):
@@ -233,6 +202,13 @@ public final class NotebookStore: ObservableObject {
     document.cells[index].editor.hasMarkedText = hasMarkedText
     guard !hasMarkedText, previous != code else { return }
 
+    if document.cells[index].runtime.status == .error
+      || document.cells[index].runtime.status == .disabledTransitively
+    {
+      document.cells[index].runtime.status = .idle
+      document.cells[index].runtime.stale = document.cells[index].runtime.lastExecutedCode != nil
+    }
+
     document.cells[index].editor.textDocumentVersion += 1
     document.cells[index].editor.lastSynchronizedCode = code
     document.recordPersistentChange()
@@ -270,9 +246,10 @@ public final class NotebookStore: ObservableObject {
     try await insertCell(at: insertionIndex)
   }
 
-  private func insertCell(at position: Int) async throws {
+  private func insertCell(at position: Int, cell: NotebookCellState = NotebookCellState())
+    async throws
+  {
     let insertionIndex = min(max(position, 0), document.cells.count)
-    let cell = NotebookCellState()
     document.cells.insert(cell, at: insertionIndex)
     document.selectedCellID = cell.runtimeID
     document.recordPersistentChange()
@@ -293,8 +270,44 @@ public final class NotebookStore: ObservableObject {
     synchronizedCellURIs.insert(projected.uri, at: insertionIndex)
   }
 
+  private func updateMarkdown(cellID: UUID, markdown: String) async throws {
+    guard let index = cellIndex(cellID) else { return }
+    let source = document.cells[index].code
+    let documentID = document.documentID
+    let revision = UUID()
+    if let previous = markdownRevisions[cellID] {
+      pendingTextSynchronizations.removeValue(forKey: previous)
+    }
+    markdownRevisions[cellID] = revision
+    document.cells[index].editor.markdown = markdown
+    document.recordPersistentChange()
+    let task = Task<Void, Error> { @MainActor in
+      let projection = try await self.backend.textCell(source: source, markdown: markdown)
+      guard self.document.documentID == documentID,
+        self.markdownRevisions[cellID] == revision, self.cellIndex(cellID) != nil
+      else { return }
+      guard projection.markdown != nil else { throw MarimoBackendCapabilityError.unavailable }
+      try await self.updateCode(cellID: cellID, code: projection.source, hasMarkedText: false)
+    }
+    pendingTextSynchronizations[revision] = task
+    do {
+      try await task.value
+      pendingTextSynchronizations.removeValue(forKey: revision)
+    } catch {
+      if markdownRevisions[cellID] != revision {
+        pendingTextSynchronizations.removeValue(forKey: revision)
+        return
+      }
+      // Keep a failed conversion in the flush barrier so Save/Run cannot use stale Python.
+      throw error
+    }
+  }
+
   private func deleteCell(_ cellID: UUID) async throws {
     guard let index = cellIndex(cellID) else { return }
+    if let revision = markdownRevisions.removeValue(forKey: cellID) {
+      pendingTextSynchronizations.removeValue(forKey: revision)
+    }
     let removed = document.cells[index]
     let removedURI = document.cellURI(removed)
     let sessionID = document.kernelSessionID
@@ -329,14 +342,16 @@ public final class NotebookStore: ObservableObject {
   }
 
   private func duplicateCell(_ cellID: UUID) async throws {
+    try await flushCommittedTextChanges()
     guard let index = cellIndex(cellID) else { return }
     let original = document.cells[index]
-    let duplicate = NotebookCellState(
+    var duplicate = NotebookCellState(
       code: original.code,
       name: original.name,
       configuration: original.configuration,
       projectionMetadata: original.projectionMetadata
     )
+    duplicate.editor.markdown = original.editor.markdown
     document.cells.insert(duplicate, at: index + 1)
     document.selectedCellID = duplicate.runtimeID
     document.recordPersistentChange()

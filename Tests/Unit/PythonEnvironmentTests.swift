@@ -1,4 +1,6 @@
 import Foundation
+import MarimoApplication
+import MarimoBackend
 import MarimoEnvironment
 import MarimoProcess
 import Testing
@@ -18,12 +20,15 @@ struct PythonEnvironmentTests {
       let notebookPython = notebookDirectory.appending(path: ".venv/bin/python")
       let workspacePython = workspace.appending(path: ".venv/bin/python")
       let savedPython = directory.appending(path: "saved-python")
+      let bundledPython = directory.appending(path: "bundled-python")
       try makeExecutable(notebookPython)
       try makeExecutable(workspacePython)
       try makeExecutable(savedPython)
+      try makeExecutable(bundledPython)
       let support = directory.appending(path: "support")
       let selectionStore = WorkspaceEnvironmentStore(applicationSupportDirectory: support)
-      let discovery = PythonEnvironmentDiscovery(store: selectionStore)
+      let discovery = PythonEnvironmentDiscovery(
+        store: selectionStore, searchSystem: false, bundledPythonURL: bundledPython)
       let savedIdentity = try executableIdentity(at: savedPython)
       try await selectionStore.save(
         SavedEnvironmentSelection(executableURL: savedPython, identity: savedIdentity),
@@ -39,16 +44,19 @@ struct PythonEnvironmentTests {
       #expect(
         candidates.map(\.kind) == [
           .notebookVirtualEnvironment, .workspaceVirtualEnvironment, .savedWorkspaceSelection,
+          .bundled,
         ])
       #expect(
         candidates.map { canonicalURL($0.executableURL) } == [
           canonicalURL(notebookPython), canonicalURL(workspacePython), canonicalURL(savedPython),
+          canonicalURL(bundledPython),
         ])
       #expect(
         candidates.map(\.executableURL) == [
           normalizedExecutableURL(notebookPython),
           normalizedExecutableURL(workspacePython),
           normalizedExecutableURL(savedPython),
+          normalizedExecutableURL(bundledPython),
         ])
     }
   }
@@ -71,11 +79,45 @@ struct PythonEnvironmentTests {
       )
       try makeExecutable(executable, contents: "changed executable contents")
 
-      let candidates = await PythonEnvironmentDiscovery(store: store).candidates(
-        for: workspace.appending(path: "demo.py")
-      )
+      let candidates = await PythonEnvironmentDiscovery(store: store, searchSystem: false)
+        .candidates(
+          for: workspace.appending(path: "demo.py")
+        )
       #expect(candidates.isEmpty)
     }
+  }
+
+  @Test("The app bootstrap is preferred over a legacy notebook venv")
+  @MainActor
+  func bundledBootstrapPrecedesLegacyVenv() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(
+      path: "marimonative-bootstrap-priority-\(UUID().uuidString)",
+      directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let notebook = directory.appending(path: "workspace/demo.py")
+    let legacyPython = directory.appending(path: "workspace/.venv/bin/python")
+    let bundledPython = directory.appending(path: "bundled/bin/python3")
+    try makeExecutable(legacyPython)
+    try makeExecutable(bundledPython)
+    let discovery = PythonEnvironmentDiscovery(
+      searchSystem: false, bundledPythonURL: bundledPython)
+    let store = NotebookStore(
+      backend: PlaceholderMarimoBackend(),
+      environmentDiscovery: discovery,
+      managedEnvironmentStore: ManagedPythonEnvironmentStore(
+        applicationSupportDirectory: directory.appending(path: "support")),
+      applicationWorkspaceDirectory: directory.appending(path: "notebooks")
+    )
+
+    await store.discoverPythonEnvironments(for: notebook)
+
+    #expect(store.environmentCandidates.first?.kind == .bundled)
+    guard case .selected(let selected, _) = store.environmentState else {
+      Issue.record("Expected discovery to select the bootstrap candidate")
+      return
+    }
+    #expect(selected.kind == .bundled)
   }
 
   @Test("Preflight launches the selected executable directly with the fixed script")
@@ -121,6 +163,60 @@ struct PythonEnvironmentTests {
     await #expect(throws: PythonPreflightFailure.unsupportedMarimo("0.23.3")) {
       try await wrongMarimo.inspect(.init(executableURL: executable, kind: .userSelected))
     }
+  }
+
+  @Test("A missing marimo installation has a specific compatibility result")
+  func missingMarimo() async throws {
+    let executable = URL(fileURLWithPath: "/bin/sh")
+    let payload = Data(
+      """
+      {"executable":"\(canonicalURL(executable).path)","python":[3,13,1],"architecture":"arm64","marimo_version":null,"marimo_file":null}
+      """.utf8
+    )
+    let transport = PreflightMockTransport(events: [.stdout(payload), .terminated(0)])
+    let service = PythonPreflightService(makeTransport: { transport })
+
+    await #expect(throws: PythonPreflightFailure.marimoNotInstalled) {
+      try await service.inspect(.init(executableURL: executable, kind: .detected))
+    }
+  }
+
+  @Test("Environment scan marks and activates the usable built-in Python")
+  @MainActor
+  func activatesBundledEnvironment() async throws {
+    let directory = FileManager.default.temporaryDirectory.appending(
+      path: "marimonative-environment-\(UUID().uuidString)", directoryHint: .isDirectory
+    )
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let executable = directory.appending(path: "bin/python3")
+    try makeExecutable(executable)
+    let discovery = PythonEnvironmentDiscovery(
+      searchSystem: false, bundledPythonURL: executable)
+    let (preflight, _) = successfulPreflight(executableURL: executable)
+    let store = NotebookStore(
+      backend: PlaceholderMarimoBackend(),
+      environmentDiscovery: discovery,
+      environmentPreflight: preflight,
+      managedEnvironmentStore: ManagedPythonEnvironmentStore(
+        applicationSupportDirectory: directory),
+      applicationWorkspaceDirectory: directory
+    )
+
+    await store.refreshPythonEnvironments()
+
+    #expect(store.environmentCandidates.map(\.kind) == [.bundled])
+    guard case .ready = store.environmentAvailability[store.environmentCandidates[0].id] else {
+      Issue.record("Expected the bundled environment to be ready")
+      return
+    }
+    guard case .ready(let details, let workingDirectory) = store.environmentState else {
+      Issue.record("Expected an untitled notebook to use the application workspace")
+      return
+    }
+    #expect(details.kind == .bundled)
+    #expect(workingDirectory == directory.standardizedFileURL)
+    #expect(store.executionFolderTrusted)
   }
 
   @Test("Preflight enforces stdout, stderr, and timeout bounds")

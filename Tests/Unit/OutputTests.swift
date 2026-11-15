@@ -91,6 +91,30 @@ struct OutputTests {
     assertCSV(prepared("text/csv", .string("name,value\n\"a,b\",2\n")))
   }
 
+  @Test("Empty errors and blank textual outputs do not reserve output space")
+  func emptyOutputVisibility() {
+    let emptyErrors = MarimoOutput(
+      channel: .marimoError,
+      mimeType: "application/vnd.marimo+error",
+      data: .array([])
+    )
+    let actualError = MarimoOutput(
+      channel: .marimoError,
+      mimeType: "application/vnd.marimo+error",
+      data: .array([.object(["msg": .string("bad")])])
+    )
+    let blankText = MarimoOutput(
+      channel: .output,
+      mimeType: "text/plain",
+      data: .string("\n  ")
+    )
+
+    #expect(!OutputVisibility.hasRenderableContent(emptyErrors))
+    #expect(OutputVisibility.hasRenderableContent(actualError))
+    #expect(!OutputVisibility.hasRenderableContent(blankText))
+    #expect(OutputVisibility.hasRenderableContent(textOutput("42")))
+  }
+
   @Test("Unsupported and failed renderers preserve recoverable raw data")
   func rendererRecovery() {
     switch prepared("application/x-custom", .string("raw")) {

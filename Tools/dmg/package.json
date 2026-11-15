@@ -1,0 +1,8 @@
+{
+  "name": "lunamo-dmg-tools",
+  "private": true,
+  "description": "Pinned build-only installer tooling for Lunamo",
+  "devDependencies": {
+    "create-dmg": "8.1.0"
+  }
+}

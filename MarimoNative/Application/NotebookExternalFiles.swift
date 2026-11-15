@@ -82,7 +82,7 @@ extension NotebookStore {
     conflictBannerDismissed = false
     userFacingError = NotebookUserFacingError(
       code: .documentConflict,
-      cause: "The file contents changed outside MarimoNative.",
+      cause: "The file contents changed outside Lunamo.",
       target: url.path,
       recoveryActions: document.dirty
         ? ["Reload from Disk", "Save Local Copy", "Cancel"]
@@ -151,6 +151,7 @@ extension NotebookStore {
           dirty: false,
           lastSavedFileIdentity: diskSnapshot.identity
         )
+        await restoreTextCellProjections()
         focusedCellID = nil
         saveConflictURL = nil
         externalFileState = .none
@@ -276,7 +277,7 @@ extension NotebookStore {
     recentDocuments = (try? await recentDocumentStore.remove(url)) ?? recentDocuments
     presentError(
       code: .documentConflict,
-      cause: "The notebook file was deleted outside MarimoNative. The editor buffer is intact.",
+      cause: "The notebook file was deleted outside Lunamo. The editor buffer is intact.",
       target: url.path,
       recoveryActions: ["Save As", "Close", "Recreate at Original Location"]
     )
@@ -285,6 +286,7 @@ extension NotebookStore {
   public func recreatePresentedFile() async {
     guard case .deleted(let target) = externalFileState else { return }
     do {
+      try await flushCommittedTextChanges()
       let source = try await backend.printNotebook(document.persistentDocumentForSaving())
       let identity = try await fileWriter.write(source: source, to: target, expecting: .missing)
       document.lastSavedFileIdentity = identity

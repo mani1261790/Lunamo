@@ -1,11 +1,11 @@
-# Marimo Native for macOS 厳格仕様書
+# Lunamo for macOS 厳格仕様書
 
 文書ID: MN-SPEC-001  
 仕様版: 1.0.0  
 基準日: 2026-09-02  
 対象リリース: 0.1.0 MVP  
 状態: 実装基準  
-製品識別名: MarimoNative  
+製品識別名: Lunamo<br>
 対象プラットフォーム: macOS 26.0以降、Apple Silicon  
 正本: 本ファイル
 
@@ -24,7 +24,7 @@
 ### 1.1 定義
 
 MN-PROD-001 MUST  
-MarimoNativeは、marimo notebookをmacOS上で編集、実行、保存するネイティブクライアントでなければならない。
+Lunamoは、marimo notebookをmacOS上で編集、実行、保存するネイティブクライアントでなければならない。
 
 MN-PROD-002 MUST  
 アプリケーションのwindow、toolbar、sidebar、inspector、notebook canvas、cell layout、cell selection、code editor、標準output rendererはSwiftUIまたはAppKitで実装しなければならない。
@@ -39,7 +39,7 @@ MN-PROD-005 MUST NOT
 Swift側にPython parser、marimo dependency graph、Python evaluator、Jupyter kernel protocol、marimo source generatorを再実装してはならない。
 
 MN-PROD-006 MUST  
-正規の保存形式はmarimoネイティブの`.py`ファイルとする。`.ipynb`はexport形式としてのみ扱う。
+正規の保存形式はmarimoネイティブの`.py`ファイルとする。`.ipynb`はimport/export用の交換形式とし、直接編集または上書き保存しない。
 
 MN-PROD-007 MUST  
 Notebookの縦スクロールは一つのネイティブ`ScrollView`または`NSScrollView`が所有しなければならない。通常のcell、code editor、outputはNotebook全体のスクロール位置を奪ってはならない。
@@ -120,7 +120,7 @@ MVPは次の機能を含む。
 | Output | text、error、traceback、JSON、主要image、CSV、HTML fallback |
 | Reactive | marimoによる依存cell再実行、stale表示 |
 | UI Element | `marimo-slider`のネイティブ表示とvalue更新 |
-| Inspector | session状態、Python環境、variables一覧 |
+| Assistant | 右sidebarでの対話、cell・file・imageの明示的な添付、単一code cell変更の確認と明示適用 |
 | Export | HTML、ipynb、Markdown |
 | Distribution | Developer ID署名、notarization、Hardened Runtime |
 | Recovery | sidecar crash、kernel crash、保存失敗、syntax errorの表示 |
@@ -140,10 +140,9 @@ MN-SCOPE-010 MUST NOT
 - remote marimo server
 - multi-user collaboration
 - Git UI
-- terminal emulator
+- PTYを必要とするfull terminal emulator
 - debugger
 - extension marketplace
-- AI chat
 - cloud execution
 - iPhone、iPad、Windows、Linux版
 - native Vega/Vega-Lite renderer
@@ -163,7 +162,7 @@ MN-SCOPE-011 MUST
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
-│ MarimoNative.app                                             │
+│ Lunamo.app                                             │
 │                                                              │
 │  SwiftUI / AppKit Presentation                               │
 │      │                                                       │
@@ -270,10 +269,10 @@ MN-DIST-010 MUST
 アプリは次のような自己完結runtimeを同梱する。
 
 ```text
-MarimoNative.app/
+Lunamo.app/
   Contents/
     MacOS/
-      MarimoNative
+      lunamo
     Resources/
       Sidecar/
         bin/
@@ -485,11 +484,17 @@ MN-FILE-014 MUST
 MN-FILE-015 MUST NOT  
 `convertible`なfileを自動変換して元fileへ保存してはならない。
 
-MN-FILE-016 MAY  
-`convertible`に対して「変換したcopyを保存」を提供してよい。この操作は別URLへだけ書き込む。
+MN-FILE-016 MUST
+`convertible`な通常Python fileはmarimo変換後のcopyとして取り込めなければならない。提案する保存名は`<元の名前>_marimo.py`とし、元fileと異なるURLへだけ書き込む。
 
 MN-FILE-017 MUST  
 parse timeoutは120秒とする。timeout後も元sourceを失ってはならない。
+
+MN-FILE-018 MUST
+`.ipynb`は固定versionのbundled sidecarのmarimoネイティブ`.py`へ変換し、変換後のcopyとして別URLへ保存してから開く。取込み中にNotebookのPython codeを実行してはならない。
+
+MN-FILE-019 MUST
+`.ipynb`および通常Python fileの変換はmarimoのconverterへ委譲する。Swift側は変換結果を`parse-notebook`で検証し、`success`以外の結果を保存または開いてはならない。
 
 ### 7.3 Save
 
@@ -560,7 +565,7 @@ MN-FILE-032 MUST
 graceful shutdown全体を5秒で打ち切り、残存sidecarと子kernelをterminateする。
 
 MN-FILE-033 MUST  
-通常終了後にMarimoNativeが起動したkernel processを残してはならない。
+通常終了後にLunamoが起動したkernel processを残してはならない。
 
 ### 7.5 Save As
 
@@ -624,10 +629,12 @@ MN-ENV-002 MUST
 MN-ENV-003 MUST  
 候補探索は次の順で行う。
 
-1. Notebookと同じdirectoryの`.venv/bin/python`
-2. 親workspaceの`.venv/bin/python`
-3. 前回そのworkspaceで選択した実行ファイル
-4. ユーザーがOpen Panelで選択した実行ファイル
+1. 選択中scopeのapp-managed SharedまたはProject Environment（作成済みの場合）
+2. アプリ同梱の固定Python
+3. Notebookと同じdirectoryに既存の`.venv/bin/python`
+4. 親workspaceに既存の`.venv/bin/python`
+5. 前回そのworkspaceで選択した外部実行ファイル
+6. ユーザーがOpen Panelで選択した実行ファイル
 
 MN-ENV-004 MAY  
 uv、pyenv、condaから候補を追加取得してよい。ただしshellを介さず、各実行ファイルへ明示的なargumentsを渡す。
@@ -637,6 +644,15 @@ MN-ENV-005 MUST
 
 MN-ENV-006 MUST  
 保存した実行ファイルが消失または変更された場合、再選択を要求する。
+
+MN-ENV-007 MUST
+アプリに同梱する固定Python環境がpreflight条件を満たす場合、外部Pythonのセットアップなしで使える推奨候補として提示する。
+
+MN-ENV-008 MUST
+設定画面の候補探索時は固定preflight scriptのみを使って各候補を確認し、選択前に実行可能、marimo未導入、非対応、確認中を表示する。Notebook sourceは実行しない。
+
+MN-ENV-009 MUST
+現在選択中の環境と、すぐ使える候補、準備が必要な候補を同じ状態表現で混在させない。色だけではなくラベルとsymbolで状態を表す。
 
 ### 8.2 preflight
 
@@ -667,6 +683,21 @@ MN-ENV-015 MAY
 MN-ENV-016 MUST  
 install操作をCancelした場合、環境を変更してはならない。
 
+MN-ENV-017 MUST
+package inventoryには対象のPython環境名、Python version、marimo version、architecture、executable pathを併記する。readyな環境がない場合は一覧の代わりに理由と環境選択への導線を表示する。
+
+MN-ENV-018 MUST
+package install先のdefaultはApplication Support配下のversioned Shared Environment一つとする。Notebookまたはworkspaceごとの`.venv`を暗黙に新規作成してはならない。
+
+MN-ENV-019 MUST
+互換性のないpackage versionを必要とするprojectだけ、明示操作でApplication Support配下のProject Environmentへ切り替えられる。選択はworkspace単位で保存する。
+
+MN-ENV-019A MUST
+Settingsはappが管理するenvironmentについてscope、容量、最終使用日時、現在使用中かを表示し、確認後の再作成およびTrashへの移動を提供する。外部で作成されたenvironmentを削除対象としてはならない。
+
+MN-ENV-019B MUST
+uv cacheはLunamo専用directoryへ隔離する。cache整理および30日以上未使用のProject Environment整理は確認後だけ実行し、対象をTrashへ移動する。
+
 ### 8.3 working directory
 
 MN-ENV-020 MUST  
@@ -676,7 +707,7 @@ MN-ENV-021 MUST
 working directoryはabsolute path、存在するdirectoryでなければならない。
 
 MN-ENV-022 MUST  
-untitled documentでは、最初の実行前にworking directoryを選択させる。
+untitled documentでは、最初の実行前にworking directoryを選択させる。Python preflightが成功してworking directoryだけが不足している場合、NotebookとSettingsの両方に直接選択actionを表示し、Run controlは不足項目を具体的に説明する。
 
 ## 9. LSP transport
 
@@ -1264,9 +1295,9 @@ window restorationではfile URLとUI layoutだけを保存し、kernel、output
 ┌──────────────────────────────────────────────────────────────────┐
 │ Toolbar: sidebar | file | environment | Run All | Interrupt      │
 ├──────────────┬─────────────────────────────────────┬─────────────┤
-│ Sidebar      │ Native Notebook ScrollView          │ Inspector   │
-│  Files       │                                     │ Session     │
-│  Cells       │  Cell                               │ Variables   │
+│ Sidebar      │ Native Notebook ScrollView          │ Assistant   │
+│  Files       │                                     │ Conversation│
+│              │  Cell                               │ Attachments │
 │              │   Code Editor                       │             │
 │              │   Console                           │             │
 │              │   Output                            │             │
@@ -1281,7 +1312,7 @@ MN-UI-011 MUST
 sidebar default幅は240 pt、minimum 180 pt、maximum 360 ptとする。
 
 MN-UI-012 MUST  
-inspector default幅は300 pt、minimum 260 pt、maximum 440 ptとする。
+Assistant sidebarのdefault幅は320 pt、minimum 280 pt、maximum 520 ptとする。AssistantはNotebook detail階層内でtoolbarより内側へ配置し、toolbarの下から始めなければならない。
 
 MN-UI-013 MUST  
 Notebook content columnのmaximum幅は1100 ptとし、広いwindowでは中央へ配置する。
@@ -1290,7 +1321,7 @@ MN-UI-014 MUST
 Notebook canvasは一つのvertical `ScrollView`と`LazyVStack`を使う。cellごとに独立したouter scroll viewを作ってはならない。
 
 MN-UI-015 MUST  
-sidebarとinspectorはkeyboard shortcutで完全に閉じられる。
+Files sidebarとAssistant sidebarはkeyboard shortcutで完全に閉じられる。
 
 ### 15.3 Toolbar
 
@@ -1298,12 +1329,12 @@ MN-UI-020 MUST
 toolbarは次のcontrolを持つ。
 
 - Sidebar toggle
-- document title
-- Python environment selector
+- document title and Save As entry point
+- bottom Terminal toggle
 - kernel status indicator
 - Run All
 - InterruptまたはRestart
-- Inspector toggle
+- Assistant toggle
 
 MN-UI-021 MUST  
 Interruptはrunningまたはinterrupting以外ではdisableする。
@@ -1312,7 +1343,7 @@ MN-UI-022 MUST
 Run Allはenvironment invalid、document invalid syntax、backend unavailableのいずれかでdisableする。
 
 MN-UI-023 MUST  
-toolbarにGit、terminal、extension、AI controlを追加してはならない。
+toolbarにGitまたはextension controlを追加してはならない。Terminal controlは中央detailの下部panelを開き、Files sidebarまたはAssistant sidebarを覆ってはならない。
 
 ### 15.4 Cell appearance
 
@@ -1388,7 +1419,7 @@ MN-EDIT-008 MUST
 ### 16.2 sizing
 
 MN-EDIT-010 MUST  
-editor minimum高は72 ptとする。
+editor minimum高は52 ptとする。
 
 MN-EDIT-011 MUST  
 content高に追従して最大1600 ptまで伸長する。
@@ -1741,7 +1772,7 @@ script実行を必要としないoutputではJavaScriptを無効化する。
 MN-WEB-023 MUST  
 Vega、LaTeXなどのrenderer assetはapp bundleからloadし、CDNへ依存しない。
 
-## 20. Sidebar and Inspector
+## 20. Sidebar and Assistant
 
 ### 20.1 Sidebar
 
@@ -1760,22 +1791,34 @@ MVPでfile delete、rename、Git statusを提供してはならない。
 MN-PANEL-005 MUST  
 Cellsはcell order、name、first non-empty line、runtime statusを表示し、選択で該当cellへnative scrollする。
 
-### 20.2 Inspector
+### 20.2 Assistant
 
 MN-PANEL-010 MUST  
-InspectorはSessionとVariablesを持つ。
+右sidebarはAssistant専用とし、Session、Python環境、Variablesを切り替えるInspectorを提供してはならない。
 
 MN-PANEL-011 MUST  
-SessionにはPython executable、Python version、marimo version、working directory、session ID、kernel statusを表示する。
+Assistantは同じwindow内の対話画面として開閉できなければならない。Python環境、package、実行安全性はSettingsに集約する。
 
 MN-PANEL-012 MUST  
-Variablesは`variables` notificationからname、declared-by、used-byを表示する。
+選択cellの添付は明示操作とし、添付時にsource snapshotを会話contextへ追加してAssistant sidebarを開く。
 
 MN-PANEL-013 MUST  
-`variable-values`が利用可能ならdatatypeと短いpreviewを表示する。
+paperclipはsystem file importerを開き、fileまたはimageを明示的に添付する。
 
 MN-PANEL-014 MUST  
-variable previewは最大4 KiBとし、任意objectへ追加のPython評価を自動実行してはならない。
+AssistantはNotebook sourceの保存、編集、実行を自動で行ってはならず、document identityが変わったときに会話をresetする。
+
+MN-PANEL-015 MUST
+Assistant headerは新しい会話と会話履歴を提供し、toolbarのAssistant toggleと重複する閉じるcontrolを持ってはならない。
+
+MN-PANEL-016 MUST
+新しい会話は内容のある現在の会話を最大20件のsession内履歴へ移し、履歴から復元できなければならない。履歴は暗黙に永続化せず、document identityが変わったときに消去する。
+
+MN-PANEL-017 MUST
+Assistantが1つの添付済みPython cellに完全なreplacementを提案した場合、変更前と変更後を表示し、userの明示操作でのみ既存のCommitted Edit経路へ適用する。生成後にsourceが変化またはcellが削除された場合は適用を拒否する。
+
+MN-PANEL-018 MUST NOT
+Assistantの提案適用はNotebookを自動保存または実行してはならない。Smart Text Cell、複数cell、filesystem、Notebook Terminal commandの変更へ権限を拡張してはならない。
 
 ## 21. Error model
 
@@ -2017,7 +2060,7 @@ MarimoNative/
     Cell/
     Toolbar/
     Sidebar/
-    Inspector/
+    Assistant/
 
   Editor/
     NativeCodeEditor.swift
@@ -2161,7 +2204,7 @@ MN-TEST-025 MUST
 Saveした`.py`を公式marimo 0.24.0でparseできることを確認する。
 
 MN-TEST-026 MUST  
-公式marimoで作成したfixtureをMarimoNativeで開き、編集、保存し、再び公式marimoで開けることを確認する。
+公式marimoで作成したfixtureをLunamoで開き、編集、保存し、再び公式marimoで開けることを確認する。
 
 MN-TEST-027 MUST  
 app終了後、起動したsidecarとkernel PIDが残っていないことを確認する。

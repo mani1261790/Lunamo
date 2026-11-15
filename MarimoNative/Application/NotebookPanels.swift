@@ -132,7 +132,7 @@ extension NotebookStore {
   }
 
   public var notebookDirectoryURL: URL? {
-    document.sourceURL?.deletingLastPathComponent()
+    document.sourceURL?.deletingLastPathComponent() ?? applicationWorkspaceDirectory
   }
 
   public func refreshSidebarFiles() async {

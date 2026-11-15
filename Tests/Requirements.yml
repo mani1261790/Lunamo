@@ -206,9 +206,19 @@ MN-FILE-014:
 MN-FILE-015:
   - NotebookOpenTests/convertible
 MN-FILE-016:
-  - manual: Optional convertible copy action is not exposed in Gate A
+  - NotebookImportTests/preparesPythonImport
+  - NotebookImportTests/rejectsSourceDestination
+  - NotebookImportTests/savesAndOpensConversion
 MN-FILE-017:
   - JSONRPCConnectionTests/normativeTimeouts
+MN-FILE-018:
+  - Tests/Contract/test_notebook_import.py
+  - BundledSidecarIntegrationTests/notebookImportConversion
+  - manual: Open ipynb, save converted copy, and verify the source remains unchanged
+MN-FILE-019:
+  - NotebookImportTests/rejectsInvalidConvertedNotebook
+  - ProtocolContractTests/protocolLockMatchesPins
+  - Tests/Contract/test_notebook_import.py
 MN-ARCH-010:
   - manual: App-level NotebookStore owns one MarimoLSPAdapter
 MN-ARCH-011:
@@ -485,6 +495,14 @@ MN-ENV-005:
 MN-ENV-006:
   - PythonEnvironmentTests/changedSavedExecutable
   - NotebookExecutionGateTests/preflightAndTrustGate
+MN-ENV-007:
+  - PythonEnvironmentTests/candidateOrder
+  - PythonEnvironmentTests/activatesBundledEnvironment
+MN-ENV-008:
+  - PythonEnvironmentTests/missingMarimo
+  - PythonEnvironmentTests/activatesBundledEnvironment
+MN-ENV-009:
+  - NotebookPanelTests/nativePanelArchitecture
 MN-ENV-010:
   - PythonEnvironmentTests/directPreflight
   - PythonPreflightIntegrationTests/bundledRuntimePreflight
@@ -501,12 +519,24 @@ MN-ENV-014:
   - ArchitectureBoundaryTests/nativeEnvironmentAndTrustGate
 MN-ENV-016:
   - ArchitectureBoundaryTests/nativeEnvironmentAndTrustGate
+MN-ENV-017:
+  - NotebookPanelTests/nativePanelArchitecture
+  - BundledSidecarIntegrationTests/packageListing
+MN-ENV-018:
+  - ManagedPythonEnvironmentStoreTests/scopeAndPaths
+MN-ENV-019:
+  - ManagedPythonEnvironmentStoreTests/scopeAndPaths
+MN-ENV-019A:
+  - manual: Verify managed environment scope, size, last use, active state and confirmed rebuild/Trash operations on the release artifact; external environments must remain untouched.
+MN-ENV-019B:
+  - manual: Verify isolated uv cache and confirmed Trash cleanup of cache and project environments unused for at least 30 days on the release artifact.
 MN-ENV-020:
   - NotebookExecutionGateTests/openDoesNotPromptOrExecute
 MN-ENV-021:
   - NotebookExecutionGateTests/untitledWorkingDirectory
 MN-ENV-022:
   - NotebookExecutionGateTests/untitledWorkingDirectory
+  - NotebookPanelTests/nativePanelArchitecture
 MN-EXEC-002:
   - NotebookExecutionGateTests/preflightAndTrustGate
 MN-EXEC-030:
@@ -861,11 +891,27 @@ MN-PANEL-010:
 MN-PANEL-011:
   - NotebookPanelTests/nativePanelArchitecture
 MN-PANEL-012:
-  - NotebookPanelTests/variableNotificationMerge
+  - NotebookAssistantTests/attachments
+  - NotebookPanelTests/nativePanelArchitecture
 MN-PANEL-013:
-  - NotebookPanelTests/variableNotificationMerge
+  - NotebookAssistantTests/fileAttachments
+  - NotebookPanelTests/nativePanelArchitecture
 MN-PANEL-014:
-  - NotebookPanelTests/variableNotificationMerge
+  - NotebookAssistantTests/reset
+  - NotebookPanelTests/nativePanelArchitecture
+MN-PANEL-015:
+  - NotebookPanelTests/nativePanelArchitecture
+MN-PANEL-016:
+  - NotebookAssistantTests/boundedConversationHistory
+  - NotebookAssistantTests/conversationHistory
+  - NotebookAssistantTests/documentResetClearsHistory
+  - NotebookPanelTests/nativePanelArchitecture
+MN-PANEL-017:
+  - NotebookAssistantTests/codeSuggestionParser
+  - NotebookStoreTests/checkedCodeEdits
+  - NotebookPanelTests/nativePanelArchitecture
+MN-PANEL-018:
+  - NotebookPanelTests/nativePanelArchitecture
 MN-A11Y-001:
   - NotebookPanelTests/nativePanelArchitecture
   - ArchitectureBoundaryTests/nativeSliderArchitecture

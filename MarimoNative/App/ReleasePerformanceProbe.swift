@@ -7,11 +7,10 @@ enum ReleasePerformanceProbe {
   static var fixtureDocument: NotebookDocumentState? {
     let arguments = CommandLine.arguments
     guard arguments.contains("--performance-scroll-fixture") else { return nil }
-    let output = imageOutput()
     let cells = (0..<100).map { index in
       NotebookCellState(
         code: (0..<10).map { line in "value_\(index)_\(line) = \(line)" }.joined(separator: "\n"),
-        runtime: CellRuntimeState(output: output)
+        runtime: CellRuntimeState(output: imageOutput(seed: index))
       )
     }
     let owned = OwnedNotebookDocumentV1(
@@ -56,6 +55,8 @@ enum ReleasePerformanceProbe {
 
     let maximumY = max(0, documentView.frame.height - scrollView.contentView.bounds.height)
     var maximumDelay = 0.0
+    var maximumLayout = 0.0
+    var slowestStep = 0
     var previous = ContinuousClock.now
     for step in 0..<240 {
       try? await Task.sleep(for: .milliseconds(16))
@@ -67,14 +68,17 @@ enum ReleasePerformanceProbe {
       scrollView.contentView.scroll(to: NSPoint(x: 0, y: maximumY * phase))
       scrollView.reflectScrolledClipView(scrollView.contentView)
       contentView.layoutSubtreeIfNeeded()
-      maximumDelay = max(
-        maximumDelay,
-        milliseconds(startedLayout.duration(to: ContinuousClock.now))
-      )
+      let layoutDuration = milliseconds(startedLayout.duration(to: ContinuousClock.now))
+      if layoutDuration > maximumLayout {
+        maximumLayout = layoutDuration
+        slowestStep = step
+      }
+      maximumDelay = max(maximumDelay, layoutDuration)
     }
     record(
       flag: "--performance-scroll-marker",
-      value: "maxMainThreadDelayMilliseconds=\(maximumDelay) decodedImageMiB=50"
+      value:
+        "maxMainThreadDelayMilliseconds=\(maximumDelay) decodedImageMiB=50 maxLayoutMilliseconds=\(maximumLayout) slowestStep=\(slowestStep)"
     )
   }
 
@@ -101,7 +105,7 @@ enum ReleasePerformanceProbe {
     return marker
   }
 
-  private static func imageOutput() -> MarimoOutput? {
+  private static func imageOutput(seed: Int) -> MarimoOutput? {
     guard
       let bitmap = NSBitmapImageRep(
         bitmapDataPlanes: nil,
@@ -114,9 +118,16 @@ enum ReleasePerformanceProbe {
         colorSpaceName: .deviceRGB,
         bytesPerRow: 2_048,
         bitsPerPixel: 32
-      ),
-      let png = bitmap.representation(using: .png, properties: [:])
+      ), let pixels = bitmap.bitmapData
     else { return nil }
+    // Distinct initialized pixels prevent all cells sharing one cached decoded image.
+    for pixel in 0..<(512 * 256) {
+      pixels[pixel * 4] = UInt8(seed)
+      pixels[pixel * 4 + 1] = 128
+      pixels[pixel * 4 + 2] = 64
+      pixels[pixel * 4 + 3] = 255
+    }
+    guard let png = bitmap.representation(using: .png, properties: [:]) else { return nil }
     return MarimoOutput(
       channel: .output,
       mimeType: "image/png",

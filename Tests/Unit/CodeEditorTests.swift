@@ -41,9 +41,9 @@ struct CodeEditorTests {
     #expect(spans.contains { $0.kind == .number })
   }
 
-  @Test("Editor height clamps to 72 through 1600 points")
+  @Test("Editor height clamps to 52 through 1600 points")
   func sizing() {
-    #expect(CodeEditorMetrics.presentation(for: 20).height == 72)
+    #expect(CodeEditorMetrics.presentation(for: 20).height == 52)
     #expect(!CodeEditorMetrics.presentation(for: 1_600).scrolls)
     #expect(CodeEditorMetrics.presentation(for: 2_400).height == 1_600)
     #expect(CodeEditorMetrics.presentation(for: 2_400).scrolls)
@@ -65,6 +65,15 @@ struct CodeEditorTests {
 
   @Test("A click may establish focus before SwiftUI state catches up")
   func focusTransitionPolicy() {
+    #expect(
+      CodeEditorFocusPolicy.shouldBecomeFirstResponder(
+        wasFocused: false, isFocused: true, isFirstResponder: false))
+    #expect(
+      !CodeEditorFocusPolicy.shouldBecomeFirstResponder(
+        wasFocused: true, isFocused: true, isFirstResponder: false))
+    #expect(
+      !CodeEditorFocusPolicy.shouldBecomeFirstResponder(
+        wasFocused: false, isFocused: true, isFirstResponder: true))
     #expect(!CodeEditorFocusPolicy.shouldResignFirstResponder(wasFocused: false, isFocused: false))
     #expect(!CodeEditorFocusPolicy.shouldResignFirstResponder(wasFocused: false, isFocused: true))
     #expect(!CodeEditorFocusPolicy.shouldResignFirstResponder(wasFocused: true, isFocused: true))
@@ -131,6 +140,14 @@ struct CodeEditorTests {
     textView.insertText("(", replacementRange: NSRange(location: NSNotFound, length: 0))
     #expect(textView.string == "()")
     #expect(textView.selectedRange() == NSRange(location: 1, length: 0))
+    textView.insertText(")", replacementRange: NSRange(location: NSNotFound, length: 0))
+    #expect(textView.string == "()")
+    #expect(textView.selectedRange() == NSRange(location: 2, length: 0))
+
+    textView.setSelectedRange(NSRange(location: 1, length: 0))
+    textView.deleteBackward(nil)
+    #expect(textView.string == "")
+    #expect(textView.selectedRange() == NSRange(location: 0, length: 0))
 
     textView.string = ""
     textView.setMarkedText(
@@ -185,12 +202,32 @@ struct CodeEditorTests {
   @Test("Command-F is handled by the native find bar")
   func commandFBinding() throws {
     let source = try String(
-      contentsOf: repositoryRoot().appending(path: "MarimoNative/Editor/CodeEditorView.swift"),
+      contentsOf: repositoryRoot().appending(path: "MarimoNative/Editor/CommandTextView.swift"),
       encoding: .utf8
     )
     #expect(source.contains("case 3 where modifiers == [.command]"))
     #expect(source.contains("Int(NSFindPanelAction.showFindPanel.rawValue)"))
     #expect(source.contains("performFindPanelAction(sender)"))
+  }
+
+  @Test("Completion requests convert the native UTF-16 cursor to a Python column")
+  @MainActor
+  func completionPosition() {
+    #expect(
+      CodeEditorView.Coordinator.completionPosition("import os\nos.pa", cursor: 15)?.line == 1)
+    #expect(
+      CodeEditorView.Coordinator.completionPosition("import os\nos.pa", cursor: 15)?.column == 5)
+    #expect(CodeEditorView.Coordinator.completionPosition("🙂na", cursor: 4)?.column == 3)
+    #expect(CodeEditorView.Coordinator.completionPosition("x", cursor: 2) == nil)
+  }
+
+  @Test("Automatic completion only opens for member access")
+  @MainActor
+  func automaticCompletionPolicy() {
+    #expect(!CodeEditorView.Coordinator.shouldAutomaticallyComplete("p", cursor: 1))
+    #expect(!CodeEditorView.Coordinator.shouldAutomaticallyComplete("pr", cursor: 2))
+    #expect(!CodeEditorView.Coordinator.shouldAutomaticallyComplete("print", cursor: 5))
+    #expect(CodeEditorView.Coordinator.shouldAutomaticallyComplete("os.", cursor: 3))
   }
 
   private func repositoryRoot() -> URL {

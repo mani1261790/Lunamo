@@ -192,6 +192,11 @@ public enum NotebookParseOutcome: Sendable, Equatable {
   case convertible
 }
 
+public enum NotebookImportSourceFormat: String, Codable, Sendable, Equatable {
+  case ipynb
+  case python
+}
+
 public enum MarimoBackendCapabilityError: Error, Sendable, Equatable {
   case unavailable
 }
@@ -271,6 +276,10 @@ public enum MarimoBackendEvent: Sendable, Equatable {
 }
 
 public protocol MarimoBackend: Sendable {
+  func completePython(source: String, line: Int, column: Int) async throws
+    -> [PythonCompletionItem]
+  func textCell(source: String, markdown: String?) async throws -> TextCellProjection
+  func convertNotebook(source: String, format: NotebookImportSourceFormat) async throws -> String
   func status() async -> BackendStatus
   func start() async throws
   func parseNotebook(source: String) async throws -> NotebookParseOutcome
@@ -318,6 +327,19 @@ public protocol MarimoBackend: Sendable {
 }
 
 extension MarimoBackend {
+  public func completePython(source _: String, line _: Int, column _: Int) async throws
+    -> [PythonCompletionItem]
+  {
+    []
+  }
+  public func textCell(source: String, markdown: String?) async throws -> TextCellProjection {
+    throw MarimoBackendCapabilityError.unavailable
+  }
+  public func convertNotebook(source _: String, format _: NotebookImportSourceFormat) async throws
+    -> String
+  {
+    throw MarimoBackendCapabilityError.unavailable
+  }
   public func printNotebook(_: OwnedNotebookDocumentV1) async throws -> String {
     throw MarimoBackendCapabilityError.unavailable
   }

@@ -1,8 +1,10 @@
 import AppKit
 import MarimoApplication
+import MarimoEditor
 import SwiftUI
 
 public struct NotebookMenuCommands: Commands {
+  @ObservedObject private var shortcuts = NotebookShortcutSettings.shared
   @ObservedObject private var store: NotebookStore
 
   public init(store: NotebookStore) {
@@ -31,29 +33,29 @@ public struct NotebookMenuCommands: Commands {
         guard let cellID = store.document.selectedCellID else { return }
         Task { await store.requestRunCell(cellID, advance: true) }
       }
-      .keyboardShortcut(.return, modifiers: [.shift])
+      .keyboardShortcut(shortcuts.shortcut(for: .runAndAdvance)?.toSwiftUI)
       .disabled(!canRunSelectedCell)
       Button("Run Cell") {
         guard let cellID = store.document.selectedCellID else { return }
         Task { await store.requestRunCell(cellID) }
       }
-      .keyboardShortcut(.return, modifiers: [.command])
+      .keyboardShortcut(shortcuts.shortcut(for: .runAndStay)?.toSwiftUI)
       .disabled(!canRunSelectedCell)
       Button("Run Cell and Insert Below") {
         guard let cellID = store.document.selectedCellID else { return }
         Task { await store.requestRunCell(cellID, insertBelow: true) }
       }
-      .keyboardShortcut(.return, modifiers: [.option])
+      .keyboardShortcut(shortcuts.shortcut(for: .runAndInsert)?.toSwiftUI)
       .disabled(!canRunSelectedCell)
       Button("Run All") {
         Task { await store.requestRunAll() }
       }
-      .keyboardShortcut(.return, modifiers: [.command, .shift])
+      .keyboardShortcut(shortcuts.shortcut(for: .runAll)?.toSwiftUI)
       .disabled(!canRun)
       Button("Interrupt") {
         Task { await store.requestInterrupt() }
       }
-      .keyboardShortcut(".", modifiers: [.command])
+      .keyboardShortcut(shortcuts.shortcut(for: .interrupt)?.toSwiftUI)
       .disabled(!store.sessionAllowsInterrupt)
 
       Button("Find in Selected Cell") {
@@ -86,12 +88,12 @@ public struct NotebookMenuCommands: Commands {
       Button("Move Cell Up") {
         moveSelectedCell(by: -1)
       }
-      .keyboardShortcut(.upArrow, modifiers: [.command, .option])
+      .keyboardShortcut(shortcuts.shortcut(for: .moveUp)?.toSwiftUI)
       .disabled(!canMoveSelectedCell(by: -1))
       Button("Move Cell Down") {
         moveSelectedCell(by: 1)
       }
-      .keyboardShortcut(.downArrow, modifiers: [.command, .option])
+      .keyboardShortcut(shortcuts.shortcut(for: .moveDown)?.toSwiftUI)
       .disabled(!canMoveSelectedCell(by: 1))
       Button("Delete Selected Cell") {
         guard let cellID = store.document.selectedCellID else { return }
@@ -102,10 +104,10 @@ public struct NotebookMenuCommands: Commands {
 
       Divider()
 
-      Button("Toggle Inspector") {
-        store.inspectorPresented.toggle()
+      Button("Toggle Assistant") {
+        store.assistantPresented.toggle()
       }
-      .keyboardShortcut("i", modifiers: [.command, .option])
+      .keyboardShortcut(shortcuts.shortcut(for: .toggleAssistant)?.toSwiftUI)
     }
 
     CommandMenu("Export") {

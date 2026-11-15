@@ -1,4 +1,5 @@
 import AppKit
+import MarimoDomain
 import SwiftUI
 
 public enum CodeEditorCommand: Sendable, Equatable {
@@ -11,10 +12,18 @@ public enum CodeEditorCommand: Sendable, Equatable {
   case moveDown
   case deleteCell
   case leaveEditor
+  case openInlineAssistant(selection: String?)
+  case askAssistant(CodeAssistantAction, selection: String?)
+}
+
+public enum CodeAssistantAction: Sendable, Equatable {
+  case explain
+  case fixOrImprove
+  case generateTests
 }
 
 public enum CodeEditorMetrics {
-  public static let minimumHeight: CGFloat = 72
+  public static let minimumHeight: CGFloat = 52
   public static let maximumHeight: CGFloat = 1_600
   public static let fontSize: CGFloat = 14
 
@@ -27,6 +36,14 @@ public enum CodeEditorMetrics {
 }
 
 enum CodeEditorFocusPolicy {
+  static func shouldBecomeFirstResponder(
+    wasFocused: Bool,
+    isFocused: Bool,
+    isFirstResponder: Bool
+  ) -> Bool {
+    isFocused && !wasFocused && !isFirstResponder
+  }
+
   static func shouldResignFirstResponder(wasFocused: Bool, isFocused: Bool) -> Bool {
     wasFocused && !isFocused
   }
@@ -42,12 +59,18 @@ enum CodeEditorFocusPolicy {
 }
 
 public struct CodeEditorView: NSViewRepresentable {
+  @AppStorage(CodeEditorPreferences.fontSizeKey)
+  private var fontSize = CodeEditorPreferences.defaultFontSize
   public let text: String
   public let isFocused: Bool
   public let onTextChange: @MainActor @Sendable (String, Bool) -> Void
   public let onFocus: @MainActor @Sendable () -> Void
   public let onCommand: @MainActor @Sendable (CodeEditorCommand) -> Void
+  public let onSelectionChange: @MainActor @Sendable (String?) -> Void
+  public let completionProvider:
+    @MainActor @Sendable (String, Int, Int) async -> [PythonCompletionItem]
   public let onHeightChange: @MainActor @Sendable (CGFloat, Bool) -> Void
+  public let accessibilityLabel: String
 
   public init(
     text: String,
@@ -55,14 +78,22 @@ public struct CodeEditorView: NSViewRepresentable {
     onTextChange: @escaping @MainActor @Sendable (String, Bool) -> Void,
     onFocus: @escaping @MainActor @Sendable () -> Void,
     onCommand: @escaping @MainActor @Sendable (CodeEditorCommand) -> Void,
-    onHeightChange: @escaping @MainActor @Sendable (CGFloat, Bool) -> Void
+    onSelectionChange: @escaping @MainActor @Sendable (String?) -> Void = { _ in },
+    completionProvider:
+      @escaping @MainActor @Sendable (String, Int, Int) async
+      -> [PythonCompletionItem] = { _, _, _ in [] },
+    onHeightChange: @escaping @MainActor @Sendable (CGFloat, Bool) -> Void,
+    accessibilityLabel: String = "Python code editor"
   ) {
     self.text = text
     self.isFocused = isFocused
     self.onTextChange = onTextChange
     self.onFocus = onFocus
     self.onCommand = onCommand
+    self.onSelectionChange = onSelectionChange
+    self.completionProvider = completionProvider
     self.onHeightChange = onHeightChange
+    self.accessibilityLabel = accessibilityLabel
   }
 
   public func makeCoordinator() -> Coordinator {
@@ -75,8 +106,14 @@ public struct CodeEditorView: NSViewRepresentable {
     container.textView.commandHandler = { [weak coordinator = context.coordinator] command in
       coordinator?.parent.onCommand(command)
     }
+    container.textView.completionTriggerHandler = { [weak coordinator = context.coordinator] in
+      coordinator?.scheduleCompletions(force: true)
+    }
+    container.textView.installContextMenu()
     container.textView.string = text
+    container.textView.setAccessibilityLabel(accessibilityLabel)
     context.coordinator.container = container
+    context.coordinator.updateFontSize()
     context.coordinator.scheduleHighlight(for: text)
     context.coordinator.measureHeight()
     return container
@@ -84,6 +121,8 @@ public struct CodeEditorView: NSViewRepresentable {
 
   public func updateNSView(_ container: CodeEditorContainerView, context: Context) {
     context.coordinator.parent = self
+    context.coordinator.updateFontSize()
+    container.textView.setAccessibilityLabel(accessibilityLabel)
     let isFirstResponder = container.window?.firstResponder === container.textView
     if CodeEditorFocusPolicy.shouldApplyExternalText(
       stringsDiffer: container.textView.string != text,
@@ -101,7 +140,11 @@ public struct CodeEditorView: NSViewRepresentable {
       context.coordinator.scheduleHighlight(for: text)
     }
     let wasFocused = context.coordinator.wasFocused
-    if isFocused, !isFirstResponder {
+    if CodeEditorFocusPolicy.shouldBecomeFirstResponder(
+      wasFocused: wasFocused,
+      isFocused: isFocused,
+      isFirstResponder: isFirstResponder
+    ) {
       container.window?.makeFirstResponder(container.textView)
     } else if CodeEditorFocusPolicy.shouldResignFirstResponder(
       wasFocused: wasFocused,
@@ -119,10 +162,14 @@ public struct CodeEditorView: NSViewRepresentable {
     fileprivate weak var container: CodeEditorContainerView?
     private let highlighter = PythonIncrementalHighlighter()
     private var highlightTask: Task<Void, Never>?
+    private var completionTask: Task<Void, Never>?
+    private var completionWords: [String] = []
     fileprivate var isApplyingExternalText = false
     fileprivate var wasFocused = false
     private var lastHeight: CGFloat?
     private var lastScrollable: Bool?
+    private var lastMeasuredSource: String?
+    private var lastMeasuredWidth: CGFloat?
 
     fileprivate init(parent: CodeEditorView) {
       self.parent = parent
@@ -137,11 +184,75 @@ public struct CodeEditorView: NSViewRepresentable {
     }
 
     public func textDidChange(_ notification: Notification) {
-      guard let textView = notification.object as? NSTextView else { return }
+      guard let textView = notification.object as? CommandTextView else { return }
       guard !isApplyingExternalText else { return }
+      updateFontSize()
       parent.onTextChange(textView.string, textView.hasMarkedText())
       scheduleHighlight(for: textView.string)
+      if textView.suppressAutomaticCompletion {
+        textView.suppressAutomaticCompletion = false
+      } else {
+        scheduleCompletions(force: false)
+      }
       measureHeight()
+    }
+
+    public func textViewDidChangeSelection(_ notification: Notification) {
+      guard let textView = notification.object as? NSTextView else { return }
+      let range = textView.selectedRange()
+      guard range.location != NSNotFound, range.length > 0,
+        NSMaxRange(range) <= UTF16Text(textView.string).length
+      else {
+        parent.onSelectionChange(nil)
+        return
+      }
+      parent.onSelectionChange((textView.string as NSString).substring(with: range))
+    }
+
+    public func textView(
+      _: NSTextView,
+      completions _: [String],
+      forPartialWordRange _: NSRange,
+      indexOfSelectedItem index: UnsafeMutablePointer<Int>?
+    ) -> [String] {
+      index?.pointee = 0
+      return completionWords
+    }
+
+    fileprivate func scheduleCompletions(force: Bool) {
+      completionTask?.cancel()
+      guard let textView = container?.textView, !textView.hasMarkedText() else { return }
+      let source = textView.string
+      let cursor = textView.selectedRange().location
+      guard cursor != NSNotFound, let position = Self.completionPosition(source, cursor: cursor),
+        force || Self.shouldAutomaticallyComplete(source, cursor: cursor)
+      else {
+        completionWords = []
+        return
+      }
+      completionTask = Task { @MainActor [weak self] in
+        if !force { try? await Task.sleep(for: .milliseconds(180)) }
+        guard !Task.isCancelled, let self else { return }
+        let items = await parent.completionProvider(source, position.line, position.column)
+        guard !Task.isCancelled, let current = container?.textView,
+          current.string == source, current.selectedRange().location == cursor
+        else { return }
+        completionWords = items.map(\.label)
+        if !completionWords.isEmpty { current.complete(nil) }
+      }
+    }
+
+    static func completionPosition(_ source: String, cursor: Int) -> (line: Int, column: Int)? {
+      guard cursor >= 0, cursor <= UTF16Text(source).length else { return nil }
+      let prefix = (source as NSString).substring(to: cursor)
+      let lines = prefix.components(separatedBy: "\n")
+      return (max(0, lines.count - 1), lines.last?.unicodeScalars.count ?? 0)
+    }
+
+    static func shouldAutomaticallyComplete(_ source: String, cursor: Int) -> Bool {
+      guard cursor > 0, cursor <= UTF16Text(source).length else { return false }
+      let prefix = (source as NSString).substring(to: cursor)
+      return prefix.last == "."
     }
 
     fileprivate func scheduleHighlight(for source: String) {
@@ -153,8 +264,25 @@ public struct CodeEditorView: NSViewRepresentable {
       }
     }
 
+    fileprivate func updateFontSize() {
+      guard let textView = container?.textView else { return }
+      if applyEditorFontSize(parent.fontSize, to: textView) {
+        lastMeasuredSource = nil
+        lastMeasuredWidth = nil
+      }
+    }
+
     fileprivate func measureHeight() {
       guard let container else { return }
+      let source = container.textView.string
+      let width = container.bounds.width
+      if lastMeasuredSource == source, let lastMeasuredWidth,
+        abs(lastMeasuredWidth - width) <= 0.5
+      {
+        return
+      }
+      lastMeasuredSource = source
+      lastMeasuredWidth = width
       container.layoutSubtreeIfNeeded()
       let measured = container.measuredContentHeight
       let presentation = CodeEditorMetrics.presentation(for: measured)
@@ -263,14 +391,9 @@ public final class CodeEditorContainerView: NSView {
     scrollView.hasHorizontalScroller = false
     scrollView.hasVerticalScroller = false
     scrollView.autohidesScrollers = true
-    scrollView.translatesAutoresizingMaskIntoConstraints = false
+    scrollView.frame = bounds
+    scrollView.autoresizingMask = [.width, .height]
     addSubview(scrollView)
-    NSLayoutConstraint.activate([
-      scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
-      scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-      scrollView.topAnchor.constraint(equalTo: topAnchor),
-      scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
-    ])
   }
 
   @available(*, unavailable)
@@ -280,70 +403,5 @@ public final class CodeEditorContainerView: NSView {
     textLayoutManager.ensureLayout(for: textContentStorage.documentRange)
     return textLayoutManager.usageBoundsForTextContainer.height + textView.textContainerInset.height
       * 2
-  }
-}
-
-@MainActor
-final class CommandTextView: NSTextView {
-  var commandHandler: ((CodeEditorCommand) -> Void)?
-  private let editorUndoManager = UndoManager()
-
-  override var undoManager: UndoManager? { editorUndoManager }
-
-  override func keyDown(with event: NSEvent) {
-    let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-    switch event.keyCode {
-    case 3 where modifiers == [.command]:
-      showFindBar()
-    case 36 where modifiers.contains([.command, .shift]):
-      commandHandler?(.runAll)
-    case 36 where modifiers.contains(.command):
-      commandHandler?(.runAndStay)
-    case 36 where modifiers.contains(.option):
-      commandHandler?(.runAndInsert)
-    case 36 where modifiers.contains(.shift):
-      commandHandler?(.runAndAdvance)
-    case 47 where modifiers.contains(.command):
-      commandHandler?(.interrupt)
-    case 48:
-      applyIndentation(dedent: modifiers.contains(.shift))
-    case 53:
-      commandHandler?(.leaveEditor)
-    case 126 where modifiers.contains([.command, .option]):
-      commandHandler?(.moveUp)
-    case 125 where modifiers.contains([.command, .option]):
-      commandHandler?(.moveDown)
-    default:
-      super.keyDown(with: event)
-    }
-  }
-
-  func showFindBar() {
-    let sender = NSMenuItem()
-    sender.tag = Int(NSFindPanelAction.showFindPanel.rawValue)
-    performFindPanelAction(sender)
-  }
-
-  override func insertText(_ insertString: Any, replacementRange: NSRange) {
-    guard !hasMarkedText(), let value = insertString as? String,
-      let closing = ["(": ")", "[": "]", "{": "}", "\"": "\"", "'": "'"][value]
-    else {
-      super.insertText(insertString, replacementRange: replacementRange)
-      return
-    }
-    let range = replacementRange.location == NSNotFound ? selectedRange() : replacementRange
-    super.insertText(value + closing, replacementRange: range)
-    setSelectedRange(NSRange(location: range.location + UTF16Text(value).length, length: 0))
-  }
-
-  private func applyIndentation(dedent: Bool) {
-    let result = PythonIndentation.transform(
-      string,
-      selectedRange: selectedRange(),
-      dedent: dedent
-    )
-    let fullRange = NSRange(location: 0, length: UTF16Text(string).length)
-    insertText(result.source, replacementRange: fullRange)
-    setSelectedRange(result.selectedRange)
   }
 }

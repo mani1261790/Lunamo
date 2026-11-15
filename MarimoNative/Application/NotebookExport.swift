@@ -46,10 +46,10 @@ extension NotebookStore {
 
   public var reviewableLogText: String {
     let header = [
-      "MarimoNative diagnostic log",
+      "Lunamo diagnostic log",
       "Generated: \(Date().ISO8601Format())",
       "Notebook: \(MarimoLogPrivacy.redactHomePrefix(in: document.sourceURL?.path ?? "Untitled"))",
-      "Session: \(document.kernelSessionID ?? "Not Started")",
+      "Session: \(document.kernelSessionID ?? sessionStatusLabel)",
       "",
       "Sidecar stderr (bounded to 200 lines):",
     ]

@@ -389,6 +389,9 @@ extension BundledSidecarIntegrationTests {
       await adapter.shutdown()
       return
     }
+    let completions = try await adapter.completePython(
+      source: "import os\nos.pa", line: 1, column: 5)
+    #expect(completions.contains { $0.label == "path" })
     let recorder = KernelEventRecorder()
     let stream = await adapter.backendEvents()
     let listener = Task {

@@ -2,12 +2,14 @@ import Foundation
 import MarimoApplication
 import MarimoBackend
 import MarimoDomain
+import MarimoEnvironment
 import MarimoUI
 import SwiftUI
 
 @main
-struct MarimoNativeApp: App {
+struct LunamoApp: App {
   @NSApplicationDelegateAdaptor(MarimoAppDelegate.self) private var appDelegate
+  @StateObject private var updater = LunamoUpdater()
   @StateObject private var store: NotebookStore
   private let startupURL: URL?
 
@@ -22,9 +24,30 @@ struct MarimoNativeApp: App {
       backend = PlaceholderMarimoBackend()
     }
     if let document = ReleasePerformanceProbe.fixtureDocument {
-      _store = StateObject(wrappedValue: NotebookStore(backend: backend, document: document))
+      _store = StateObject(
+        wrappedValue: NotebookStore(
+          backend: backend,
+          document: document,
+          environmentDiscovery: PythonEnvironmentDiscovery(
+            bundledPythonURL: sidecar?.appending(path: "bin/python3")
+          ),
+          packageManager: sidecar.map {
+            UVNotebookPackageManager(uvURL: $0.appending(path: "bin/uv"))
+          }
+        )
+      )
     } else {
-      _store = StateObject(wrappedValue: NotebookStore(backend: backend))
+      _store = StateObject(
+        wrappedValue: NotebookStore(
+          backend: backend,
+          environmentDiscovery: PythonEnvironmentDiscovery(
+            bundledPythonURL: sidecar?.appending(path: "bin/python3")
+          ),
+          packageManager: sidecar.map {
+            UVNotebookPackageManager(uvURL: $0.appending(path: "bin/uv"))
+          }
+        )
+      )
     }
     if CommandLine.arguments.contains("--performance-window-marker"),
       let performanceNotebook = ProcessInfo.processInfo.environment[
@@ -33,7 +56,7 @@ struct MarimoNativeApp: App {
       startupURL = URL(fileURLWithPath: performanceNotebook).standardizedFileURL
     } else {
       startupURL = CommandLine.arguments.dropFirst().first(where: {
-        URL(fileURLWithPath: $0).pathExtension.lowercased() == "py"
+        ["py", "ipynb"].contains(URL(fileURLWithPath: $0).pathExtension.lowercased())
       }).map {
         URL(fileURLWithPath: $0).standardizedFileURL
       }
@@ -41,7 +64,7 @@ struct MarimoNativeApp: App {
   }
 
   var body: some Scene {
-    Window("MarimoNative", id: "notebook") {
+    Window("Lunamo", id: "notebook") {
       NotebookRootView(store: store, startupURL: startupURL)
         .onAppear {
           appDelegate.store = store
@@ -59,9 +82,11 @@ struct MarimoNativeApp: App {
         }
     }
     .defaultSize(width: 1_320, height: 800)
-    .windowResizability(.contentSize)
+    .windowResizability(.contentMinSize)
+    .windowStyle(.hiddenTitleBar)
     .commands {
       NotebookMenuCommands(store: store)
+      LunamoUpdateCommands(updater: updater)
     }
 
     Settings {
