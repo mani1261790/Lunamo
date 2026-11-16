@@ -76,11 +76,11 @@ struct NotebookWindowLifecycleView: NSViewRepresentable {
 
     private func presentCloseConfirmation(for window: NSWindow) {
       let alert = NSAlert()
-      alert.messageText = "Save changes before closing?"
-      alert.informativeText = "Unsaved changes in this notebook will be lost."
-      alert.addButton(withTitle: "Save")
-      alert.addButton(withTitle: "Cancel")
-      alert.addButton(withTitle: "Don't Save")
+      alert.messageText = String(localized: "Save changes before closing?")
+      alert.informativeText = String(localized: "Unsaved changes in this notebook will be lost.")
+      alert.addButton(withTitle: String(localized: "Save"))
+      alert.addButton(withTitle: String(localized: "Cancel"))
+      alert.addButton(withTitle: String(localized: "Don't Save"))
       alert.beginSheetModal(for: window) { [weak self, weak window] response in
         guard let self, let window else { return }
         switch response {

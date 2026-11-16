@@ -11,7 +11,11 @@ const notebook = document.querySelector('#notebook');
 const settings = document.querySelector('#settings-shot');
 let active = 'open';
 let lastPath = '';
-const alt = {
+const alt = document.documentElement.lang === 'en' ? {
+  open: 'A moon observation notebook with a file sidebar, Python code, and its results.',
+  closed: 'The notebook with its sidebar hidden, showing moon brightness by day.',
+  terminal: 'The notebook with the built-in terminal open below it.'
+} : {
   open: '月の観測ノート。左にファイル一覧、右に月の明るさを求めるコードと計算結果。',
   closed: 'サイドバーを閉じた編集画面。日ごとの月の明るさが棒で並ぶ。',
   terminal: 'ノートの下に内蔵ターミナルを開いた編集画面。'

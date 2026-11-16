@@ -319,6 +319,9 @@ struct NotebookPanelTests {
     let japanese = try String(
       contentsOf: root.appending(path: "ja.lproj/Localizable.strings"), encoding: .utf8)
     for key in [
+      "Save changes before quitting?", "Save changes before closing?", "Don't Save",
+      "Open Link in Browser?", "Run Python Code?", "Trust This Folder", "Run Once",
+      "Choose Python Executable", "Choose Directory",
       "Open Notebook…", "Run All", "Interrupt", "Files", "Cells", "Session", "Variables",
       "Export HTML…", "Export ipynb…", "Export Markdown…", "Open Logs…",
       "Review Logs Before Export", "Export Reviewed Logs…",

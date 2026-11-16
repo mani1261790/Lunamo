@@ -5,10 +5,10 @@ import MarimoApplication
 enum NotebookEnvironmentActions {
   static func chooseExecutable(for store: NotebookStore) {
     let panel = NSOpenPanel()
-    panel.title = "Choose Python Executable"
+    panel.title = String(localized: "Choose Python Executable")
     panel.message =
-      "Select a Python executable. Lunamo will inspect it without installing packages."
-    panel.prompt = "Choose Python"
+      String(localized: "Select a Python executable. Lunamo will inspect it without installing packages.")
+    panel.prompt = String(localized: "Choose Python")
     panel.canChooseDirectories = false
     panel.canChooseFiles = true
     panel.allowsMultipleSelection = false
@@ -20,9 +20,9 @@ enum NotebookEnvironmentActions {
 
   static func chooseWorkingDirectory(for store: NotebookStore) {
     let panel = NSOpenPanel()
-    panel.title = "Choose Working Directory"
-    panel.message = "Choose the directory used when Python execution starts."
-    panel.prompt = "Choose Directory"
+    panel.title = String(localized: "Choose Working Directory")
+    panel.message = String(localized: "Choose the directory used when Python execution starts.")
+    panel.prompt = String(localized: "Choose Directory")
     panel.canChooseDirectories = true
     panel.canChooseFiles = false
     panel.allowsMultipleSelection = false

@@ -210,10 +210,10 @@ struct IsolatedWebOutputView: NSViewRepresentable {
     private func confirmExternalNavigation(_ url: URL) {
       guard url.scheme == "https" || url.scheme == "http" else { return }
       let alert = NSAlert()
-      alert.messageText = "Open Link in Browser?"
+      alert.messageText = String(localized: "Open Link in Browser?")
       alert.informativeText = url.absoluteString
-      alert.addButton(withTitle: "Open")
-      alert.addButton(withTitle: "Cancel")
+      alert.addButton(withTitle: String(localized: "Open"))
+      alert.addButton(withTitle: String(localized: "Cancel"))
       if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(url) }
     }
 

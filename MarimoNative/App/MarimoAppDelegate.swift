@@ -19,11 +19,11 @@ final class MarimoAppDelegate: NSObject, NSApplicationDelegate {
 
     if store.document.dirty {
       let alert = NSAlert()
-      alert.messageText = "Save changes before quitting?"
-      alert.informativeText = "Unsaved notebook changes will be lost."
-      alert.addButton(withTitle: "Save")
-      alert.addButton(withTitle: "Cancel")
-      alert.addButton(withTitle: "Don't Save")
+      alert.messageText = String(localized: "Save changes before quitting?")
+      alert.informativeText = String(localized: "Unsaved notebook changes will be lost.")
+      alert.addButton(withTitle: String(localized: "Save"))
+      alert.addButton(withTitle: String(localized: "Cancel"))
+      alert.addButton(withTitle: String(localized: "Don't Save"))
       switch alert.runModal() {
       case .alertFirstButtonReturn:
         terminationPending = true
