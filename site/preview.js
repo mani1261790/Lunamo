@@ -11,15 +11,15 @@ const notebook = document.querySelector('#notebook');
 const settings = document.querySelector('#settings-shot');
 let active = 'open';
 let lastPath = '';
-const alt = document.documentElement.lang === 'en' ? {
+const alt = {en: {
   open: 'A moon observation notebook with a file sidebar, Python code, and its results.',
   closed: 'The notebook with its sidebar hidden, showing moon brightness by day.',
   terminal: 'The notebook with the built-in terminal open below it.'
-} : {
+}, ja: {
   open: '月の観測ノート。左にファイル一覧、右に月の明るさを求めるコードと計算結果。',
   closed: 'サイドバーを閉じた編集画面。日ごとの月の明るさが棒で並ぶ。',
   terminal: 'ノートの下に内蔵ターミナルを開いた編集画面。'
-};
+}};
 function draw(){
   const value = document.querySelector('.appearance-value');
   value.textContent = appearance.selectedOptions[0].textContent;
@@ -32,8 +32,9 @@ function draw(){
   const path='assets/atlas-'+theme+'-'+active+'.webp';
   if(path!==lastPath){
     notebook.src=path;
-    notebook.alt=alt[active]; lastPath=path;
+    lastPath=path;
   }
+  notebook.alt=alt[document.documentElement.lang][active];
   const sett='assets/atlas-'+theme+'-settings.webp';
   if(settings.getAttribute('src')!==sett)settings.src=sett;
   buttons.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===active)));
@@ -91,4 +92,5 @@ function update(){
 const schedule=()=>{if(!frame)frame=requestAnimationFrame(update)};
 for(const e of ['scroll','resize'])addEventListener(e,schedule,{passive:true});
 for(const q of [wide,reduce])q.addEventListener('change',schedule);
+document.addEventListener('lunamo-language',()=>{draw();schedule()});
 draw();update();document.fonts.ready.then(schedule);
