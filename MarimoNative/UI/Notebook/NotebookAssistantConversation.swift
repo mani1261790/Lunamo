@@ -278,18 +278,23 @@ final class NotebookAssistantConversation: ObservableObject {
       )
       do {
         let result: LanguageModelSession.Response<String>
-        if #available(macOS 27.0, *) {
-          let images = history.flatMap(\.files).compactMap(imageAttachment)
-          let prompt = Prompt {
-            promptText
-            for image in images {
-              image
+        let prompt: Prompt
+        #if compiler(>=6.4)
+          if #available(macOS 27.0, *) {
+            let images = history.flatMap(\.files).compactMap(imageAttachment)
+            prompt = Prompt {
+              promptText
+              for image in images {
+                image
+              }
             }
+          } else {
+            prompt = Prompt(promptText)
           }
-          result = try await session.respond(to: prompt)
-        } else {
-          result = try await session.respond(to: promptText)
-        }
+        #else
+          prompt = Prompt(promptText)
+        #endif
+        result = try await session.respond(to: prompt)
         guard !Task.isCancelled, generationID == requestID else { return }
         let suggestedEdit: SuggestedEdit?
         if history.last?.attachments.count == 1,
@@ -339,9 +344,11 @@ final class NotebookAssistantConversation: ObservableObject {
       let suffix = file.data.count > 12_000 ? "\n[File content truncated]" : ""
       return "File \(file.name) (reference source):\n\(text)\(suffix)"
     case .image:
-      if #available(macOS 27.0, *) {
-        return "Image \(file.name) is attached."
-      }
+      #if compiler(>=6.4)
+        if #available(macOS 27.0, *) {
+          return "Image \(file.name) is attached."
+        }
+      #endif
       return
         "Image file \(file.name) is attached as metadata; image understanding requires macOS 27 or later."
     case .file:
@@ -350,14 +357,16 @@ final class NotebookAssistantConversation: ObservableObject {
     }
   }
 
-  @available(macOS 27.0, *)
-  private func imageAttachment(_ file: FileAttachment) -> FoundationModels.Attachment<
-    ImageAttachmentContent
-  >? {
-    guard file.kind == .image,
-      let source = CGImageSourceCreateWithData(file.data as CFData, nil),
-      let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-    else { return nil }
-    return FoundationModels.Attachment(image).label(file.name)
-  }
+  #if compiler(>=6.4)
+    @available(macOS 27.0, *)
+    private func imageAttachment(_ file: FileAttachment) -> FoundationModels.Attachment<
+      ImageAttachmentContent
+    >? {
+      guard file.kind == .image,
+        let source = CGImageSourceCreateWithData(file.data as CFData, nil),
+        let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+      else { return nil }
+      return FoundationModels.Attachment(image).label(file.name)
+    }
+  #endif
 }
