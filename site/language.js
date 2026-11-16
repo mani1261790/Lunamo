@@ -3,7 +3,7 @@ const englishCopy = {
     "Lunamo — A Python notebook editor for Mac"
   ],
   "meta[name=description] @content": [
-    "Plot with Python. Keep your code, charts, and notes together on Mac."
+    "Edit Python notebooks in Lunamo’s native Mac interface."
   ],
   "nav @aria-label": [
     "Main navigation"
