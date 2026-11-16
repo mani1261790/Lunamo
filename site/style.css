@@ -109,7 +109,8 @@ header{border:0}
 .appearance select:focus{outline:none}
 .appearance:has(select:focus-visible) .appearance-value{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:.3em}
 .appearance:has(.appearance-value[hidden]) select:focus-visible{text-decoration:underline}
-header .source{white-space:nowrap;flex:none}
+header .language{white-space:nowrap;display:inline-flex;align-items:center;min-height:44px}
+.hero .source{display:inline-block;padding:6px;color:var(--muted);font-size:.8rem;text-decoration:underline;text-underline-offset:.2em}.hero .source:hover{color:var(--ink)}
 @media(max-width:480px){header nav{gap:8px;padding-inline:12px}.nav-end{gap:10px}header .brand{font-size:1.15rem}header .brand img{width:28px;height:28px}}
 .showcase .switcher{border:0;background:transparent}
 .features{width:min(950px,88%);margin:0 auto;padding:clamp(50px,7vw,95px) 0 0}
