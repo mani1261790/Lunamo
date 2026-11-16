@@ -29,13 +29,14 @@ function draw(){
   else document.documentElement.dataset.theme=theme;
   const icon = theme === 'dark' ? 'assets/lunamo-night.png' : 'assets/lunamo.png';
   document.querySelectorAll('.appicon,.brand img').forEach(img=>{if(img.getAttribute('src')!==icon)img.src=icon});
-  const path='assets/atlas-'+theme+'-'+active+'.webp';
+  const atlas = document.documentElement.lang === 'en' ? 'assets/atlas-en-' : 'assets/atlas-';
+  const path=atlas+theme+'-'+active+'.webp';
   if(path!==lastPath){
     notebook.src=path;
     lastPath=path;
   }
   notebook.alt=alt[document.documentElement.lang][active];
-  const sett='assets/atlas-'+theme+'-settings.webp';
+  const sett=atlas+theme+'-settings.webp';
   if(settings.getAttribute('src')!==sett)settings.src=sett;
   buttons.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===active)));
   scenes.forEach(a=>a.classList.toggle('current',a.dataset.scene===active));

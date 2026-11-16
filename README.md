@@ -44,7 +44,7 @@ Python や marimo をあらかじめ個別にインストールする必要は�
 
 ## インストール
 
-[Lunamo 0.1.0（DMG）](https://github.com/mani1261790/Lunamo/releases/download/v0.1.0/Lunamo-0.1.0.dmg) を開き、LunamoをApplicationsフォルダにドラッグしてください。更新はLunamoメニューの「アップデートを確認」から確認できます。
+[Lunamo 0.1.1（DMG）](https://github.com/mani1261790/Lunamo/releases/download/v0.1.1/Lunamo-0.1.1.dmg) を開き、LunamoをApplicationsフォルダにドラッグしてください。更新はLunamoメニューの「アップデートを確認」から確認できます。
 
 ### ソースからビルドする
 
