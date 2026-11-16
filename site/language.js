@@ -3,7 +3,7 @@ const englishCopy = {
     "Lunamo — A Python notebook editor for Mac"
   ],
   "meta[name=description] @content": [
-    "A SwiftUI editor for marimo notebooks on Mac. Python and marimo are included, so you can open a notebook and start writing."
+    "Edit and run marimo notebooks on Mac. Python is included."
   ],
   "nav @aria-label": [
     "Main navigation"
@@ -126,6 +126,17 @@ function displayLanguage(language) {
     if (field.attribute) field.element.setAttribute(field.attribute, field[language]);
     else field.element.innerHTML = field[language];
   }
+  for (const [property,value] of Object.entries({
+    title: document.title,
+    description: document.querySelector('meta[name="description"]').content,
+    'image:alt': language === 'ja'
+      ? 'Lunamoのアイコンと、コードと実行結果が並ぶMacのノート編集画面。'
+      : 'The Lunamo icon beside a Mac notebook showing Python code and its output.'
+  })) {
+    document.querySelector('meta[property="og:'+property+'"]').content = value;
+    document.querySelector('meta[name="twitter:'+property+'"]').content = value;
+  }
+  document.querySelector('meta[property="og:locale"]').content = language === 'ja' ? 'ja_JP' : 'en_US';
   languageButton.lang = language === 'ja' ? 'en' : 'ja';
   languageButton.textContent = language === 'ja' ? 'English' : '日本語';
   languageButton.hidden = false;
