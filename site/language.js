@@ -3,7 +3,7 @@ const englishCopy = {
     "Lunamo — A Python notebook editor for Mac"
   ],
   "meta[name=description] @content": [
-    "Edit and run marimo notebooks on Mac. Python is included."
+    "Plot with Python. Keep your code, charts, and notes together on Mac."
   ],
   "nav @aria-label": [
     "Main navigation"
@@ -130,8 +130,8 @@ function displayLanguage(language) {
     title: document.title,
     description: document.querySelector('meta[name="description"]').content,
     'image:alt': language === 'ja'
-      ? 'Lunamoのアイコンと、コードと実行結果が並ぶMacのノート編集画面。'
-      : 'The Lunamo icon beside a Mac notebook showing Python code and its output.'
+      ? '三日月のアプリアイコンと「Lunamo」のロゴ。'
+      : 'The crescent app icon and Lunamo wordmark.'
   })) {
     document.querySelector('meta[property="og:'+property+'"]').content = value;
     document.querySelector('meta[name="twitter:'+property+'"]').content = value;
