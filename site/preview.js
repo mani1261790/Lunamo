@@ -51,70 +51,82 @@ appearance.addEventListener('change',()=>{
 system.addEventListener('change',draw);
 buttons.forEach(b=>b.addEventListener('click',()=>choose(b.dataset.view)));
 const slot = tour.querySelector('.screen-slot');
-function alignIntro() {
-  // Measure the untransformed destination, never the animated screenshot.
-  const target = slot.getBoundingClientRect();
-  const tourTop = tour.getBoundingClientRect().top;
-  const pinTop = parseFloat(getComputedStyle(figure).top) || 80;
-  const distance = Math.max(1, scrollY + tourTop - pinTop);
-  const t = reduce.matches ? 1 : Math.min(1, Math.max(0, scrollY / distance));
-  const landed = t * t * (3 - 2 * t);
-  const remaining = 1 - landed;
-  const viewport = document.documentElement.clientWidth;
-  const openingWidth = viewport >= 960
-    ? Math.min(viewport * .8, 1152)
-    : Math.min(viewport * .94, target.width * 1.15);
-  const openingScale = Math.max(1, openingWidth / Math.max(1, target.width));
-  const centerOffset = (viewport - target.width) / 2 - target.left;
-  tour.style.setProperty('--intro-x', (centerOffset * remaining) + 'px');
-  tour.style.setProperty('--intro-scale', 1 + remaining * (openingScale - 1));
-  tour.style.setProperty('--shell-y', (remaining * 54) + 'px');
-  tour.style.setProperty('--shell-opacity', landed);
-  tour.style.setProperty('--copy-opacity', Math.max(0, (landed - .45) / .55));
-}
-let frame=0;
-function update(){
-  frame=0;
+let geometry;
+let needsMeasure = true;
+let lastIntro = -1;
+let frame = 0;
+function measure() {
   const stacked = innerWidth < 960 && innerHeight >= 630 && figure.clientWidth * .6 + 270 < innerHeight;
-  const follows=(wide.matches || stacked) && !reduce.matches;
-  switcher.hidden=follows;
-  tour.classList.toggle('following',follows);
-  // Center the complete Mac below the navigation, including Safari's dynamic viewport.
+  const follows = (wide.matches || stacked) && !reduce.matches;
+  switcher.hidden = follows;
+  tour.classList.toggle('following', follows);
+  const headerBottom = document.querySelector('header').getBoundingClientRect().bottom;
+  const viewport = window.visualViewport;
+  const usableTop = Math.max(headerBottom, viewport?.offsetTop || 0);
+  const viewportBottom = (viewport?.offsetTop || 0) + (viewport?.height || innerHeight);
+  const figureHeight = figure.offsetHeight;
+  const center = (usableTop + viewportBottom) / 2;
   if (wide.matches && follows) {
-    const headerBottom = document.querySelector('header').getBoundingClientRect().bottom;
-    const viewport = window.visualViewport;
-    const viewportTop = viewport?.offsetTop || 0;
-    const viewportBottom = viewportTop + (viewport?.height || innerHeight);
-    const usableTop = Math.max(headerBottom, viewportTop);
-    const pinTop = Math.max(usableTop + 12,
-      usableTop + (viewportBottom - usableTop - figure.offsetHeight) / 2);
-    const lastScene = scenes.at(-1).getBoundingClientRect();
-    const center = (usableTop + viewportBottom) / 2;
-    // Release when the final explanation reaches the same center as the Mac.
-    // Both then move one pixel per scroll pixel, in either direction.
-    const releaseOffset = Math.min(0, lastScene.top + lastScene.height / 2 - center);
-    figure.style.setProperty('--preview-pin-top', (pinTop + releaseOffset) + 'px');
-    tour.style.setProperty('--tour-tail',
-      Math.max(0, (figure.offsetHeight - lastScene.height) / 2) + 'px');
+    const pinTop = Math.max(usableTop + 12, center - figureHeight / 2);
+    const last = scenes.at(-1).getBoundingClientRect();
+    const tourTop = tour.getBoundingClientRect().top;
+    figure.style.setProperty('--preview-pin-top', pinTop + 'px');
+    // End the sticky containing block at the final explanation + half the Mac.
+    // Native sticky scrolling now releases it; scroll events never change top.
+    tour.style.setProperty('--tour-height',
+      Math.max(figureHeight, last.top + last.height / 2 - tourTop + figureHeight / 2) + 'px');
   } else {
     figure.style.removeProperty('--preview-pin-top');
-    tour.style.removeProperty('--tour-tail');
+    tour.style.removeProperty('--tour-height');
   }
-  alignIntro();
-  if(follows){
-    const y=stacked ? Math.max(innerHeight*.68, figure.getBoundingClientRect().bottom+90) : innerHeight*.53;
-    const scene=scenes.reduce((best,el)=>{
-      const gap=r=>Math.abs(r.top+r.height/2-y);
-      return gap(el.getBoundingClientRect())<gap(best.getBoundingClientRect())?el:best;
-    },scenes[0]);
-    if(scene.dataset.scene!==active)choose(scene.dataset.scene);
-  }
-
+  const target = slot.getBoundingClientRect();
+  const pinTop = parseFloat(getComputedStyle(figure).top) || 80;
+  const viewportWidth = document.documentElement.clientWidth;
+  const openingWidth = viewportWidth >= 960
+    ? Math.min(viewportWidth * .8, 1152)
+    : Math.min(viewportWidth * .94, target.width * 1.15);
+  geometry = {
+    follows, stacked, center,
+    distance: Math.max(1, scrollY + tour.getBoundingClientRect().top - pinTop),
+    scale: Math.max(1, openingWidth / Math.max(1, target.width)),
+    x: (viewportWidth - target.width) / 2 - target.left,
+    sceneY: stacked ? Math.max(innerHeight * .68, pinTop + figureHeight + 90) : center,
+    scenes: scenes.map(el => {
+      const r = el.getBoundingClientRect();
+      return {el, center: scrollY + r.top + r.height / 2};
+    })
+  };
+  lastIntro = -1;
+  needsMeasure = false;
 }
-const schedule=()=>{if(!frame)frame=requestAnimationFrame(update)};
-for(const e of ['scroll','resize'])addEventListener(e,schedule,{passive:true});
-window.visualViewport?.addEventListener('resize',schedule,{passive:true});
-window.visualViewport?.addEventListener('scroll',schedule,{passive:true});
-for(const q of [wide,reduce])q.addEventListener('change',schedule);
-document.addEventListener('lunamo-language',()=>{draw();schedule()});
-draw();update();document.fonts.ready.then(schedule);
+function update() {
+  frame = 0;
+  if (needsMeasure) measure();
+  const y = scrollY;
+  const t = reduce.matches ? 1 : Math.min(1, Math.max(0, y / geometry.distance));
+  // Once docked, no animation styles or layout properties are touched on scroll.
+  if (t !== lastIntro) {
+    const landed = t * t * (3 - 2 * t);
+    const remaining = 1 - landed;
+    tour.style.setProperty('--intro-x', geometry.x * remaining + 'px');
+    tour.style.setProperty('--intro-scale', 1 + remaining * (geometry.scale - 1));
+    tour.style.setProperty('--shell-y', remaining * 54 + 'px');
+    tour.style.setProperty('--shell-opacity', landed);
+    tour.style.setProperty('--copy-opacity', Math.max(0, (landed - .45) / .55));
+    lastIntro = t;
+  }
+  if (geometry.follows) {
+    const focus = y + geometry.sceneY;
+    const scene = geometry.scenes.reduce((best, item) =>
+      Math.abs(item.center - focus) < Math.abs(best.center - focus) ? item : best);
+    if (scene.el.dataset.scene !== active) choose(scene.el.dataset.scene);
+  }
+}
+const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+const invalidate = () => { needsMeasure = true; schedule(); };
+addEventListener('scroll', schedule, {passive:true});
+addEventListener('resize', invalidate, {passive:true});
+window.visualViewport?.addEventListener('resize', invalidate, {passive:true});
+for (const q of [wide, reduce]) q.addEventListener('change', invalidate);
+document.addEventListener('lunamo-language', () => { draw(); invalidate(); });
+draw(); update(); document.fonts.ready.then(invalidate);
