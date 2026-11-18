@@ -79,6 +79,19 @@ function update(){
   const follows=(wide.matches || stacked) && !reduce.matches;
   switcher.hidden=follows;
   tour.classList.toggle('following',follows);
+  // Center the complete Mac below the navigation, including Safari's dynamic viewport.
+  if (wide.matches && follows) {
+    const headerBottom = document.querySelector('header').getBoundingClientRect().bottom;
+    const viewport = window.visualViewport;
+    const viewportTop = viewport?.offsetTop || 0;
+    const viewportBottom = viewportTop + (viewport?.height || innerHeight);
+    const usableTop = Math.max(headerBottom, viewportTop);
+    const pinTop = Math.max(usableTop + 12,
+      usableTop + (viewportBottom - usableTop - figure.offsetHeight) / 2);
+    figure.style.setProperty('--preview-pin-top', pinTop + 'px');
+  } else {
+    figure.style.removeProperty('--preview-pin-top');
+  }
   alignIntro();
   if(follows){
     const y=stacked ? Math.max(innerHeight*.68, figure.getBoundingClientRect().bottom+90) : innerHeight*.53;
@@ -92,6 +105,8 @@ function update(){
 }
 const schedule=()=>{if(!frame)frame=requestAnimationFrame(update)};
 for(const e of ['scroll','resize'])addEventListener(e,schedule,{passive:true});
+window.visualViewport?.addEventListener('resize',schedule,{passive:true});
+window.visualViewport?.addEventListener('scroll',schedule,{passive:true});
 for(const q of [wide,reduce])q.addEventListener('change',schedule);
 document.addEventListener('lunamo-language',()=>{draw();schedule()});
 draw();update();document.fonts.ready.then(schedule);
