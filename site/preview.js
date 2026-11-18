@@ -88,9 +88,17 @@ function update(){
     const usableTop = Math.max(headerBottom, viewportTop);
     const pinTop = Math.max(usableTop + 12,
       usableTop + (viewportBottom - usableTop - figure.offsetHeight) / 2);
-    figure.style.setProperty('--preview-pin-top', pinTop + 'px');
+    const lastScene = scenes.at(-1).getBoundingClientRect();
+    const center = (usableTop + viewportBottom) / 2;
+    // Release when the final explanation reaches the same center as the Mac.
+    // Both then move one pixel per scroll pixel, in either direction.
+    const releaseOffset = Math.min(0, lastScene.top + lastScene.height / 2 - center);
+    figure.style.setProperty('--preview-pin-top', (pinTop + releaseOffset) + 'px');
+    tour.style.setProperty('--tour-tail',
+      Math.max(0, (figure.offsetHeight - lastScene.height) / 2) + 'px');
   } else {
     figure.style.removeProperty('--preview-pin-top');
+    tour.style.removeProperty('--tour-tail');
   }
   alignIntro();
   if(follows){

@@ -82,7 +82,7 @@ main{position:relative;isolation:isolate}.sky{position:absolute;z-index:-2;inset
 .tour:not(.following):has(.switcher:not([hidden])) .scenes article:not(.current){display:none}
 @media(min-width:960px) and (min-height:630px) and (prefers-reduced-motion:no-preference){
   .following .showcase{position:sticky;top:var(--preview-pin-top,clamp(78px,13vh,126px));max-width:calc((100svh - 164px) * 1.79);justify-self:start}
-  .following .scenes{margin:0;padding:10vh 0 49vh}
+  .following .scenes{margin:0;padding:10vh 0 var(--tour-tail,49vh)}
   .tour.following .scenes article:not(.current),.tour.following .scenes article.current{display:flex;flex-direction:column;justify-content:center;min-height:52vh}
 }
 .editor{border-top:1px solid var(--line);margin-top:clamp(26px,4vw,64px)}
