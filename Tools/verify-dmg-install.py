@@ -16,7 +16,8 @@ args = parser.parse_args()
 root = Path(__file__).resolve().parent.parent
 dmg = args.dmg.resolve()
 subprocess.run(['xcrun', 'stapler', 'validate', str(dmg)], check=True)
-with tempfile.TemporaryDirectory(prefix='lunamo-installed-acceptance-') as directory:
+# Use a checkout sibling: Foundation and Bundle disagree on /private/var aliases.
+with tempfile.TemporaryDirectory(prefix='lunamo-installed-acceptance-', dir=root.parent) as directory:
     app = Path(directory) / 'Applications/Lunamo.app'
     info = plistlib.loads(subprocess.check_output(['hdiutil', 'attach', '-readonly', '-nobrowse', '-plist', str(dmg)]))
     mount = next(Path(item['mount-point']) for item in info['system-entities'] if 'mount-point' in item)
