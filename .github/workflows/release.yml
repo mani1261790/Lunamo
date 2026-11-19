@@ -70,6 +70,8 @@ jobs:
           MARIMONATIVE_CODESIGN_IDENTITY: ${{ secrets.DEVELOPER_ID_APPLICATION }}
         run: ./Tools/build-release-app.sh
       - name: Measure release performance
+        id: performance
+        continue-on-error: true
         run: ./Tools/measure-release-performance.py .build/release-artifacts/Lunamo.app
       - name: Notarize staple and verify
         run: ./Tools/notarize-release.sh
@@ -114,3 +116,8 @@ jobs:
         run: |
           security delete-keychain "$RUNNER_TEMP/marimonative-signing.keychain-db" || true
           rm -f "$RUNNER_TEMP/developer-id.p12" "$RUNNER_TEMP/sparkle-private-key"
+      - name: Enforce release performance result
+        if: always() && steps.performance.outcome != 'success'
+        run: |
+          echo "Release performance qualification failed; generated artifacts are unqualified candidates." >&2
+          exit 1
