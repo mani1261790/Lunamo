@@ -28,7 +28,9 @@ swift build
 # Keep wall-clock budgets isolated from concurrent integration work, and measure
 # optimized code as shipped. Functional tests still run in debug configuration.
 swift test --skip PerformanceTests
-swift test -c release --filter PerformanceTests
+# Match build-release-app.sh, including its SwiftSoup compiler workaround.
+swift test -c release --filter PerformanceTests \
+  -Xswiftc -Xllvm -Xswiftc -sil-disable-pass=CopyPropagation
 xcrun swift-format lint --recursive --strict MarimoNative Tests Package.swift
 ./Tools/verify-source-policy.sh
 ./Tools/verify-protocol-lock.sh

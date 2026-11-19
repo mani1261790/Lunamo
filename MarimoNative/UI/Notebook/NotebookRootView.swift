@@ -163,107 +163,110 @@ public struct NotebookRootView: View {
           ForEach(sectionRows) { row in
             let index = row.index
             let cell = row.cell
-            CellView(
-              cell: cell,
-              index: index + 1,
-              selected: store.document.selectedCellID == cell.runtimeID,
-              focused: store.focusedCellID == cell.runtimeID,
-              canRun: canRun,
-              canInterrupt: store.sessionAllowsInterrupt,
-              runDisabledHelp: runDisabledHelp,
-              reorderDragChanged: updateReorderDrag,
-              reorderDragEnded: finishReorderDrag,
-              reportFrame: { id, frame in cellFrames[id] = frame },
-              tracksReorderFrame: draggedCellID != nil,
-              sectionHeadingLevel: row.headingLevel,
-              sectionCollapsed: collapsedHeadingCellIDs.contains(cell.runtimeID),
-              toggleSection: {
-                toggleSection(cell.runtimeID)
-              },
-              attachToAssistant: {
-                presentAssistant(for: cell, index: index + 1)
-              },
-              explainErrorWithAssistant: {
-                presentAssistant(
-                  for: cell, index: index + 1,
-                  prompt: localizedUI("Explain this error and show me how to fix it"))
-              },
-              fixErrorWithAssistant: {
-                presentAssistant(
-                  for: cell, index: index + 1,
-                  prompt: localizedUI(
-                    "Fix this error. Return the complete corrected cell in one Python code block."))
-              },
-              askAssistant: { prompt, selection in
-                presentAssistant(
-                  for: cell, index: index + 1, prompt: prompt, selection: selection)
-              },
-              updateSelection: { selection in
-                store.updateCodeSelection(cellID: cell.runtimeID, selection: selection)
-              },
-              requestCompletions: { source, line, column in
-                await store.pythonCompletions(source: source, line: line, column: column)
-              },
-              send: { intent in
-                Task { await store.send(intent) }
-              },
-              focusEditor: {
-                store.focusEditor(cell.runtimeID)
-              },
-              command: { command in
-                handle(command, cellID: cell.runtimeID)
-              },
-              submitStdin: { text in
-                Task { await store.submitStdin(cellID: cell.runtimeID, text: text) }
-              },
-              widgetStore: store.widgetValueStore,
-              widgetsEnabled: store.interactiveWidgetsAllowed,
-              kernelSessionID: store.document.kernelSessionID,
-              submitWidgetValue: { objectID, value, sessionID in
-                Task {
-                  await store.submitWidgetValue(
-                    objectID: objectID,
-                    value: value,
-                    expectedSessionID: sessionID
-                  )
-                }
-              }
-            )
-            .id(cell.runtimeID)
-            .contextMenu {
-              Menu("Assistant", systemImage: "sparkles") {
-                Button("Explain Code", systemImage: "text.magnifyingglass") {
+            VStack(spacing: 0) {
+              CellView(
+                cell: cell,
+                index: index + 1,
+                selected: store.document.selectedCellID == cell.runtimeID,
+                focused: store.focusedCellID == cell.runtimeID,
+                canRun: canRun,
+                canInterrupt: store.sessionAllowsInterrupt,
+                runDisabledHelp: runDisabledHelp,
+                reorderDragChanged: updateReorderDrag,
+                reorderDragEnded: finishReorderDrag,
+                reportFrame: { id, frame in cellFrames[id] = frame },
+                tracksReorderFrame: draggedCellID != nil,
+                sectionHeadingLevel: row.headingLevel,
+                sectionCollapsed: collapsedHeadingCellIDs.contains(cell.runtimeID),
+                toggleSection: {
+                  toggleSection(cell.runtimeID)
+                },
+                attachToAssistant: {
+                  presentAssistant(for: cell, index: index + 1)
+                },
+                explainErrorWithAssistant: {
                   presentAssistant(
                     for: cell, index: index + 1,
-                    prompt: localizedUI("Explain this code clearly."),
-                    selection: store.codeSelections[cell.runtimeID])
-                }
-                Button("Fix or Improve Code", systemImage: "wrench.and.screwdriver") {
+                    prompt: localizedUI("Explain this error and show me how to fix it"))
+                },
+                fixErrorWithAssistant: {
                   presentAssistant(
                     for: cell, index: index + 1,
                     prompt: localizedUI(
-                      "Fix or improve this code. Return the complete replacement in one Python code block."
-                    ),
-                    selection: store.codeSelections[cell.runtimeID])
-                }
-                Button("Generate Tests", systemImage: "checkmark.seal") {
+                      "Fix this error. Return the complete corrected cell in one Python code block."
+                    ))
+                },
+                askAssistant: { prompt, selection in
                   presentAssistant(
-                    for: cell, index: index + 1,
-                    prompt: localizedUI(
-                      "Generate useful tests for this code and return them in one Python code block."
-                    ),
-                    selection: store.codeSelections[cell.runtimeID])
+                    for: cell, index: index + 1, prompt: prompt, selection: selection)
+                },
+                updateSelection: { selection in
+                  store.updateCodeSelection(cellID: cell.runtimeID, selection: selection)
+                },
+                requestCompletions: { source, line, column in
+                  await store.pythonCompletions(source: source, line: line, column: column)
+                },
+                send: { intent in
+                  Task { await store.send(intent) }
+                },
+                focusEditor: {
+                  store.focusEditor(cell.runtimeID)
+                },
+                command: { command in
+                  handle(command, cellID: cell.runtimeID)
+                },
+                submitStdin: { text in
+                  Task { await store.submitStdin(cellID: cell.runtimeID, text: text) }
+                },
+                widgetStore: store.widgetValueStore,
+                widgetsEnabled: store.interactiveWidgetsAllowed,
+                kernelSessionID: store.document.kernelSessionID,
+                submitWidgetValue: { objectID, value, sessionID in
+                  Task {
+                    await store.submitWidgetValue(
+                      objectID: objectID,
+                      value: value,
+                      expectedSessionID: sessionID
+                    )
+                  }
+                }
+              )
+              .contextMenu {
+                Menu("Assistant", systemImage: "sparkles") {
+                  Button("Explain Code", systemImage: "text.magnifyingglass") {
+                    presentAssistant(
+                      for: cell, index: index + 1,
+                      prompt: localizedUI("Explain this code clearly."),
+                      selection: store.codeSelections[cell.runtimeID])
+                  }
+                  Button("Fix or Improve Code", systemImage: "wrench.and.screwdriver") {
+                    presentAssistant(
+                      for: cell, index: index + 1,
+                      prompt: localizedUI(
+                        "Fix or improve this code. Return the complete replacement in one Python code block."
+                      ),
+                      selection: store.codeSelections[cell.runtimeID])
+                  }
+                  Button("Generate Tests", systemImage: "checkmark.seal") {
+                    presentAssistant(
+                      for: cell, index: index + 1,
+                      prompt: localizedUI(
+                        "Generate useful tests for this code and return them in one Python code block."
+                      ),
+                      selection: store.codeSelections[cell.runtimeID])
+                  }
+                }
+                Divider()
+                Button("Duplicate Cell", systemImage: "square.on.square") {
+                  Task { await store.send(.duplicateCell(cell.runtimeID)) }
+                }
+                Button("Delete Cell", systemImage: "trash", role: .destructive) {
+                  Task { await store.send(.deleteCell(cell.runtimeID)) }
                 }
               }
-              Divider()
-              Button("Duplicate Cell", systemImage: "square.on.square") {
-                Task { await store.send(.duplicateCell(cell.runtimeID)) }
-              }
-              Button("Delete Cell", systemImage: "trash", role: .destructive) {
-                Task { await store.send(.deleteCell(cell.runtimeID)) }
-              }
+              insertionBar(at: index + 1)
             }
-            insertionBar(at: index + 1)
+            .id(cell.runtimeID)
           }
         }
         .frame(maxWidth: 1_100)
