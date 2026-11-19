@@ -25,8 +25,16 @@ resolved = json.loads((root / 'Package.resolved').read_text())
 for name, version in inv['swift'].items():
     pin = next(p for p in resolved['pins'] if p['identity'].lower() == name.lower())
     assert pin['state']['version'] == version, f'{name} license audit is stale'
-renderer = app / 'Contents/Resources/Lunamo_MarimoWebFallback.bundle/Contents/Resources/Assets' if app else root / 'MarimoNative/WebFallback/Assets'
-# Linux/non-macOS resource layouts are not release targets.
+if app:
+    bundle = app / 'Contents/Resources/Lunamo_MarimoWebFallback.bundle'
+    # SwiftPM macOS bundles can be flat or contain Contents/Resources,
+    # depending on the toolchain. Bundle.module.resourceURL supports both.
+    candidates = [bundle / 'Contents/Resources/Assets', bundle / 'Assets']
+    present = [path for path in candidates if path.is_dir()]
+    assert len(present) == 1, f'Expected one renderer resource directory, found: {present}'
+    renderer = present[0]
+else:
+    renderer = root / 'MarimoNative/WebFallback/Assets'
 for name, digest in inv['renderer_sha256'].items():
     assert hashlib.sha256((renderer / name).read_bytes()).hexdigest() == digest, f'Renderer changed without license review: {name}'
 HIGHLIGHT_NOTICES = {'LICENSE': '32036745be91b9d142f5b94fa0d98c90ec67c2efe08dd25fb941c84110addfd6', 'THIRD_PARTY_NOTICES.md': 'e2c6f9da96a42c4565e564dafe9b6033a1f00b70c44f9a81e8cb13a755c5c59e', 'LICENSE-highlight.js': '6c081431591d9df696c82dc598fe1423765b8a299b200ed00b281afd0f64c490'}
