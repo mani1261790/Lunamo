@@ -16,7 +16,9 @@ public struct NotebookMenuCommands: Commands {
 
     CommandGroup(after: .appInfo) {
       Button("Licenses…") {
-        guard let url = Bundle.main.resourceURL?.appending(path: "Licenses/index.html") else { return }
+        guard let url = Bundle.main.resourceURL?.appending(path: "Licenses/index.html") else {
+          return
+        }
         NSWorkspace.shared.open(url)
       }
     }
