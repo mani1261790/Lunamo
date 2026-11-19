@@ -46,7 +46,7 @@ Python や marimo をあらかじめ個別にインストールする必要は�
 
 ## インストール
 
-[Lunamo 0.1.1（DMG）](https://github.com/mani1261790/Lunamo/releases/download/v0.1.1/Lunamo-0.1.1.dmg) を開き、LunamoをApplicationsフォルダにドラッグしてください。更新はLunamoメニューの「アップデートを確認」から確認できます。
+[Lunamo 0.1.2（DMG）](https://github.com/mani1261790/Lunamo/releases/download/v0.1.2/Lunamo-0.1.2.dmg) を開き、LunamoをApplicationsフォルダにドラッグしてください。更新はLunamoメニューの「アップデートを確認」から確認できます。
 
 ### ソースからビルドする
 
@@ -78,3 +78,7 @@ Xcode を別の場所に置いている場合は、`DEVELOPER_DIR` を変更し�
 ## フィードバック
 
 不具合や機能のリクエストは [Issues](https://github.com/mani1261790/Lunamo/issues) へ。不具合の場合は、macOS のバージョンと再現手順を添えてください。
+
+## ライセンス
+
+Lunamoの自作コードは[MIT License](LICENSE)です。同梱するmarimoなどの第三者コンポーネントは、それぞれのライセンスが適用されます。アプリの「Lunamo → ライセンス…」から全文とソース入手先を確認できます。名称・アイコンの扱いは[ブランド方針](BRAND.md)を参照してください。

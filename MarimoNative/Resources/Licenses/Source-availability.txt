@@ -1,0 +1,49 @@
+# Source availability / ソースコードの入手先
+
+Lunamo original code: MIT. Bundled third-party code keeps its own terms.
+MPL-2.0 files below remain available under MPL-2.0. They are not relicensed under Lunamo’s MIT license. No Lunamo changes were made to these upstream sources.
+
+## ZeroMQ 4.3.5 (MPL-2.0)
+https://github.com/zeromq/libzmq/releases/download/v4.3.5/zeromq-4.3.5.tar.gz
+
+Bundled through pyzmq 27.1.0. Build definitions, including platform configuration/backported kqueue detection:
+https://github.com/zeromq/pyzmq/tree/v27.1.0
+https://github.com/zeromq/pyzmq/blob/v27.1.0/CMakeLists.txt
+
+The wheel license texts for ZeroMQ and libsodium are retained in Sidecar.
+
+## uv MPL dependencies
+Each .crate URL is a gzip tar source archive. Exact version and SHA-256 appear below and in the dependency inventory.
+
+astral-pubgrub 0.6.1 — MPL-2.0
+https://static.crates.io/crates/astral-pubgrub/astral-pubgrub-0.6.1.crate
+SHA256: 256f4b5dd820e4766065c4fefa7fefb7dda0234f8ced054b4ea6909af6a92c86
+
+astral-version-ranges 0.2.2 — MPL-2.0
+https://static.crates.io/crates/astral-version-ranges/astral-version-ranges-0.2.2.crate
+SHA256: 81129e143a7bcea263d5a2c50b8be47ac58365dde618bc1ac50f69f497c9cb63
+
+colored 3.1.1 — MPL-2.0
+https://static.crates.io/crates/colored/colored-3.1.1.crate
+SHA256: faf9468729b8cbcea668e36183cb69d317348c2e08e994829fb56ebfdfbaac34
+
+option-ext 0.2.0 — MPL-2.0
+https://static.crates.io/crates/option-ext/option-ext-0.2.0.crate
+SHA256: 04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d
+
+priority-queue 2.7.0 — MPL-2.0
+https://static.crates.io/crates/priority-queue/priority-queue-2.7.0.crate
+SHA256: 93980406f12d9f8140ed5abe7155acb10bb1e69ea55c88960b9c2f117445ef96
+
+## certifi (pip vendor)
+The Mozilla certificate bundle is distributed in source form at Sidecar/lib/python3.13/site-packages/pip/_vendor/certifi/cacert.pem. Its original notice is in the adjacent LICENSE.
+
+## Python and marimo
+https://github.com/python/cpython/tree/v3.13.15
+https://github.com/marimo-team/marimo/tree/0.24.0
+https://github.com/marimo-team/marimo-lsp/tree/3998b939c4e3bb09853817344ba9a976eeac8a66
+
+## Compatibility
+Apache-2.0 section 1 excludes separable/interface-linked works from its definition of derivative works. Section 4 conditions (license, changes, attribution and NOTICE where supplied) continue to apply to redistributed Apache components. MPL-2.0 sections 3.2–3.3 allow a larger work under other terms while retaining covered-file obligations. Original Lunamo Swift code communicates with marimo-lsp over its interface; it does not replace third-party license headers.
+https://www.apache.org/licenses/LICENSE-2.0
+https://www.mozilla.org/en-US/MPL/2.0/

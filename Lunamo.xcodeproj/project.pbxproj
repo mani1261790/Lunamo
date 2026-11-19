@@ -14,6 +14,7 @@
 		A10000000000000000000005 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AppIcon.icns */; };
 		A10000000000000000000006 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* Localizable.strings */; };
 		A10000000000000000000007 /* LunamoModules in Frameworks */ = {isa = PBXBuildFile; productRef = A90000000000000000000001 /* LunamoModules */; };
+		A10000000000000000000010 /* Licenses in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +29,7 @@
 		A20000000000000000000009 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = Localization/en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A2000000000000000000000A /* ja */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ja; path = Localization/ja.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A2000000000000000000000B /* Lunamo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Lunamo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000010 /* Licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; path = MarimoNative/Resources/Licenses; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -50,7 +52,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A60000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000005 /* AppIcon.icns in Resources */, A10000000000000000000006 /* Localizable.strings in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
+		A60000000000000000000002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000010 /* Licenses in Resources */, A10000000000000000000005 /* AppIcon.icns in Resources */, A10000000000000000000006 /* Localizable.strings in Resources */, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -64,8 +66,8 @@
 /* Begin XCBuildConfiguration section */
 		A80000000000000000000003 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; MACOSX_DEPLOYMENT_TARGET = 26.0; ONLY_ACTIVE_ARCH = YES; SDKROOT = macosx; SWIFT_VERSION = 6.0; }; name = Debug; };
 		A80000000000000000000004 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; MACOSX_DEPLOYMENT_TARGET = 26.0; SDKROOT = macosx; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_VERSION = 6.0; }; name = Release; };
-		A80000000000000000000005 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = MarimoNative/Resources/MarimoNative.entitlements; CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; COMBINE_HIDPI_IMAGES = YES; CURRENT_PROJECT_VERSION = 3; ENABLE_HARDENED_RUNTIME = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = MarimoNative/Resources/Info.plist; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", ); MACOSX_DEPLOYMENT_TARGET = 26.0; MARKETING_VERSION = 0.1.1; ONLY_ACTIVE_ARCH = YES; PRODUCT_BUNDLE_IDENTIFIER = dev.marimonative.app; PRODUCT_NAME = Lunamo; EXECUTABLE_NAME = lunamo; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; }; name = Debug; };
-		A80000000000000000000006 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = MarimoNative/Resources/MarimoNative.entitlements; CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; COMBINE_HIDPI_IMAGES = YES; CURRENT_PROJECT_VERSION = 3; ENABLE_HARDENED_RUNTIME = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = MarimoNative/Resources/Info.plist; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", ); MACOSX_DEPLOYMENT_TARGET = 26.0; MARKETING_VERSION = 0.1.1; PRODUCT_BUNDLE_IDENTIFIER = dev.marimonative.app; PRODUCT_NAME = Lunamo; EXECUTABLE_NAME = lunamo; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; }; name = Release; };
+		A80000000000000000000005 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = MarimoNative/Resources/MarimoNative.entitlements; CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; COMBINE_HIDPI_IMAGES = YES; CURRENT_PROJECT_VERSION = 4; ENABLE_HARDENED_RUNTIME = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = MarimoNative/Resources/Info.plist; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", ); MACOSX_DEPLOYMENT_TARGET = 26.0; MARKETING_VERSION = 0.1.2; ONLY_ACTIVE_ARCH = YES; PRODUCT_BUNDLE_IDENTIFIER = dev.marimonative.app; PRODUCT_NAME = Lunamo; EXECUTABLE_NAME = lunamo; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; }; name = Debug; };
+		A80000000000000000000006 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = MarimoNative/Resources/MarimoNative.entitlements; CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; COMBINE_HIDPI_IMAGES = YES; CURRENT_PROJECT_VERSION = 4; ENABLE_HARDENED_RUNTIME = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = MarimoNative/Resources/Info.plist; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", ); MACOSX_DEPLOYMENT_TARGET = 26.0; MARKETING_VERSION = 0.1.2; PRODUCT_BUNDLE_IDENTIFIER = dev.marimonative.app; PRODUCT_NAME = Lunamo; EXECUTABLE_NAME = lunamo; SWIFT_STRICT_CONCURRENCY = complete; SWIFT_VERSION = 6.0; }; name = Release; };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */

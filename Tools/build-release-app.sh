@@ -30,6 +30,8 @@ if [ -z "$identity" ]; then
   exit 1
 fi
 
+python3 "$project_root/Tools/verify-licenses.py"
+
 "$project_root/Tools/verify-sidecar.sh" "$project_root/.build/Sidecar"
 # SwiftSoup 2.13.5 triggers a compiler crash in SIL CopyPropagation.
 # Disable only that pass; retain Release optimization for the app and dependencies.
@@ -58,6 +60,7 @@ for resource_bundle in "$project_root"/.build/release/*.bundle; do
   fi
 done
 ditto "$project_root/.build/Sidecar" "$contents/Resources/Sidecar"
+ditto "$project_root/MarimoNative/Resources/Licenses" "$contents/Resources/Licenses"
 
 sign_item() {
   item=$1

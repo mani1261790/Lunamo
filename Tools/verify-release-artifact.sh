@@ -13,6 +13,7 @@ case "$app_root" in
 esac
 
 test -d "$app_root"
+python3 "$project_root/Tools/verify-licenses.py" "$app_root"
 test "$(plutil -extract CFBundleIdentifier raw -o - "$app_root/Contents/Info.plist")" = \
   "dev.marimonative.app"
 test "$(plutil -extract LSMinimumSystemVersion raw -o - "$app_root/Contents/Info.plist")" = "26.0"

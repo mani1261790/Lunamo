@@ -175,3 +175,13 @@ footer.copyright{border:0;align-items:center;justify-content:center;color:var(--
 .mac-dock .system-apps{display:block;width:22.4cqw;height:auto}.dock-lunamo{width:3.2cqw;height:3.2cqw;background:url(assets/lunamo.png) center/contain no-repeat;position:relative}.night .dock-lunamo{background-image:url(assets/lunamo-night.png)}.dock-lunamo:after{content:"";position:absolute;bottom:-.22cqw;left:46%;width:.29cqw;height:.29cqw;border-radius:50%;background:var(--menu-ink)}.mac-dock i{width:.1cqw;height:2.6cqw;background:var(--menu-ink);opacity:.3;margin-inline:.22cqw}.mac-dock svg{width:2.4cqw;height:2.4cqw}
 
 header button.language{border:0;padding:0;background:none;color:inherit;font:inherit;font-size:.85rem;cursor:pointer}header button.language:hover{text-decoration:underline}header button.language[hidden]{display:none}
+
+/* Original Lunamo backdrop: no device shell, Apple logo, menu bar or Dock artwork. */
+.machine{--lid-width:100%;--rim-x:0px;--rim-top:0px;--pane-top:4%;--pane-x:4%;padding:0}
+.machine::after{display:none}
+.housing .desktop{padding:4%;border-radius:28px;background:radial-gradient(ellipse at 80% 15%,var(--glow),transparent 66%),linear-gradient(145deg,var(--haze),var(--page));box-shadow:none}
+.housing .desktop::before,.housing .desktop::after{display:none}
+.face{width:100%;padding:0;border:0}.face-inset{padding:4%}
+.screen{filter:drop-shadow(0 12px 24px #162d2420)}
+footer.copyright{flex-wrap:wrap;gap:12px 24px}
+@media(max-width:700px){.machine{--lid-width:100%;--pane-top:4%;--pane-x:4%}.housing .desktop{border-radius:18px}}

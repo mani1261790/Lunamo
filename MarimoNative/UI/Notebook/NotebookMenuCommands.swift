@@ -14,6 +14,13 @@ public struct NotebookMenuCommands: Commands {
   public var body: some Commands {
     SidebarCommands()
 
+    CommandGroup(after: .appInfo) {
+      Button("Licenses…") {
+        guard let url = Bundle.main.resourceURL?.appending(path: "Licenses/index.html") else { return }
+        NSWorkspace.shared.open(url)
+      }
+    }
+
     CommandGroup(replacing: .newItem) {
       Button("Open Notebook…") {
         NotebookOpenActions.open(store)
