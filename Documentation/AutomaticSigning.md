@@ -43,3 +43,17 @@ Record the successful CI and Release Candidate run URLs, candidate checksums and
 notarization acceptance results after each workflow change. A successful workflow
 produces a candidate; it does not establish clean-host or update-install acceptance
 for a newly built binary.
+
+## Initial setup — 2026-11-19
+
+The seven secrets above were registered for `mani1261790/Lunamo` using the
+existing Developer ID identity and Sparkle key. Apple ID notarization credentials
+were validated with Apple before registration. Temporary local private-key exports
+were deleted. No certificate or Sparkle key rotation was performed.
+
+- [CI verification after formatting fix](https://github.com/mani1261790/Lunamo/actions/runs/44522912996)
+- [First fully configured Release Candidate execution](https://github.com/mani1261790/Lunamo/actions/runs/44523500129)
+
+Follow these run links for their final status and generated artifacts. They were
+started during setup; this record alone is not a success assertion. The public
+0.1.2 release remains the locally verified artifact documented in Release-0.1.2.md.
