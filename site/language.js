@@ -107,6 +107,10 @@ const englishCopy = {
 
 // The Japanese copy lives in the markup and works without JavaScript.
 // Only shipped translations contain markup (links, key caps, and line breaks).
+if (document.documentElement.dataset.page === 'guide') {
+  englishCopy.title = ['Getting started with Lunamo — Install and import Jupyter notebooks'];
+  englishCopy['meta[name=description] @content'] = ['Install Lunamo on your Mac, import marimo and Jupyter notebooks, add Python packages, and keep the app up to date.'];
+}
 const fields = Object.entries(englishCopy).flatMap(([key, translations]) => {
   const [selector, attribute] = key.split(' @');
   return Array.from(document.querySelectorAll(selector), (element, i) => ({
@@ -114,6 +118,9 @@ const fields = Object.entries(englishCopy).flatMap(([key, translations]) => {
     ja: attribute ? element.getAttribute(attribute) : element.innerHTML
   }));
 });
+fields.push(...Array.from(document.querySelectorAll('[data-en]'), element => ({
+  element, en: element.dataset.en, ja: element.innerHTML
+})));
 const languageButton = document.querySelector('button.language');
 const validLanguage = value => value === 'ja' || value === 'en';
 function browserLanguage() {

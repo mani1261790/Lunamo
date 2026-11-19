@@ -9,11 +9,16 @@ Canonical landing page: https://mani1261790.github.io/Lunamo/
 - Landing-page link in the repository README and repository homepage.
 - A single URL with the existing in-page language switch remains intentional.
 
-## Pending account verification
-The user supplied the Google HTML verification tag; it is now installed in the landing page head. Search Console verification and sitemap submission still require the signed-in account.
-2026-11-19: this chat could not connect to the signed-in local browser. No Search Console or Bing registration, ownership verification, or indexing request has been completed by this task.
+## Verified by the user (2026-11-19)
+The user completed Google Search Console ownership verification and requested indexing. Their URL Inspection screenshot shows the canonical landing page is indexed. The deployed verification tag must be preserved.
 
-Google Search Console: add a URL-prefix property for the exact URL above, select HTML tag verification, and install the account-issued google-site-verification tag in site/index.html. Keep the tag deployed after verification. After verifying, submit sitemap.xml and inspect the canonical landing URL, then request indexing. Record the actual result, not just the request.
+Sitemap submission still reports a fetch failure in Search Console. Public HTTP 200 and valid XML do not establish that Google has fetched it successfully. Do not repeatedly request indexing or treat the missing sitemap as a blocker to an already indexed page.
+
+## Additional discovery work (2026-11-19)
+- Added guide.html with installation, supported notebook imports, execution, packages and updates, based on public release documentation.
+- Linked the guide from the LP and README and included its canonical URL in the sitemap.
+- Kept Japanese and English on the same URL, with the existing language preference. Static Japanese content is available without JavaScript; English indexing is not guaranteed by client-side switching.
+- Next measurement: Search Console performance queries, impressions and clicks after data becomes available. Guide indexing remains unverified until Google crawls it.
 
 Bing Webmaster Tools may import the verified Search Console property after account access is available.
 
