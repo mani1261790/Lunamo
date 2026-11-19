@@ -15,6 +15,8 @@
 
 **Lunamo（ルナモ）** は、Python のコードと実行結果、Markdown の文章を一緒に扱える macOS ネイティブの marimo クライアントです。手元のノートブックを開き、編集・実行しながら、分析の過程や気づきを残せます。
 
+[公式サイト・ダウンロード](https://mani1261790.github.io/Lunamo/)
+
 ### marimo とは
 
 [marimo](https://marimo.io/) は、**Jupyter Notebook のように、コードをセルごとに実行しながら結果や説明文をまとめられる**、オープンソースの Python ノートブックです。保存されるファイルは **通常の Python ファイル（`.py`）** なので、Git で変更を追ったり、Python スクリプトとして実行したりできます。
