@@ -39,6 +39,7 @@ def main() -> None:
     checklist = {
         "schemaVersion": 1,
         "artifactSHA256": sha256(arguments.artifact),
+        "physicalPerformanceReport": "PENDING",
         "executor": "PENDING",
         "performedAt": "PENDING",
         "requirements": {

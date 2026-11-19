@@ -35,6 +35,7 @@ xcrun swift-format lint --recursive --strict MarimoNative Tests Package.swift
 ./Tools/verify-source-policy.sh
 ./Tools/verify-protocol-lock.sh
 .build/Sidecar/bin/python3 -I Tests/Contract/test_requirement_coverage.py
+.build/Sidecar/bin/python3 -I Tests/Contract/test_physical_performance_gate.py
 .build/Sidecar/bin/python3 -I Tools/verify-requirements.py --all-must
 ./Tools/smoke-sidecar.py .build/Sidecar --deny-network --runtime-acceptance
 ./Tools/build-debug-app.sh >/dev/null

@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 from datetime import datetime
 import hashlib
+import json
+import math
 from pathlib import Path
 import re
 
@@ -87,6 +89,34 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def verify_physical_performance(report_path: Path, expected_hash: str) -> None:
+    report = json.loads(report_path.read_text())
+    if report.get("schemaVersion") != 1 or report.get("artifactSHA256") != expected_hash:
+        raise SystemExit("Physical performance report does not match this DMG")
+    host = report.get("host", {})
+    if (host.get("architecture") != "arm64" or host.get("virtualMachine") is not False
+            or not str(host.get("model", "")).startswith("Mac")):
+        raise SystemExit("Performance qualification requires a physical Apple Silicon Mac")
+    try:
+        timestamp = datetime.fromisoformat(str(report.get("performedAt", "")))
+        if timestamp.tzinfo is None:
+            raise ValueError("Missing timezone")
+    except ValueError as error:
+        raise SystemExit("Physical performance report has no valid timestamp") from error
+    metrics = report.get("metrics", {})
+    limits = {"launchP95Milliseconds": 2000, "residentMiB": 350,
+              "scrollMaxMilliseconds": 100}
+    samples = metrics.get("launchSamples")
+    if (isinstance(samples, bool) or not isinstance(samples, (int, float))
+            or not math.isfinite(samples) or samples < 20 or not float(samples).is_integer()):
+        raise SystemExit("Physical performance requires at least 20 launch samples")
+    for name, limit in limits.items():
+        value = metrics.get(name)
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value) or not 0 <= value <= limit):
+            raise SystemExit(f"Physical performance requirement failed: {name} <= {limit}")
+
+
 def verify_release_checklist(
     checklist_path: Path,
     artifact_path: Path | None,
@@ -112,6 +142,11 @@ def verify_release_checklist(
     expected_hash = sha256(artifact_path)
     if checklist.get("artifactSHA256") != expected_hash:
         raise SystemExit("Release checklist artifactSHA256 does not match the supplied artifact")
+
+    report_name = checklist.get("physicalPerformanceReport")
+    if not isinstance(report_name, str) or report_name in ("", "PENDING"):
+        raise SystemExit("A passing physical-Mac performance report is required before publication")
+    verify_physical_performance(checklist_path.parent / report_name, expected_hash)
 
     entries = checklist.get("requirements")
     if not isinstance(entries, dict):

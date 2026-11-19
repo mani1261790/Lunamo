@@ -57,3 +57,37 @@ were deleted. No certificate or Sparkle key rotation was performed.
 Follow these run links for their final status and generated artifacts. They were
 started during setup; this record alone is not a success assertion. The public
 0.1.2 release remains the locally verified artifact documented in Release-0.1.2.md.
+
+## Physical-Mac qualification before publication
+
+The hosted runner's full-app performance measurement is reference information;
+its result and log remain in the workflow summary and `HostedPerformance.log`.
+It does not block signed/notarized **candidate** generation. Functional tests,
+focused optimized performance tests, signatures, license checks and notarization
+remain blocking. The 100 ms scroll limit is unchanged.
+
+Before publication, measure the actual final DMG on a physical Apple Silicon Mac:
+
+```sh
+.build/Sidecar/bin/python3 -I Tools/qualify-physical-performance.py \
+  --artifact /absolute/path/Lunamo-VERSION.dmg \
+  --output /absolute/path/PhysicalPerformance.json \
+  --checklist /absolute/path/ReleaseChecklist.yml
+```
+
+The command validates the DMG staple, copies its app to temporary storage,
+verifies the signature, runs the unchanged performance thresholds, and records
+hardware/OS, timestamp, measurements and the DMG SHA-256. It rejects virtual
+hosts and does not overwrite existing reports. The checklist is linked to the
+report only after a passing measurement. Complete the remaining manual checks,
+then run the existing publication gate:
+
+```sh
+.build/Sidecar/bin/python3 -I Tools/verify-requirements.py --all-must \
+  --release-checklist /absolute/path/ReleaseChecklist.yml \
+  --artifact /absolute/path/Lunamo-VERSION.dmg
+```
+
+That gate now requires a physical performance report, validates its checksum and
+numeric limits independently, and also requires every existing manual check.
+A green candidate workflow does not authorize publishing an unqualified artifact.

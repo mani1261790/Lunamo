@@ -1027,6 +1027,8 @@ MN-PERF-003:
   - PerformanceTests/typingToGlyphP95
 MN-PERF-004:
   - Tools/measure-release-performance.py
+  - Tools/qualify-physical-performance.py
+  - Tests/Contract/test_physical_performance_gate.py
 MN-PERF-006:
   - PerformanceTests/runDispatchP95
 MN-PERF-007:
