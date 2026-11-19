@@ -36,6 +36,11 @@ enum ReleasePerformanceProbe {
 
   static func runScrollProbe() async {
     guard CommandLine.arguments.contains("--performance-scroll-fixture") else { return }
+    // Measure an actively used window, not App Nap scheduling for a background
+    // process launched directly by the qualification harness.
+    let activity = ProcessInfo.processInfo.beginActivity(
+      options: .userInitiated, reason: "Foreground scroll performance measurement")
+    defer { ProcessInfo.processInfo.endActivity(activity) }
     var located: (NSView, NSScrollView)?
     for _ in 0..<50 {
       try? await Task.sleep(for: .milliseconds(100))
@@ -52,6 +57,9 @@ enum ReleasePerformanceProbe {
       record(flag: "--performance-scroll-marker", value: "error=no-scroll-view")
       return
     }
+
+    contentView.window?.makeKeyAndOrderFront(nil)
+    NSApplication.shared.activate(ignoringOtherApps: true)
 
     let maximumY = max(0, documentView.frame.height - scrollView.contentView.bounds.height)
     var maximumDelay = 0.0

@@ -186,7 +186,9 @@ def main() -> None:
         )
         try:
             wait_for(scroll_window_marker, process, 15)
-            wait_for(scroll_marker, process, 15)
+            # 240 steps can legitimately take up to 240 * (16 + 100) ms.
+            # Allow completion so the unchanged per-step budget can be assessed.
+            wait_for(scroll_marker, process, 45)
             result = scroll_marker.read_text(encoding="utf-8")
             match = re.search(r"maxMainThreadDelayMilliseconds=([0-9.]+)", result)
             if match is None:
