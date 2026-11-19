@@ -10,6 +10,7 @@ Canonical landing page: https://mani1261790.github.io/Lunamo/
 - A single URL with the existing in-page language switch remains intentional.
 
 ## Pending account verification
+The user supplied the Google HTML verification tag; it is now installed in the landing page head. Search Console verification and sitemap submission still require the signed-in account.
 2026-11-19: this chat could not connect to the signed-in local browser. No Search Console or Bing registration, ownership verification, or indexing request has been completed by this task.
 
 Google Search Console: add a URL-prefix property for the exact URL above, select HTML tag verification, and install the account-issued google-site-verification tag in site/index.html. Keep the tag deployed after verification. After verifying, submit sitemap.xml and inspect the canonical landing URL, then request indexing. Record the actual result, not just the request.
