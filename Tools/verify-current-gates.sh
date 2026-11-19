@@ -25,7 +25,10 @@ fi
 test -x .build/Sidecar/bin/python3
 ./Tools/verify-sidecar.sh
 swift build
-swift test
+# Keep wall-clock budgets isolated from concurrent integration work, and measure
+# optimized code as shipped. Functional tests still run in debug configuration.
+swift test --skip PerformanceTests
+swift test -c release --filter PerformanceTests
 xcrun swift-format lint --recursive --strict MarimoNative Tests Package.swift
 ./Tools/verify-source-policy.sh
 ./Tools/verify-protocol-lock.sh
