@@ -21,7 +21,7 @@ The Web renderer notice covers a conservative 90-package production dependency c
 
 Python native notices come from the same python-build-standalone 20260901 full archive. PYTHON.json marks zlib as system-linked on aarch64-apple-darwin; its generic zlib-ng license entry does not describe a statically shipped zlib-ng library on this target. Upstream full-archive license texts are retained as a platform superset. Hash-verified Tcl/Tk 9.0.4 source archives additionally supply nested license.terms (including Itcl 4.3.8 and Thread) that are not present in the standalone distribution license folder. Python-package inventory covers all 44 distributions in the shipped sidecar.
 
-The LP's custom Apple glyph, Dock raster and CSS device shell have been removed. Screenshots show the actual Lunamo app; the surrounding gradient is original. Original icon sources and the Manrope OFL notice are preserved. No trademark search/registration or legal opinion is implied by this technical compliance work.
+The LP's custom Apple glyph, Dock raster and CSS device shell have been removed. Its laptop frame is an AI-generated raster asset (lunamo-laptop-generated.png); screenshots show the actual Lunamo app and are overlaid separately. The generated device contains no Apple logo or borrowed Dock artwork. Original icon sources and the Manrope OFL notice are preserved. No trademark search/registration or legal opinion is implied by this technical compliance work.
 
 ## Required release checks
 

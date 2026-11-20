@@ -176,12 +176,14 @@ footer.copyright{border:0;align-items:center;justify-content:center;color:var(--
 
 header button.language{border:0;padding:0;background:none;color:inherit;font:inherit;font-size:.85rem;cursor:pointer}header button.language:hover{text-decoration:underline}header button.language[hidden]{display:none}
 
-/* Original Lunamo backdrop: no device shell, Apple logo, menu bar or Dock artwork. */
-.machine{--lid-width:100%;--rim-x:0px;--rim-top:0px;--pane-top:4%;--pane-x:4%;padding:0}
+/* Generated raster device; CSS only positions the original app screenshot. */
+.machine{--lid-width:100%;padding:0;aspect-ratio:3/2}
 .machine::after{display:none}
-.housing .desktop{padding:4%;border-radius:28px;background:radial-gradient(ellipse at 80% 15%,var(--glow),transparent 66%),linear-gradient(145deg,var(--haze),var(--page));box-shadow:none}
+.device-frame{display:block;width:100%;height:auto}
+.housing .desktop{position:absolute;inset:13.672% auto auto 11.719%;width:76.562%;padding:0;border-radius:0;background:none;box-shadow:none;overflow:visible}
 .housing .desktop::before,.housing .desktop::after{display:none}
-.face{width:100%;padding:0;border:0}.face-inset{padding:4%}
-.screen{filter:drop-shadow(0 12px 24px #162d2420)}
+.screen-slot{aspect-ratio:16/10}
+.face{inset:13.672% auto auto 11.719%;width:76.562%;margin:0;padding:0;border:0}
+.face-inset{padding:0}
+.screen{filter:drop-shadow(0 8px 12px #162d2420)}
 footer.copyright{flex-wrap:wrap;gap:12px 24px}
-@media(max-width:700px){.machine{--lid-width:100%;--pane-top:4%;--pane-x:4%}.housing .desktop{border-radius:18px}}
