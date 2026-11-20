@@ -27,6 +27,11 @@ function draw(){
   const theme = appearance.value === 'auto' ? (system.matches ? 'dark' : 'light') : appearance.value;
   if(appearance.value==='auto') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme=theme;
+  const device = document.querySelector('.device-frame');
+  const devicePath = 'assets/lunamo-laptop-' + theme + '-v2.png';
+  if(device.getAttribute('src') !== devicePath) device.src = devicePath;
+  const menus = document.documentElement.lang === 'en' ? {file:'File',edit:'Edit',view:'View',notebook:'Notebook',window:'Window',help:'Help'} : {file:'ファイル',edit:'編集',view:'表示',notebook:'ノートブック',window:'ウインドウ',help:'ヘルプ'};
+  document.querySelectorAll('[data-menu]').forEach(el=>{el.textContent=menus[el.dataset.menu]});
   const icon = theme === 'dark' ? 'assets/lunamo-night.png' : 'assets/lunamo.png';
   document.querySelectorAll('.appicon,.brand img').forEach(img=>{if(img.getAttribute('src')!==icon)img.src=icon});
   const atlas = document.documentElement.lang === 'en' ? 'assets/atlas-en-' : 'assets/atlas-';

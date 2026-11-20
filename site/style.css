@@ -180,10 +180,17 @@ header button.language{border:0;padding:0;background:none;color:inherit;font:inh
 .machine{--lid-width:100%;padding:0;aspect-ratio:3/2}
 .machine::after{display:none}
 .device-frame{display:block;width:100%;height:auto}
-.housing .desktop{position:absolute;inset:13.672% auto auto 11.719%;width:76.562%;padding:0;border-radius:0;background:none;box-shadow:none;overflow:visible}
+.housing .desktop{position:absolute;inset:6.934% auto auto 7.943%;width:84.115%;height:80.469%;padding:0;border-radius:0;background:none;box-shadow:none;overflow:visible}
 .housing .desktop::before,.housing .desktop::after{display:none}
-.screen-slot{aspect-ratio:16/10}
-.face{inset:13.672% auto auto 11.719%;width:76.562%;margin:0;padding:0;border:0}
+.housing .screen-slot{position:absolute;top:6.432%;left:6.656%;width:86.687%;aspect-ratio:16/10}
+.face{inset:12.109% auto auto 13.542%;width:72.917%;margin:0;padding:0;border:0}
 .face-inset{padding:0}
 .screen{filter:drop-shadow(0 8px 12px #162d2420)}
 footer.copyright{flex-wrap:wrap;gap:12px 24px}
+
+/* Align desktop chrome to the generated screen; the notch belongs to the raster. */
+.housing .mac-menu{aspect-ratio:auto;height:3.4%;font-size:1.05cqw;border-radius:1.5cqw 1.5cqw 0 0;clip-path:polygon(0 0,44.35% 0,44.35% 88%,55.65% 88%,55.65% 0,100% 0,100% 100%,0 100%)}
+.housing .mac-menu::before{display:none}
+.housing .mac-menus{gap:1.05cqw}
+.housing .mac-dock{bottom:.8%;gap:.35cqw;padding:.3cqw .5cqw .5cqw}
+.housing .mac-dock .dock-folder,.housing .mac-dock .dock-terminal{width:3.2cqw;height:3.2cqw}
