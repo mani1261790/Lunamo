@@ -3,7 +3,7 @@ const englishCopy = {
     "Lunamo — A Python notebook editor for Mac"
   ],
   "meta[name=description] @content": [
-    "Edit Python notebooks in Lunamo’s native Mac interface."
+    "A native Mac app for editing and running Python notebooks."
   ],
   "nav @aria-label": [
     "Main navigation"
@@ -17,7 +17,7 @@ const englishCopy = {
     "Dark"
   ],
   ".intro": [
-    "A Python notebook editor built with SwiftUI.<br/>Edit and run <a class=\"marimo-link\" href=\"https://marimo.io/\">marimo</a> notebooks on your Mac."
+    "A Python notebook editor at home on your Mac.<br/>Edit and run <a class=\"marimo-link\" href=\"https://marimo.io/\">marimo</a> notebooks with code and results in one window."
   ],
   ".download span": [
     "Download for Mac"
@@ -54,30 +54,30 @@ const englishCopy = {
     "Terminal"
   ],
   ".scenes p": [
-    "The sidebar lists the notebooks in your folder. Select one to open it in the same window.",
-    "Each cell shows its results right below the code. Hide the sidebar to give both the full width of the window.",
-    "Open a terminal below your notebook to run shell commands while keeping your code and results in view."
+    "Open notebooks from the sidebar and switch between them without leaving the window.",
+    "Run code cell by cell and see the results directly below. Hide the sidebar for more room to work.",
+    "Run commands in the terminal below your notebook while keeping your code and results in view."
   ],
   ".features h2": [
     "Features"
   ],
   ".features h3": [
     "Japanese text input",
-    "Built-in Python",
+    "Ready to run Python",
     "Import Jupyter notebooks",
     "On-device assistant"
   ],
   ".features p": [
-    "The editor uses native AppKit text input, so refreshing the notebook doesn’t interrupt Japanese text composition.",
-    "Python and <a class=\"marimo-link\" href=\"https://marimo.io/\">marimo</a> come with the app. Install additional packages in Settings.",
+    "Write Japanese text and comments with familiar Mac input controls. Text composition stays intact when the notebook view refreshes.",
+    "Python and <a class=\"marimo-link\" href=\"https://marimo.io/\">marimo</a> are ready to use without a separate installation. Add the packages you need in Settings.",
     "Open an .ipynb file to convert it to a <a class=\"marimo-link\" href=\"https://marimo.io/\">marimo</a> notebook. The original stays intact.",
     "On Macs that support Apple Intelligence, select code to get an explanation or a suggested edit inside Lunamo."
   ],
   ".editor h2": [
-    "Editor settings"
+    "Keyboard and text size"
   ],
   ".editor p": [
-    "Press <kbd>⌘</kbd> <kbd>Return</kbd> to run a cell or <kbd>Shift</kbd> <kbd>Return</kbd> to advance to the next one. Customize the shortcuts and text size in Settings."
+    "Press <kbd>⌘</kbd> <kbd>Return</kbd> to run a cell or <kbd>Shift</kbd> <kbd>Return</kbd> to run it and move to the next one. Adjust the shortcuts and text size in Settings."
   ],
   "#settings-shot @alt": [
     "Lunamo settings showing customizable shortcuts for running and navigating cells."
@@ -91,7 +91,7 @@ const englishCopy = {
     "Follow the developer"
   ],
   ".project-links p": [
-    "Read the release notes and download the DMG for each version.",
+    "See what’s changed and download any released version.",
     "Report a problem or suggest a feature for Lunamo.",
     "Find <a href=\"https://mani1261790.github.io/\" rel=\"author\">Mani</a>, the developer of Lunamo, on X and GitHub."
   ],
