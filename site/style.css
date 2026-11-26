@@ -42,7 +42,7 @@ h1{font-size:clamp(3.3rem,6.3vw,6rem);letter-spacing:-.065em;line-height:1.07}
 .editor,.native{padding:clamp(40px,6vw,80px) 0}.editor h2,.native h2{font-size:clamp(1.45rem,2.45vw,2.35rem);letter-spacing:-.035em;display:flex;align-items:baseline;gap:.38em}
 
 .native{gap:7%;grid-template-columns:1fr 1fr}
-@media(max-width:700px){.native{grid-template-columns:1fr}.controls{align-self:center}.showcase>figcaption{align-items:center}.lid{width:90%}.desktop{padding:4% 2% 2%}.hero .intro{max-width:25em}.hero .intro br{display:block}}
+@media(max-width:700px){.native{grid-template-columns:1fr}.controls{align-self:center}.showcase>figcaption{align-items:center}.lid{width:90%}.desktop{padding:4% 2% 2%}.hero .intro{max-width:25em;text-align:center;text-wrap:balance}.hero .intro br{display:block}.hero .intro-phrase{display:inline-block}}
 @media(prefers-reduced-transparency:reduce){header{background:#fff;backdrop-filter:none}}
 
 @font-face{font-family:LunamoManrope;src:url(assets/fonts/manrope-wordmark.woff) format("woff");font-style:normal;font-weight:200 800;font-display:swap}
